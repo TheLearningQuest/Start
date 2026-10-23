@@ -77,20 +77,55 @@ test('labels show the name, the language, and a visible Enhanced/Premium mark', 
   assert.match(plain, /Samantha · en-US/);
 });
 
-test('nothing chosen yet prefers Zoe (Enhanced), including Zoey', function () {
+test('no explicit choice uses the iPad default and does not pick a voice', function () {
   const list = [
     voice('Samantha', 'en-US', 'sam', { localService: true }),
     voice('Zoe', 'en-US', 'zoe', { localService: true }),
     voice('Zoe (Enhanced)', 'en-US', 'zoe-e', { localService: false }),
     voice('Zoey (Premium)', 'en-GB', 'zoey-p')
   ];
-  assert.equal(V.pickVoice(list, null).voiceURI, 'zoe-e');
-  assert.equal(V.pickVoice(list, {}).voiceURI, 'zoe-e');
-  assert.equal(V.pickVoice(list, { voiceURI: '', voiceName: '' }).voiceURI, 'zoe-e');
+  assert.equal(V.SYSTEM_URI, 'system');
+  assert.equal(V.SYSTEM_NAME, 'iPad default voice');
+  assert.equal(V.isSystem(null), true);
+  assert.equal(V.isSystem({}), true);
+  assert.equal(V.isSystem({ voiceURI: '', voiceName: '' }), true);
+  assert.equal(V.isSystem({ voiceURI: 'system', voiceName: 'iPad default voice' }), true);
+  assert.equal(V.isSystem({ voiceURI: 'zoe-e', voiceName: 'Zoe (Enhanced)' }), false);
+  assert.equal(V.pickVoice(list, null), null);
+  assert.equal(V.pickVoice(list, {}), null);
+  assert.equal(V.pickVoice(list, { voiceURI: '', voiceName: '' }), null);
+  assert.equal(V.pickVoice(list, { voiceURI: 'system' }), null);
+  assert.equal(V.pickVoice(list, { voiceURI: 'zoe-e', voiceName: 'Zoe' }).voiceURI, 'zoe-e');
+});
+
+test('novelty voices are hidden until show all, and fallback prefers built-ins', function () {
+  const names = ['Albert', 'Bad News', 'Bahh', 'Bells', 'Boing', 'Bubbles', 'Cellos', 'Good News', 'Jester', 'Organ', 'Superstar', 'Trinoids', 'Whisper', 'Wobble', 'Zarvox', 'Fred', 'Junior', 'Kathy', 'Ralph', 'Eddy', 'Flo', 'Grandma', 'Grandpa', 'Reed', 'Rocko', 'Sandy', 'Shelley'];
+  const list = [voice('Samantha', 'en-US', 'sam')].concat(names.map(function (name) { return voice(name, 'en-US', name); }));
+  const hidden = V.visibleVoices(list, false);
+  assert.deepEqual(Array.from(hidden, function (v) { return v.name; }), ['Samantha']);
+  assert.equal(V.visibleVoices(list, true).length, names.length + 1);
+  names.forEach(function (name) { assert.equal(V.isNovelty(voice(name, 'en-US')), true); });
+  assert.equal(V.isNovelty(voice('Samantha', 'en-US')), false);
+
+  const kept = V.visibleVoices(list, false, { voiceURI: 'Whisper', voiceName: 'Whisper' });
+  assert.deepEqual(Array.from(kept, function (v) { return v.name; }), ['Samantha', 'Whisper']);
+
   assert.equal(V.pickVoice([
-    voice('Samantha (Enhanced)', 'en-US', 'sam-e'),
-    voice('Zoey (Enhanced)', 'en-US', 'zoey-e')
-  ], null).voiceURI, 'zoey-e');
+    voice('Whisper', 'en-US', 'whisper'),
+    voice('Alex (Premium)', 'en-US', 'alex-p'),
+    voice('Samantha', 'en-US', 'sam'),
+    voice('Fred', 'en-US', 'fred')
+  ], { voiceURI: 'gone', voiceName: 'Nope' }).voiceURI, 'sam');
+  assert.equal(V.pickVoice([
+    voice('Daniel', 'en-GB', 'dan'),
+    voice('Whisper', 'en-US', 'wh'),
+    voice('Ava', 'en-US', 'ava'),
+    voice('Samantha (Enhanced)', 'en-US', 'sam-e')
+  ], { voiceURI: 'missing', voiceName: 'Nope' }).voiceURI, 'sam-e');
+  assert.equal(V.pickVoice([
+    voice('Zarvox', 'en-US', 'za'),
+    voice('Whisper', 'en-US', 'wh')
+  ], { voiceURI: 'gone', voiceName: 'Nope' }).voiceURI, 'wh');
 });
 
 test('an explicit choice wins, matched leniently, and a missing voice falls back', function () {
@@ -112,7 +147,7 @@ test('an explicit choice wins, matched leniently, and a missing voice falls back
     voice('Daniel (Enhanced)', 'en-GB', 'dan-e'),
     voice('Thomas', 'fr-FR', 'th')
   ], { voiceURI: 'gone', voiceName: 'Nope' });
-  assert.equal(fallback.voiceURI, 'alex-p');
+  assert.equal(fallback.voiceURI, 'sam');
 });
 
 test('empty or broken voice lists do not throw and do not invent a voice', function () {
@@ -127,7 +162,12 @@ test('empty or broken voice lists do not throw and do not invent a voice', funct
 });
 
 test('the page saves voiceURI and voiceName inside the existing settings backup', function () {
-  assert.match(html, /voiceURI:\s*'',\s*voiceName:\s*''/);
+  assert.match(html, /voiceURI:\s*'system',\s*voiceName:\s*'iPad default voice'/);
+  assert.match(html, /Safari on iPad only lets web pages use built-in voices, so downloaded voices like Zoe may not appear\./);
+  assert.match(html, /Voice list details/);
+  assert.match(html, /Show all voices/);
+  assert.match(html, /value="system"/);
+  assert.match(html, /if \(system\) u\.lang = 'en-US'/);
   assert.match(html, /JSON\.stringify\(S,\s*null,\s*1\)/);
   assert.match(html, /NMQVoice\.pickVoice\(this\.rawVoices\(\),\s*voiceSettings\(\)\)/);
   assert.match(html, /data-rchange="voice-pick"/);

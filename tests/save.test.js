@@ -48,9 +48,23 @@ test('a file that is not this game is rejected and described as not a backup', f
 
 test('a real backup keeps progress and reads the version field', function () {
   assert.equal(typeof Save.MIGRATIONS[0], 'function');
+  assert.equal(typeof Save.MIGRATIONS[1], 'function');
+  const step = { v: 0, settings: { pin: '1111' } };
+  Save.MIGRATIONS[0](step);
+  assert.equal(step.v, 1);
   const migrated = { v: 0, settings: { pin: '1111' } };
   Save.migrate(migrated);
-  assert.equal(migrated.v, 1);
+  assert.equal(migrated.v, Save.SCHEMA);
+  assert.equal(migrated.settings.voiceURI, 'system');
+  assert.equal(migrated.settings.voiceName, 'iPad default voice');
+  const explicit = { v: 1, settings: { pin: '1111', voiceURI: 'zoe-e', voiceName: 'Zoe (Enhanced)' } };
+  Save.migrate(explicit);
+  assert.equal(explicit.v, Save.SCHEMA);
+  assert.equal(explicit.settings.voiceURI, 'zoe-e');
+  assert.equal(explicit.settings.voiceName, 'Zoe (Enhanced)');
+  const blank = Save.sanitize({ v: 1, settings: { pin: '1111', voiceURI: '', voiceName: '' }, coins: 1 }).save;
+  assert.equal(blank.settings.voiceURI, 'system');
+  assert.equal(blank.settings.voiceName, 'iPad default voice');
 
   const out = Save.sanitize({
     settings: { pin: '2468', sound: false, redVoice: false, voiceURI: 'zoe-e', voiceName: 'Zoe (Enhanced)' },
@@ -66,7 +80,7 @@ test('a real backup keeps progress and reads the version field', function () {
   }, { pin: '1234' });
   assert.equal(out.ok, true);
   const save = out.save;
-  assert.equal(save.v, 1);
+  assert.equal(save.v, Save.SCHEMA);
   assert.equal(save.coins, 42);
   assert.equal(save.settings.pin, '2468');
   assert.equal(save.settings.sound, false);
