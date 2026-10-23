@@ -525,7 +525,9 @@ body.shake-screen #app{animation:shake .3s linear 2}
 #rp-root h4{margin:14px 0 6px;font-size:17px}
 .rp-settings{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:10px 0 4px;font-size:15px}
 .rp-settings label{display:flex;gap:6px;align-items:center}
-.rp-settings select{font-size:15px;padding:6px 8px}
+.rp-settings select{font-size:16px;padding:6px 8px}
+.rp-voice{display:flex;flex:1 1 280px;align-items:center;gap:8px;min-width:0;max-width:100%}
+.rp-voice select{flex:1 1 auto;min-width:0;max-width:100%;min-height:44px}
 .rp-add{display:flex;flex-direction:column;gap:8px;max-width:620px}
 .rp-marks{display:flex;gap:6px;flex-wrap:wrap}
 .rp-mark{width:46px;height:52px;border-radius:12px;background:#f1f5f9;font-size:28px;border:3px solid #e2e8f0;color:var(--ink)}
@@ -607,6 +609,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
   .rw-card,.rw-chunk{min-height:70px;font-size:30px}
   .rw-speak{width:56px;height:56px;font-size:28px}
   .rw-sent{font-size:19px;padding:8px 10px}
+  .rp-settings{align-items:stretch}
+  .rp-voice{flex-basis:100%}
   .rl-opt{font-size:26px;min-width:90px;padding:6px 14px}
 }
 
@@ -2136,10 +2140,148 @@ body.shake-screen #app{animation:shake .3s linear 2}
 
 </script>
 <script>
+/* NMQ_VOICE_MODULE_START
+   Naomi's Brain Quest - pure voice picking (no DOM, no network).
+   Usable in the browser (window.NMQVoice) and in Node tests.
+   tests/voice.test.js evaluates this block. */
+(function (root) {
+  'use strict';
+
+  function quality(voice) {
+    var blob = String((voice && voice.name) || '') + ' ' + String((voice && voice.voiceURI) || '');
+    if (/enhanced/i.test(blob)) return 'enhanced';
+    if (/premium/i.test(blob)) return 'premium';
+    return '';
+  }
+  function qualityRank(voice) {
+    var q = quality(voice);
+    return q === 'enhanced' ? 2 : q === 'premium' ? 1 : 0;
+  }
+  function langGroup(voice) {
+    var lang = String((voice && voice.lang) || '').replace(/_/g, '-').toLowerCase();
+    if (lang === 'en-us') return 0;
+    if (lang.indexOf('en') === 0) return 1;
+    return 2;
+  }
+  // Case-insensitive, ignores an Enhanced/Premium suffix, and treats Zoe and Zoey as the same name.
+  function baseName(name) {
+    var s = String(name || '').toLowerCase();
+    s = s.replace(/\((?:enhanced|premium)\)/g, ' ');
+    s = s.replace(/\b(?:enhanced|premium)\b/g, ' ');
+    s = s.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+    s = s.replace(/\bzoey\b/g, 'zoe');
+    return s;
+  }
+  function prefer(a, b) {
+    var g = langGroup(a) - langGroup(b);
+    if (g) return g;
+    var q = qualityRank(b) - qualityRank(a);
+    if (q) return q;
+    var loc = ((b && b.localService !== false) ? 1 : 0) - ((a && a.localService !== false) ? 1 : 0);
+    if (loc) return loc;
+    var an = String((a && a.name) || '').toLowerCase(), bn = String((b && b.name) || '').toLowerCase();
+    if (an < bn) return -1;
+    if (an > bn) return 1;
+    return 0;
+  }
+  function usable(list) {
+    var arr = [];
+    for (var i = 0; i < (list ? list.length : 0); i++) {
+      var v = list[i];
+      if (v && (v.name || v.voiceURI || v.lang)) arr.push(v);
+    }
+    return arr;
+  }
+  function sortVoices(list) {
+    return usable(list).sort(function (a, b) {
+      var g = langGroup(a) - langGroup(b);
+      if (g) return g;
+      var an = String(a.name || '').toLowerCase(), bn = String(b.name || '').toLowerCase();
+      if (an < bn) return -1;
+      if (an > bn) return 1;
+      return 0;
+    });
+  }
+  function labelFor(voice) {
+    var name = String((voice && voice.name) || 'Voice');
+    var lang = String((voice && voice.lang) || '').replace(/_/g, '-');
+    var q = quality(voice);
+    var nice = q === 'enhanced' ? 'Enhanced' : q === 'premium' ? 'Premium' : '';
+    var shown = name;
+    if (nice && name.toLowerCase().indexOf(nice.toLowerCase()) < 0) shown += ' (' + nice + ')';
+    if (nice) shown = '\u2726 ' + shown;
+    return lang ? shown + ' \u00b7 ' + lang : shown;
+  }
+  function savedQuery(saved) {
+    if (!saved || typeof saved !== 'object') return null;
+    var uri = String(saved.voiceURI || saved.voiceUri || '').trim();
+    var name = String(saved.voiceName || saved.name || '').trim();
+    if (!uri && !name) return null;
+    return { voiceURI: uri, voiceName: name };
+  }
+  function matchSaved(voices, saved) {
+    var q = savedQuery(saved);
+    if (!q) return null;
+    var list = usable(voices), i, v;
+    if (q.voiceURI) {
+      for (i = 0; i < list.length; i++) {
+        v = list[i];
+        if (v.voiceURI && v.voiceURI === q.voiceURI) return v;
+      }
+    }
+    if (!q.voiceName) return null;
+    var lower = q.voiceName.toLowerCase();
+    for (i = 0; i < list.length; i++) {
+      v = list[i];
+      if (String(v.name || '').toLowerCase() === lower) return v;
+    }
+    var base = baseName(q.voiceName);
+    if (!base) return null;
+    var hits = [];
+    for (i = 0; i < list.length; i++) {
+      v = list[i];
+      if (baseName(v.name) === base) hits.push(v);
+    }
+    if (!hits.length) return null;
+    hits.sort(prefer);
+    return hits[0];
+  }
+  function pickVoice(voices, saved) {
+    var list = usable(voices);
+    if (!list.length) return null;
+    var chosen = matchSaved(list, saved);
+    if (chosen) return chosen;
+    if (!savedQuery(saved)) {
+      var zoes = [];
+      for (var z = 0; z < list.length; z++) if (baseName(list[z].name) === 'zoe') zoes.push(list[z]);
+      if (zoes.length) { zoes.sort(prefer); return zoes[0]; }
+    }
+    var enUs = [], en = [];
+    for (var i = 0; i < list.length; i++) {
+      var g = langGroup(list[i]);
+      if (g === 0) enUs.push(list[i]);
+      if (g <= 1) en.push(list[i]);
+    }
+    var pool = enUs.length ? enUs : en.length ? en : list;
+    pool = pool.slice().sort(prefer);
+    return pool[0] || null;
+  }
+
+  var api = {
+    baseName: baseName, quality: quality, qualityRank: qualityRank, langGroup: langGroup,
+    sortVoices: sortVoices, labelFor: labelFor, matchSaved: matchSaved, pickVoice: pickVoice
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.NMQVoice = api;
+})(typeof window !== 'undefined' ? window : this);
+/* NMQ_VOICE_MODULE_END */
+</script>
+<script>
 /* Naomi's Brain Quest - Red Words screens (Orton-Gillingham heart words).
    Hub, 5-step Learn routine, practice games (Spell It, Word Hunt, Missing Letters) in Streak and
    Speed, results and the grown-up section. Pure word logic lives in js/words.js (NMQWords).
-   Speech uses the device's own speechSynthesis voices only (on-device; nothing is sent anywhere). */
+   Speech uses the device's own speechSynthesis voices only. The saved voice (settings.voiceURI /
+   voiceName) is chosen with NMQVoice; a missing voice falls back to the best en-US voice. */
 (function () {
   'use strict';
   var W = window.NMQWords, L = window.NMQLogic, C = null;
@@ -2160,35 +2302,43 @@ body.shake-screen #app{animation:shake .3s linear 2}
   function addCoins(n) { if (!n) return; S().coins += n; S().totals.coinsEarned += n; }
   function addEgg(minRarity) { S().eggs.push({ type: Math.random() < 0.5 ? 'clothing' : 'accessory', minRarity: minRarity || 'common' }); }
 
-  // ---------------------------------------------------------------- speech (on-device voices only)
+  // ---------------------------------------------------------------- speech (device voices only; every speak() goes through here)
+  function voiceSettings() {
+    var se = S().settings || {};
+    return { voiceURI: se.voiceURI || '', voiceName: se.voiceName || '' };
+  }
   var TTS = {
-    log: [], cache: null,
+    log: [], cache: null, utter: null,
     synth: function () { return window.speechSynthesis && window.SpeechSynthesisUtterance ? window.speechSynthesis : null; },
+    rawVoices: function () {
+      var s = this.synth(); if (!s) return [];
+      try { return s.getVoices() || []; } catch (e) { return []; }
+    },
     voice: function () {
-      var s = this.synth(); if (!s) return null;
       if (this.cache) return this.cache;
-      var vs = []; try { vs = s.getVoices() || []; } catch (e) { vs = []; }
-      // only voices that run on this device (localService) so no text ever leaves it
-      var local = vs.filter(function (v) { return v.localService === true && /^en/i.test(v.lang || ''); });
-      var us = local.filter(function (v) { return /en[-_]US/i.test(v.lang); });
-      var pool = us.length ? us : local, pref = ['Samantha', 'Ava', 'Allison', 'Nicky', 'Susan', 'Zoe', 'Karen', 'Moira'];
-      var best = null;
-      pref.some(function (n) { best = pool.filter(function (v) { return v.name.indexOf(n) === 0; })[0]; return !!best; });
-      this.cache = best || pool[0] || null;
-      return this.cache;
+      var picked = window.NMQVoice.pickVoice(this.rawVoices(), voiceSettings());
+      if (picked) this.cache = picked;
+      return picked || null;
     },
     on: function () { return !!S().settings.redVoice && !!this.voice(); },
-    say: function (text, rate) {
-      if (!this.on()) return false;
+    // Preview and lessons share this. A missing saved voice falls back inside pickVoice; it does not throw.
+    speak: function (text, rate) {
       var s = this.synth(), v = this.voice();
+      if (!s || !v || !text) return false;
       try {
-        s.cancel();
+        if (s.speaking || s.pending) s.cancel();
         var u = new window.SpeechSynthesisUtterance(text);
-        u.voice = v; u.lang = v.lang; u.rate = rate || +S().settings.redRate || 0.75; u.pitch = 1.1;
+        u.voice = v; u.lang = v.lang || 'en-US'; u.rate = rate || +S().settings.redRate || 0.75; u.pitch = 1.1;
+        this.utter = u;   // keep a reference so the utterance is not garbage-collected mid-speech
         s.speak(u);
+        try { if (s.paused && s.resume) s.resume(); } catch (e2) { /* iOS sometimes starts paused */ }
         this.log.push(text); if (this.log.length > 60) this.log.shift();
         return true;
       } catch (e) { return false; }
+    },
+    say: function (text, rate) {
+      if (!S().settings.redVoice) return false;
+      return this.speak(text, rate);
     }
   };
   function sayWord(w) { return TTS.say(w.say || w.w); }
@@ -2790,12 +2940,55 @@ body.shake-screen #app{animation:shake .3s linear 2}
   // ---------------------------------------------------------------- GROWN-UP SECTION
   var PV = { lvl: '1', draft: null, msg: '' };   // draft: { w, red:{idx:1}, s }
   function fmtAgo(ts) { if (!ts) return '--'; var d = Math.floor((now() - ts) / W.DAY); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; }
+  function voiceOptionsHtml() {
+    var list = window.NMQVoice.sortVoices(TTS.rawVoices());
+    var picked = list.length ? window.NMQVoice.pickVoice(list, voiceSettings()) : null;
+    if (!list.length) return '<option value="">Looking for voices…</option>';
+    var groups = [[0, 'English (US)'], [1, 'English'], [2, 'Other languages']];
+    var h = '';
+    groups.forEach(function (g) {
+      var chunk = '';
+      list.forEach(function (v, i) {
+        if (window.NMQVoice.langGroup(v) !== g[0]) return;
+        chunk += '<option value="' + i + '"' + (v === picked ? ' selected' : '') + '>' + esc(window.NMQVoice.labelFor(v)) + '</option>';
+      });
+      if (chunk) h += '<optgroup label="' + g[1] + '">' + chunk + '</optgroup>';
+    });
+    return h;
+  }
+  var voiceListSig = null, voicePollTimer = null, refreshVoices = function () {};
+  function armVoicePoll() {
+    if (voicePollTimer) return;
+    var ticks = 0;
+    voicePollTimer = setInterval(function () {
+      ticks++;
+      refreshVoices();
+      if (ticks >= 24) { clearInterval(voicePollTimer); voicePollTimer = null; }
+    }, 250);
+  }
+  function currentVoiceSig() {
+    var list = window.NMQVoice.sortVoices(TTS.rawVoices());
+    var picked = list.length ? window.NMQVoice.pickVoice(list, voiceSettings()) : null;
+    var parts = [picked ? ((picked.voiceURI || '') + '~' + (picked.name || '')) : '-'];
+    list.forEach(function (v) { parts.push((v.voiceURI || '') + '|' + (v.name || '') + '|' + (v.lang || '')); });
+    return parts.join('\n');
+  }
+  function showVoiceNote() {
+    var m = $('#rp-voice-msg'); if (!m) return;
+    m.innerHTML = voiceMsg();
+  }
   function voiceMsg() {
     var s = TTS.synth();
     if (!s) return '🔇 This browser has no speech voices, so words are shown as text only.';
+    var raw = TTS.rawVoices();
+    if (!raw.length) return '🔇 No voices yet. On iPad: Settings → Accessibility → Spoken Content → Voices → English, download one (Zoe or Samantha), then return here. Words stay on screen until a voice is ready.';
     var v = TTS.voice();
-    if (!v) return '🔇 No on-device English voice found yet. On iPad: Settings → Accessibility → Spoken Content → Voices → English, download one (e.g. Samantha), then reload. Until then words are shown as text.';
-    return '🔊 Using on-device voice “' + esc(v.name) + '” (' + esc(v.lang) + '). Speech is made on the iPad itself; nothing is sent anywhere.';
+    if (!v) return '🔇 No voice could be selected. Words are shown as text.';
+    var saved = voiceSettings();
+    var matched = window.NMQVoice.matchSaved(raw, saved);
+    var note = (saved.voiceURI || saved.voiceName) && !matched ? ' The saved voice is not on this iPad, so another voice is speaking.' : '';
+    var where = v.localService === false ? ' This voice may use online speech.' : ' Speech is made on this iPad; this page sends nothing.';
+    return '🔊 Using “' + esc(v.name || 'Voice') + '” (' + esc(v.lang || '') + ').' + note + where;
   }
   function draftHtml() {
     var h = '';
@@ -2817,6 +3010,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     h += '<div class="p-note">Each new word goes through the OG multisensory routine: see &amp; hear it, tap and name each letter (twice), trace it, write it from memory, check it letter by letter and read it in a sentence. The irregular (“heart”) letters are red. Practice uses spaced review: a word moves 🌱 → 🌸 → 👑 only when she gets it right on a review day (1, 3, 7, then 21 days apart); a miss sends it back for more practice. Peeking does not count toward moving up.</div>';
     var se = S().settings;
     h += '<div class="rp-settings"><label><input type="checkbox" data-rchange="voice"' + (se.redVoice ? ' checked' : '') + '> 🔊 Speak words aloud</label>' +
+      '<label class="rp-voice">Reading voice <select id="rp-voice" data-rchange="voice-pick" aria-label="Reading voice">' + voiceOptionsHtml() + '</select></label>' +
       '<label>Voice speed <select data-rchange="rate">' + [[0.6, 'Slow'], [0.75, 'Calm'], [0.9, 'Normal']].map(function (o) { return '<option value="' + o[0] + '"' + (+se.redRate === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
       '<label>New words per day <select data-rchange="daily">' + [1, 2, 3, 5, 0].map(function (n) { return '<option value="' + n + '"' + (+se.redDaily === n ? ' selected' : '') + '>' + (n ? n : 'No limit') + '</option>'; }).join('') + '</select></label>' +
       '<button class="btn white small" data-act="rp-test-voice">▶ Test voice</button></div><div class="p-note" id="rp-voice-msg">' + voiceMsg() + '</div>';
@@ -2874,8 +3068,13 @@ body.shake-screen #app{animation:shake .3s linear 2}
         if (d) { R().last = d.last; } R().custom = keep.custom; R().off = keep.off;
         C.save(); rerenderParent(); break;
       case 'rp-test-voice':
+        var sel = $('#rp-voice'), list = window.NMQVoice.sortVoices(TTS.rawVoices());
+        var chosen = sel && sel.value !== '' ? list[+sel.value] : null;
+        if (chosen) { S().settings.voiceURI = chosen.voiceURI || ''; S().settings.voiceName = chosen.name || ''; C.save(); }
         TTS.cache = null;
-        if (!TTS.say('Hello Naomi! Let\'s learn red words.')) { var m = $('#rp-voice-msg'); if (m) m.innerHTML = voiceMsg(); }
+        armVoicePoll();
+        TTS.speak('Hi! I am your reading voice.', +S().settings.redRate || 0.75);
+        var m = $('#rp-voice-msg'); if (m) m.innerHTML = voiceMsg();
         break;
     }
   }
@@ -2949,10 +3148,22 @@ body.shake-screen #app{animation:shake .3s linear 2}
     init: function (core) {
       C = core;
       var s = TTS.synth();
+      refreshVoices = function () {
+        var sig = currentVoiceSig();
+        if (sig === voiceListSig) return;
+        var sel = $('#rp-voice');
+        if (sel && document.activeElement === sel) return;   // don't close the open picker; the next tick retries
+        voiceListSig = sig;
+        TTS.cache = null;
+        if (sel) sel.innerHTML = voiceOptionsHtml();
+        showVoiceNote();
+      };
       if (s) {
-        var reset = function () { TTS.cache = null; var m = $('#rp-voice-msg'); if (m) m.innerHTML = voiceMsg(); };
-        if (s.addEventListener) s.addEventListener('voiceschanged', reset); else s.onvoiceschanged = reset;
+        if (s.addEventListener) s.addEventListener('voiceschanged', refreshVoices); else s.onvoiceschanged = refreshVoices;
         try { s.getVoices(); } catch (e) { /* ignore */ }
+        // iPad Safari often misses voiceschanged and returns an empty list until a little later.
+        armVoicePoll();
+        document.addEventListener('pointerdown', function () { voiceListSig = null; refreshVoices(); armVoicePoll(); }, { once: true });
       }
       document.addEventListener('change', function (e) {
         var t = e.target, k = t && t.dataset ? t.dataset.rchange : null; if (!k) return;
@@ -2960,7 +3171,15 @@ body.shake-screen #app{animation:shake .3s linear 2}
         if (k === 'voice') se.redVoice = !!t.checked;
         else if (k === 'rate') se.redRate = +t.value || 0.75;
         else if (k === 'daily') se.redDaily = +t.value || 0;
-        C.save(); var m = $('#rp-voice-msg'); if (m) m.innerHTML = voiceMsg();
+        else if (k === 'voice-pick') {
+          var list = window.NMQVoice.sortVoices(TTS.rawVoices());
+          var v = list[+t.value];
+          if (!v) return;
+          se.voiceURI = v.voiceURI || '';
+          se.voiceName = v.name || '';
+          TTS.cache = null;
+        }
+        C.save(); showVoiceNote();
       });
       document.addEventListener('input', function (e) {
         if (!e.target || e.target.id !== 'rp-new') return;
@@ -3010,6 +3229,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       red: redDefaults(),
       settings: {
         pin: '1234', sound: true, autoSubmit: true, fixAfterMiss: true, fluentMs: 4000, redVoice: true, redRate: 0.75, redDaily: 3,
+        voiceURI: '', voiceName: '',
         rewards: [
           { id: 'robux', icon: '💎', name: 'Robux', cost: 400, amount: 80, unit: 'Robux', enabled: true },
           { id: 'screen', icon: '📱', name: 'Screen time', cost: 100, amount: 15, unit: 'minutes', enabled: true },
