@@ -25,7 +25,7 @@ body::before{content:"";position:fixed;inset:-50%;background-image:radial-gradie
   animation:drift 40s linear infinite;pointer-events:none;z-index:0}
 @keyframes drift{to{transform:translate(34px,34px)}}
 button{font-family:inherit;font-weight:800;color:inherit;border:none;cursor:pointer;touch-action:manipulation}
-input,select{font-family:inherit;font-size:18px;font-weight:700;padding:10px 12px;border-radius:12px;border:3px solid #c7d2fe;background:#fff;color:var(--ink);-webkit-user-select:text;user-select:text}
+input,select,textarea{font-family:inherit;font-size:18px;font-weight:700;padding:10px 12px;border-radius:12px;border:3px solid #c7d2fe;background:#fff;color:var(--ink);-webkit-user-select:text;user-select:text}
 #app{position:relative;z-index:1;height:100%;height:100dvh}
 .screen{position:absolute;inset:0;display:none;flex-direction:column;padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow:auto;-webkit-overflow-scrolling:touch}
 .screen.active{display:flex;animation:screenIn .28s ease-out}
@@ -321,6 +321,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
 .p-row input[type=number]{width:96px}
 .p-row input[type=text]{width:150px}
 .p-note{font-size:13px;color:#64748b;font-weight:500}
+.save-warn{margin:0 0 12px;padding:12px 14px;border-radius:16px;background:#fff7ed;color:#9a3412;font-size:16px;font-weight:700;line-height:1.35}
+#s-parent .save-warn{font-weight:600}
 .wide{grid-column:1/-1}
 .scroll-x{overflow-x:auto}
 .mod-table td{text-align:center}
@@ -863,7 +865,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
   function topMissed(facts, n) {
     var arr = [];
     for (var k in facts) if (facts[k].wrong > 0) arr.push(facts[k]);
-    arr.sort(function (a, b) { return (b.wrong / b.seen + b.wrong * 0.1) - (a.wrong / a.seen + a.wrong * 0.1); });
+    arr.sort(function (a, b) { var as = a.seen || 1, bs = b.seen || 1; return (b.wrong / bs + b.wrong * 0.1) - (a.wrong / as + a.wrong * 0.1); });
     return arr.slice(0, n || 10);
   }
 
@@ -1895,8 +1897,13 @@ body.shake-screen #app{animation:shake .3s linear 2}
   function allWords(custom) {
     var out = BUILTIN.slice();
     (custom || []).forEach(function (c, i) {
-      var w = build(fromMask(c.w, c.red), c.s || ('I can read the word ' + c.w + '.'), '', c.say, 'my', { order: i, ts: c.ts });
-      w.id = c.id; out.push(w);
+      try {
+        if (!c || typeof c !== 'object' || typeof c.w !== 'string') return;
+        if (/[\[\]]/.test(c.w)) return;
+        var w = build(fromMask(c.w, Array.isArray(c.red) ? c.red : []), c.s || ('I can read the word ' + c.w + '.'), '', typeof c.say === 'string' ? c.say : '', 'my', { order: i, ts: c.ts });
+        if (c.id) w.id = c.id;
+        out.push(w);
+      } catch (e) { /* a bad custom entry must not blank the home screen */ }
     });
     return out;
   }
@@ -2060,7 +2067,10 @@ body.shake-screen #app{animation:shake .3s linear 2}
   }
   // sentence with the word blanked: returns {before, after} or null
   function blankSentence(sentence, word) {
-    var re = new RegExp('\\b' + word + '\\b', 'i'), m = re.exec(sentence || '');
+    var safe = String(word == null ? '' : word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var re, m;
+    try { re = new RegExp('\\b' + safe + '\\b', 'i'); m = re.exec(sentence || ''); }
+    catch (e) { return null; }
     if (!m) return null;
     return { before: sentence.slice(0, m.index), word: m[0], after: sentence.slice(m.index + m[0].length) };
   }
@@ -2121,7 +2131,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     var byId = {}; words.forEach(function (w) { byId[w.id] = w; });
     var arr = [];
     for (var id in prog) if (prog[id].wrong > 0 && byId[id]) arr.push({ w: byId[id], p: prog[id] });
-    arr.sort(function (a, b) { return (b.p.wrong / b.p.seen + b.p.wrong * 0.1) - (a.p.wrong / a.p.seen + a.p.wrong * 0.1); });
+    arr.sort(function (a, b) { var as = a.p.seen || 1, bs = b.p.seen || 1; return (b.p.wrong / bs + b.p.wrong * 0.1) - (a.p.wrong / as + a.p.wrong * 0.1); });
     return arr.slice(0, n || 10);
   }
 
@@ -2277,6 +2287,594 @@ body.shake-screen #app{animation:shake .3s linear 2}
 /* NMQ_VOICE_MODULE_END */
 </script>
 <script>
+/* NMQ_SAVE_MODULE_START
+   Naomi's Brain Quest - pure save repair (no DOM, no network).
+   Usable in the browser (window.NMQSave) and in Node tests.
+   tests/save.test.js evaluates this block. */
+(function (root) {
+  'use strict';
+
+  var SCHEMA = 1;
+  var CAPS = {
+    sessions: 200,
+    learned: 400,
+    requests: 80,
+    custom: 200,
+    eggs: 40,
+    rewards: 24,
+    facts: 4000,
+    misses: 30
+  };
+  var MAX_BACKUP_BYTES = 1500000;
+  var EMERGENCY_KEEP = 20;
+
+  var OPS = ['add', 'sub', 'mul', 'div', 'mixed'];
+  var DIFFS = ['easy', 'medium', 'hard', 'op'];
+  var MODES = ['streak', 'speed'];
+  var METHODS = ['pad', 'bubble', 'write'];
+  var EGG_TYPES = ['clothing', 'accessory'];
+  var RARITIES = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+  var LEVELS = ['1', '2', '3', 'my', 'mix'];
+  var HUBS = ['1', '2', '3', 'my'];
+  var GAMES = ['spell', 'hunt', 'missing'];
+  var INPUTS = ['tiles', 'keys'];
+  var REQ_STATUS = ['pending', 'redeemed', 'refunded'];
+  var FLUENT = [3000, 4000, 5000, 6000, 8000];
+  var RATES = [0.6, 0.75, 0.9];
+  var DAILY = [0, 1, 2, 3, 5];
+  var SLOTS = ['hat', 'shirt', 'face', 'back', 'pet'];
+  var RED_KINDS = ['learn', 'practice'];
+
+  var MSG = {
+    notBackup: 'That file does not look like a Brain Quest backup. The current game was not changed.',
+    tooBig: 'That backup is too big to open. The current game was not changed.',
+    kidFull: 'This iPad is full, so new stars might not stick. Please ask a grown-up to free some space.',
+    kidTrimmed: 'A grown-up note: old game history was shortened so this iPad can keep saving. Stars and best scores stay.',
+    kidPrivate: 'This iPad could not save the game. Please ask a grown-up.',
+    parentFull: 'Saving failed because this iPad is out of storage. Stars, coins, and best scores are still on screen, but they may disappear if the page is reloaded. Free some space in Settings, then play again.',
+    parentTrimmed: 'Old session history was shortened so this iPad can keep saving. Stars, coins, and personal bests were kept.',
+    parentPrivate: 'Saving failed. This browser may be in private mode, so progress can disappear when the tab closes.'
+  };
+
+  // Version 0 (a save with no v, or v 0) has the same shape as version 1.
+  // Later versions add a function here. sanitize() always runs after migrate().
+  var MIGRATIONS = [
+    function toV1(raw) { raw.v = 1; }
+  ];
+
+  function num(v, fallback, min, max) {
+    var n = typeof v === 'number' ? v : (typeof v === 'string' && String(v).trim() !== '' ? Number(v) : NaN);
+    if (!isFinite(n)) n = fallback;
+    if (min != null && n < min) n = min;
+    if (max != null && n > max) n = max;
+    return n;
+  }
+  function int(v, fallback, min, max) { return Math.round(num(v, fallback, min, max)); }
+  function oneOf(v, list, fallback) { return list.indexOf(v) >= 0 ? v : fallback; }
+  function str(v, max) {
+    if (typeof v !== 'string') return '';
+    return v.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, max);
+  }
+  function safeText(v, max) {
+    return str(v, (max || 40) * 4).replace(/<[^>]*>/g, '').replace(/[<>]/g, '').trim().slice(0, max || 40);
+  }
+  function idStr(v, max) {
+    var s = str(v, max || 64);
+    if (!/^[A-Za-z0-9:_.-]{1,64}$/.test(s)) return '';
+    return s.slice(0, max || 64);
+  }
+  function cleanWord(s) { return String(s == null ? '' : s).toLowerCase().replace(/[^a-z]/g, '').slice(0, 14); }
+  function escapeRegExp(s) { return String(s == null ? '' : s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function own(obj) {
+    var keys = [];
+    if (!obj || typeof obj !== 'object') return keys;
+    for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k)) keys.push(k);
+    return keys;
+  }
+  function pinOf(value, fallback) {
+    if (typeof value === 'number' && isFinite(value)) value = String(Math.floor(Math.abs(value)));
+    if (typeof value === 'string' && /^\d{4}$/.test(value)) return value;
+    return fallback;
+  }
+  function isBackup(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+    function bag(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+    return bag(raw.settings) || bag(raw.modules) || bag(raw.red);
+  }
+  function migrate(raw) {
+    if (!raw || typeof raw !== 'object') return raw;
+    var v = raw.v;
+    if (typeof v !== 'number' || !isFinite(v) || v < 0) v = 0;
+    v = Math.floor(v);
+    var guard = 0;
+    while (v < SCHEMA && guard < 8) {
+      var step = MIGRATIONS[v];
+      if (typeof step === 'function') step(raw);
+      if (typeof raw.v !== 'number' || !(raw.v > v)) raw.v = v + 1;
+      v = Math.floor(raw.v);
+      guard++;
+    }
+    if (!(v >= 1 && v <= SCHEMA)) raw.v = SCHEMA;
+    else raw.v = v;
+    return raw;
+  }
+
+  // New words stay tappable when the garden rebuilds them. Compare ids, not object identity.
+  function gardenLocked(status, wordId, nextId, dailyLeft) {
+    return status === 'new' && !(nextId != null && wordId === nextId && !!dailyLeft);
+  }
+
+  function tail(list, cap) {
+    if (!Array.isArray(list)) return [];
+    return list.slice(Math.max(0, list.length - cap));
+  }
+
+  function sanitizeCustom(list) {
+    var out = [], seen = {};
+    tail(list, CAPS.custom * 2).forEach(function (c, i) {
+      if (out.length >= CAPS.custom) return;
+      if (!c || typeof c !== 'object' || Array.isArray(c)) return;
+      var w = cleanWord(c.w);
+      if (w.length < 2) return;
+      var red = [], src = Array.isArray(c.red) ? c.red : [];
+      for (var r = 0; r < src.length && red.length < w.length; r++) {
+        var idx = src[r];
+        if (typeof idx === 'number' && isFinite(idx) && idx === Math.floor(idx) && idx >= 0 && idx < w.length && red.indexOf(idx) < 0) red.push(idx);
+      }
+      red.sort(function (a, b) { return a - b; });
+      var id = idStr(c.id, 48);
+      if (!id) id = 'c:' + w + ':' + (i + 1);
+      if (seen[id]) id = id + '-' + (i + 1);
+      seen[id] = 1;
+      var entry = { id: id, w: w, red: red, s: safeText(c.s, 80), ts: int(c.ts, 0, 0, 1e15) };
+      var say = cleanWord(c.say);
+      if (say && say !== w) entry.say = say;
+      out.push(entry);
+    });
+    return out;
+  }
+
+  function sanitizeWordProg(words) {
+    var out = {}, n = 0;
+    own(words).forEach(function (id) {
+      if (n >= 800) return;
+      var key = idStr(id, 48);
+      if (!key) return;
+      var p = words[id];
+      if (!p || typeof p !== 'object' || Array.isArray(p)) return;
+      out[key] = {
+        box: int(p.box, 0, 0, 5),
+        seen: int(p.seen, 0, 0, 1e7),
+        right: int(p.right, 0, 0, 1e7),
+        wrong: int(p.wrong, 0, 0, 1e7),
+        due: int(p.due, 0, 0, 1e15),
+        miss: int(p.miss, 0, 0, 8),
+        lastTs: int(p.lastTs, 0, 0, 1e15),
+        learnedTs: int(p.learnedTs, 0, 0, 1e15)
+      };
+      n++;
+    });
+    return out;
+  }
+
+  function sanitizeOff(off) {
+    var out = {}, n = 0;
+    own(off).forEach(function (id) {
+      if (n >= 500) return;
+      var key = idStr(id, 48);
+      if (!key || !off[id]) return;
+      out[key] = 1;
+      n++;
+    });
+    return out;
+  }
+
+  function tiersOf(src) {
+    var tiers = {};
+    own(src).forEach(function (t) {
+      var sec = int(t, -1, 0, 10000);
+      if (sec > 0 && src[t]) tiers[String(sec)] = true;
+    });
+    return tiers;
+  }
+
+  function sanitizeRecords(rec) {
+    var out = {};
+    own(rec).forEach(function (k) {
+      var parts = String(k).split('|');
+      if (parts.length !== 3) return;
+      if (GAMES.indexOf(parts[0]) < 0 || LEVELS.indexOf(parts[1]) < 0 || MODES.indexOf(parts[2]) < 0) return;
+      var r = rec[k];
+      if (!r || typeof r !== 'object' || Array.isArray(r)) return;
+      out[parts.join('|')] = {
+        stars: int(r.stars, 0, 0, 3),
+        best: num(r.best, 0, 0, 1e12),
+        tiers: tiersOf(r.tiers),
+        plays: int(r.plays, 0, 0, 1e7)
+      };
+    });
+    return out;
+  }
+
+  function sanitizeMisses(list, asId) {
+    var out = [];
+    if (!Array.isArray(list)) return out;
+    for (var i = 0; i < list.length && out.length < CAPS.misses; i++) {
+      var item = asId ? idStr(list[i], 48) : safeText(list[i], 24);
+      if (item) out.push(item);
+    }
+    return out;
+  }
+
+  function sanitizeRedSessions(list) {
+    var out = [];
+    tail(list, CAPS.sessions).forEach(function (s) {
+      if (!s || typeof s !== 'object' || Array.isArray(s)) return;
+      var kind = oneOf(s.kind, RED_KINDS, '');
+      if (!kind) return;
+      var row = {
+        ts: int(s.ts, 0, 0, 1e15),
+        kind: kind,
+        level: oneOf(String(s.level), LEVELS, '1'),
+        coins: int(s.coins, 0, 0, 1e7),
+        durationMs: int(s.durationMs, 0, 0, 1e12)
+      };
+      if (kind === 'learn') {
+        row.word = idStr(s.word, 48) || 'word';
+        row.first = !!s.first;
+        row.tries = int(s.tries, 0, 0, 99);
+        row.firstTryRight = !!s.firstTryRight;
+        row.trace = int(s.trace, 0, 0, 100);
+      } else {
+        row.game = oneOf(s.game, GAMES, 'spell');
+        row.mode = oneOf(s.mode, MODES, 'streak');
+        row.problems = int(s.problems, 0, 0, 1e6);
+        row.correct = int(s.correct, 0, 0, 1e6);
+        row.bestStreak = int(s.bestStreak, 0, 0, 1e6);
+        row.finished = !!s.finished;
+        row.stars = int(s.stars, 0, 0, 3);
+        row.misses = sanitizeMisses(s.misses, true);
+      }
+      out.push(row);
+    });
+    return out;
+  }
+
+  function sanitizeLearned(list) {
+    var out = [];
+    tail(list, CAPS.learned).forEach(function (x) {
+      if (!x || typeof x !== 'object') return;
+      var id = idStr(x.id, 48);
+      if (!id) return;
+      out.push({ id: id, ts: int(x.ts, 0, 0, 1e15) });
+    });
+    return out;
+  }
+
+  function sanitizeFacts(facts) {
+    var out = {}, n = 0;
+    own(facts).forEach(function (k) {
+      if (n >= CAPS.facts) return;
+      var key = str(k, 40);
+      if (!/^[0-9a-z+\-x\/]{1,40}$/i.test(key)) return;
+      var f = facts[k];
+      if (!f || typeof f !== 'object' || Array.isArray(f)) return;
+      var op = oneOf(f.op, ['add', 'sub', 'mul', 'div'], '');
+      if (!op) return;
+      var terms = [];
+      if (Array.isArray(f.terms)) {
+        for (var t = 0; t < f.terms.length && terms.length < 4; t++) {
+          if (typeof f.terms[t] === 'number' && isFinite(f.terms[t])) terms.push(Math.round(f.terms[t]));
+        }
+      }
+      if (!terms.length) return;
+      var seen = int(f.seen, 0, 0, 1e7);
+      var wrong = int(f.wrong, 0, 0, 1e7);
+      if (wrong > 0 && seen < 1) seen = 1;
+      out[key] = {
+        key: key, op: op, diff: oneOf(f.diff, DIFFS, 'easy'), terms: terms,
+        answer: int(f.answer, 0, -1e6, 1e6),
+        text: safeText(f.text, 40) || key,
+        seen: seen, wrong: wrong,
+        miss: int(f.miss, 0, 0, 8),
+        cstreak: int(f.cstreak, 0, 0, 1e6),
+        ms: int(f.ms, 0, 0, 1e8),
+        last: int(f.last, 0, 0, 1e15)
+      };
+      n++;
+    });
+    return out;
+  }
+
+  function sanitizeModules(mods) {
+    var out = {};
+    own(mods).forEach(function (k) {
+      var parts = String(k).split('|');
+      if (parts.length < 3 || parts.length > 4) return;
+      if (OPS.indexOf(parts[0]) < 0 || DIFFS.indexOf(parts[1]) < 0 || MODES.indexOf(parts[2]) < 0) return;
+      if (parts.length === 4 && METHODS.indexOf(parts[3]) < 0) return;
+      var r = mods[k];
+      if (!r || typeof r !== 'object' || Array.isArray(r)) return;
+      out[parts.join('|')] = {
+        stars: int(r.stars, 0, 0, 3),
+        best: num(r.best, 0, 0, 1e12),
+        tiers: tiersOf(r.tiers),
+        plays: int(r.plays, 0, 0, 1e7)
+      };
+    });
+    return out;
+  }
+
+  function sanitizeSessions(list) {
+    var out = [];
+    tail(list, CAPS.sessions).forEach(function (s) {
+      if (!s || typeof s !== 'object' || Array.isArray(s)) return;
+      var op = oneOf(s.op, OPS, '');
+      var diff = oneOf(s.diff, DIFFS, '');
+      var mode = oneOf(s.mode, MODES, '');
+      if (!op || !diff || !mode) return;
+      var method = oneOf(s.method, METHODS, 'pad');
+      var row = {
+        ts: int(s.ts, 0, 0, 1e15),
+        op: op, diff: diff, mode: mode, method: method,
+        problems: int(s.problems, 0, 0, 1e6),
+        correct: int(s.correct, 0, 0, 1e6),
+        durationMs: int(s.durationMs, 0, 0, 1e12),
+        avgMs: int(s.avgMs, 0, 0, 1e8),
+        bestStreak: int(s.bestStreak, 0, 0, 1e6),
+        finished: !!s.finished,
+        stars: int(s.stars, 0, 0, 3),
+        coins: int(s.coins, 0, 0, 1e7),
+        fixed: int(s.fixed, 0, 0, 1e6),
+        misses: sanitizeMisses(s.misses, false)
+      };
+      if (method === 'write') row.rereads = int(s.rereads, 0, 0, 1e6);
+      out.push(row);
+    });
+    return out;
+  }
+
+  function sanitizeEggs(list) {
+    var out = [];
+    tail(list, CAPS.eggs).forEach(function (e) {
+      if (!e || typeof e !== 'object') return;
+      out.push({
+        type: oneOf(e.type, EGG_TYPES, 'clothing'),
+        minRarity: oneOf(e.minRarity, RARITIES, 'common')
+      });
+    });
+    return out;
+  }
+
+  function defaultRewards() {
+    return [
+      { id: 'robux', icon: '💎', name: 'Robux', cost: 400, amount: 80, unit: 'Robux', enabled: true },
+      { id: 'screen', icon: '📱', name: 'Screen time', cost: 100, amount: 15, unit: 'minutes', enabled: true },
+      { id: 'claw', icon: '🕹️', name: 'Claw machine', cost: 50, amount: 1, unit: 'quarter', enabled: true }
+    ];
+  }
+
+  function sanitizeRewards(list) {
+    var out = [], seen = {};
+    var src = Array.isArray(list) ? list : [];
+    for (var i = 0; i < src.length && out.length < CAPS.rewards; i++) {
+      var r = src[i];
+      if (!r || typeof r !== 'object' || Array.isArray(r)) continue;
+      var id = idStr(r.id, 40) || ('r' + (i + 1));
+      if (seen[id]) id = id + '-' + (i + 1);
+      seen[id] = 1;
+      out.push({
+        id: id,
+        icon: safeText(r.icon, 8) || '⭐',
+        name: safeText(r.name, 24) || 'Reward',
+        cost: int(r.cost, 100, 1, 1e7),
+        amount: int(r.amount, 1, 1, 1e7),
+        unit: safeText(r.unit, 24) || 'treat',
+        enabled: r.enabled !== false
+      });
+    }
+    return out.length ? out : defaultRewards();
+  }
+
+  function sanitizeRequests(list) {
+    var out = [];
+    tail(list, CAPS.requests).forEach(function (q, i) {
+      if (!q || typeof q !== 'object' || Array.isArray(q)) return;
+      var id = idStr(q.id, 40) || ('q' + (i + 1));
+      var row = {
+        id: id,
+        rid: idStr(q.rid, 40),
+        icon: safeText(q.icon, 8) || '⭐',
+        name: safeText(q.name, 24) || 'Reward',
+        amount: int(q.amount, 1, 0, 1e7),
+        unit: safeText(q.unit, 24),
+        cost: int(q.cost, 0, 0, 1e7),
+        ts: int(q.ts, 0, 0, 1e15),
+        status: oneOf(q.status, REQ_STATUS, 'pending')
+      };
+      if (!row.rid) delete row.rid;
+      if (q.doneTs) row.doneTs = int(q.doneTs, 0, 0, 1e15);
+      out.push(row);
+    });
+    return out;
+  }
+
+  function sanitizeOwned(owned) {
+    var out = {}, n = 0;
+    own(owned).forEach(function (id) {
+      if (n >= 200) return;
+      var key = idStr(id, 40);
+      if (!key) return;
+      out[key] = 1;
+      n++;
+    });
+    return out;
+  }
+
+  function sanitizeEquipped(eq) {
+    var out = {};
+    if (!eq || typeof eq !== 'object' || Array.isArray(eq)) return out;
+    SLOTS.forEach(function (slot) {
+      var id = idStr(eq[slot], 40);
+      if (id) out[slot] = id;
+    });
+    return out;
+  }
+
+  function nearest(value, list, fallback) {
+    var n = num(value, fallback, null, null);
+    var best = fallback, dist = Infinity;
+    for (var i = 0; i < list.length; i++) {
+      var d = Math.abs(list[i] - n);
+      if (d < dist) { dist = d; best = list[i]; }
+    }
+    return best;
+  }
+
+  function sanitize(raw, opts) {
+    opts = opts || {};
+    if (!isBackup(raw)) return { ok: false, reason: 'not-backup' };
+    var src;
+    try { src = JSON.parse(JSON.stringify(raw)); }
+    catch (e) { return { ok: false, reason: 'not-backup' }; }
+    if (!src || typeof src !== 'object') return { ok: false, reason: 'not-backup' };
+    migrate(src);
+    var fallbackPin = pinOf(opts.pin, '1234');
+    var settingsIn = (src.settings && typeof src.settings === 'object' && !Array.isArray(src.settings)) ? src.settings : {};
+    var lookIn = (src.look && typeof src.look === 'object' && !Array.isArray(src.look)) ? src.look : {};
+    var redIn = (src.red && typeof src.red === 'object' && !Array.isArray(src.red)) ? src.red : {};
+    var lastIn = (redIn.last && typeof redIn.last === 'object' && !Array.isArray(redIn.last)) ? redIn.last : {};
+    var mathLast = (src.last && typeof src.last === 'object' && !Array.isArray(src.last)) ? src.last : {};
+    var totals = (src.totals && typeof src.totals === 'object' && !Array.isArray(src.totals)) ? src.totals : {};
+    var daily = int(settingsIn.redDaily, 3, 0, 99);
+    if (DAILY.indexOf(daily) < 0) daily = 3;
+    var save = {
+      v: SCHEMA,
+      name: safeText(src.name, 16) || 'Naomi',
+      coins: int(src.coins, 0, 0, 1e9),
+      look: { skin: int(lookIn.skin, 0, 0, 5), hair: int(lookIn.hair, 1, 0, 8), style: int(lookIn.style, 0, 0, 5) },
+      equipped: sanitizeEquipped(src.equipped),
+      owned: sanitizeOwned(src.owned),
+      eggs: sanitizeEggs(src.eggs),
+      modules: sanitizeModules(src.modules),
+      facts: sanitizeFacts(src.facts),
+      sessions: sanitizeSessions(src.sessions),
+      requests: sanitizeRequests(src.requests),
+      totals: { coinsEarned: int(totals.coinsEarned, 0, 0, 1e12), eggsHatched: int(totals.eggsHatched, 0, 0, 1e9) },
+      last: {
+        op: oneOf(mathLast.op, OPS, 'add'),
+        diff: oneOf(mathLast.diff, DIFFS, 'easy'),
+        mode: oneOf(mathLast.mode, MODES, 'streak'),
+        method: oneOf(mathLast.method, METHODS, 'pad')
+      },
+      red: {
+        words: sanitizeWordProg(redIn.words),
+        custom: sanitizeCustom(redIn.custom),
+        off: sanitizeOff(redIn.off),
+        records: sanitizeRecords(redIn.records),
+        sessions: sanitizeRedSessions(redIn.sessions),
+        learned: sanitizeLearned(redIn.learned),
+        last: {
+          hub: oneOf(String(lastIn.hub || '1'), HUBS, '1'),
+          level: oneOf(String(lastIn.level || '1'), LEVELS, '1'),
+          game: oneOf(lastIn.game, GAMES, 'spell'),
+          mode: oneOf(lastIn.mode, MODES, 'streak'),
+          input: oneOf(lastIn.input, INPUTS, 'tiles')
+        }
+      },
+      settings: {
+        pin: pinOf(settingsIn.pin, fallbackPin),
+        sound: settingsIn.sound !== false,
+        autoSubmit: settingsIn.autoSubmit !== false,
+        fixAfterMiss: settingsIn.fixAfterMiss !== false,
+        fluentMs: nearest(settingsIn.fluentMs, FLUENT, 4000),
+        redVoice: settingsIn.redVoice !== false,
+        redRate: nearest(settingsIn.redRate, RATES, 0.75),
+        redDaily: daily,
+        voiceURI: str(settingsIn.voiceURI, 180),
+        voiceName: safeText(settingsIn.voiceName, 80),
+        rewards: sanitizeRewards(settingsIn.rewards)
+      }
+    };
+    return { ok: true, save: save };
+  }
+
+  function cut(obj, key, keep) {
+    var arr = obj && obj[key];
+    if (!Array.isArray(arr) || arr.length <= keep) return 0;
+    var removed = arr.length - keep;
+    obj[key] = arr.slice(-keep);
+    return removed;
+  }
+
+  function trimHistory(state, sessionKeep) {
+    if (!state || typeof state !== 'object') return 0;
+    var sessions = sessionKeep == null ? CAPS.sessions : sessionKeep;
+    var learnedKeep = sessions <= EMERGENCY_KEEP ? Math.max(sessions, 40) : CAPS.learned;
+    var removed = cut(state, 'sessions', sessions);
+    if (state.red && typeof state.red === 'object') {
+      removed += cut(state.red, 'sessions', sessions);
+      removed += cut(state.red, 'learned', learnedKeep);
+    }
+    if (Array.isArray(state.requests) && state.requests.length > CAPS.requests) {
+      var pending = [], done = [];
+      state.requests.forEach(function (q) {
+        if (q && q.status === 'pending') pending.push(q);
+        else done.push(q);
+      });
+      var room = Math.max(0, CAPS.requests - pending.length);
+      var next = done.slice(-room).concat(pending).slice(-CAPS.requests);
+      removed += Math.max(0, state.requests.length - next.length);
+      state.requests = next;
+    }
+    return removed;
+  }
+
+  function isQuotaError(err) {
+    if (!err) return false;
+    var name = String(err.name || '');
+    if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED') return true;
+    if (err.code === 22 || err.code === 1014) return true;
+    return /quota/i.test(String(err.message || ''));
+  }
+
+  // write(state) stores the object or throws. Personal bests (modules, facts, records, totals) stay.
+  function persist(state, write) {
+    trimHistory(state, CAPS.sessions);
+    try {
+      write(state);
+      return { ok: true, warning: '' };
+    } catch (e) {
+      if (!isQuotaError(e)) return { ok: false, warning: 'private' };
+      if (trimHistory(state, EMERGENCY_KEEP)) {
+        try {
+          write(state);
+          return { ok: true, warning: 'trimmed' };
+        } catch (e2) { return { ok: false, warning: 'quota' }; }
+      }
+      return { ok: false, warning: 'quota' };
+    }
+  }
+
+  function saveMessage(warning, kid) {
+    if (warning === 'quota') return kid ? MSG.kidFull : MSG.parentFull;
+    if (warning === 'trimmed') return kid ? MSG.kidTrimmed : MSG.parentTrimmed;
+    if (warning === 'private') return kid ? MSG.kidPrivate : MSG.parentPrivate;
+    return '';
+  }
+
+  var api = {
+    SCHEMA: SCHEMA, CAPS: CAPS, MAX_BACKUP_BYTES: MAX_BACKUP_BYTES, EMERGENCY_KEEP: EMERGENCY_KEEP, MSG: MSG, MIGRATIONS: MIGRATIONS,
+    num: num, cleanWord: cleanWord, escapeRegExp: escapeRegExp, isBackup: isBackup, migrate: migrate,
+    gardenLocked: gardenLocked, sanitize: sanitize, trimHistory: trimHistory, isQuotaError: isQuotaError,
+    persist: persist, saveMessage: saveMessage
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.NMQSave = api;
+})(typeof window !== 'undefined' ? window : this);
+/* NMQ_SAVE_MODULE_END */
+</script>
+<script>
 /* Naomi's Brain Quest - Red Words screens (Orton-Gillingham heart words).
    Hub, 5-step Learn routine, practice games (Spell It, Word Hunt, Missing Letters) in Streak and
    Speed, results and the grown-up section. Pure word logic lives in js/words.js (NMQWords).
@@ -2322,16 +2920,19 @@ body.shake-screen #app{animation:shake .3s linear 2}
     },
     on: function () { return !!S().settings.redVoice && !!this.voice(); },
     // Preview and lessons share this. A missing saved voice falls back inside pickVoice; it does not throw.
+    // Cancel a stuck queue, then resume if iOS left the synthesizer paused.
     speak: function (text, rate) {
       var s = this.synth(), v = this.voice();
       if (!s || !v || !text) return false;
       try {
+        try { if (s.paused && s.resume) s.resume(); } catch (e1) { /* ignore */ }
         if (s.speaking || s.pending) s.cancel();
         var u = new window.SpeechSynthesisUtterance(text);
         u.voice = v; u.lang = v.lang || 'en-US'; u.rate = rate || +S().settings.redRate || 0.75; u.pitch = 1.1;
         this.utter = u;   // keep a reference so the utterance is not garbage-collected mid-speech
         s.speak(u);
         try { if (s.paused && s.resume) s.resume(); } catch (e2) { /* iOS sometimes starts paused */ }
+        speechPrimed = true;
         this.log.push(text); if (this.log.length > 60) this.log.shift();
         return true;
       } catch (e) { return false; }
@@ -2341,6 +2942,34 @@ body.shake-screen #app{animation:shake .3s linear 2}
       return this.speak(text, rate);
     }
   };
+  var speechPrimed = false;
+  // Buttons whose click handler speaks in the same tap. A priming utterance here would cancel that line on iOS.
+  var SPEAKS_ON_TAP = { 'r-play': 1, 'r-again': 1, 'r-learn': 1, 'r-learn-word': 1, 'r-learn-next': 1, 'rl-say': 1, 'rl-say-s': 1, 'rl-next': 1, 'rl-tap': 1, 'rl-fill': 1, 'rl-fix': 1, 'r-say': 1, 'rp-test-voice': 1 };
+  function resumeSpeech() {
+    var s = TTS.synth(); if (!s) return;
+    try { if (s.paused && s.resume) s.resume(); } catch (e) { /* ignore */ }
+  }
+  // iPad Safari will not speak until a user gesture has spoken once. A silent utterance unlocks later lines.
+  function unlockSpeech() {
+    resumeSpeech();
+    if (speechPrimed) return;
+    var s = TTS.synth(); if (!s || !window.SpeechSynthesisUtterance) return;
+    try {
+      var u = new window.SpeechSynthesisUtterance(' ');
+      u.volume = 0; u.rate = 1;
+      TTS.utter = u;
+      s.speak(u);
+      try { if (s.paused && s.resume) s.resume(); } catch (e2) { /* ignore */ }
+      speechPrimed = true;
+    } catch (e) { /* no voices yet; the Hear button still tries later */ }
+  }
+  function primeFromGesture(e) {
+    if (C && C.primeAudio) C.primeAudio();
+    var t = e.target && e.target.closest && e.target.closest('[data-act]');
+    var act = t && t.getAttribute('data-act');
+    if (act && SPEAKS_ON_TAP[act]) resumeSpeech();
+    else unlockSpeech();
+  }
   function sayWord(w) { return TTS.say(w.say || w.w); }
   function saySentence(w) { return TTS.say(w.s, Math.max(0.6, (+S().settings.redRate || 0.75) + 0.1)); }
   function sayLetter(ch) { return TTS.say(W.LETTER_NAMES[ch] || ch, 1); }
@@ -2450,7 +3079,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     var list = W.wordsFor(lv, R().custom, R().off);
     h += '<div class="card rw-garden"><div class="rg-head"><b>' + W.LEVEL_INFO[lv].icon + ' ' + W.LEVEL_INFO[lv].name + ' word garden</b><span>✨ new · 🌱 learning · 🌸 known · 👑 mastered</span></div><div class="rg-grid">';
     list.forEach(function (w) {
-      var p = prog(w.id), st = W.status(p), locked = st === 'new' && !(w === nx && left);
+      var p = prog(w.id), st = W.status(p), locked = window.NMQSave.gardenLocked(st, w.id, nx && nx.id, left);
       h += '<button class="rg-word s-' + st + '" data-act="r-learn-word" data-v="' + esc(w.id) + '"' + (locked ? ' disabled' : '') + '><i>' + W.STATUS_INFO[st].icon + '</i>' + (st === 'new' ? '<span class="rw-word">' + esc(w.w) + '</span>' : wordHtml(w)) + '</button>';
     });
     if (!list.length) h += '<div class="p-note">No words in this list yet.</div>';
@@ -2465,9 +3094,11 @@ body.shake-screen #app{animation:shake .3s linear 2}
     if (!w) return;
     var p = prog(w.id), first = !p || !p.box;
     if (first && !dailyLeft()) return;
+    resumeSpeech();
+    if (C.primeAudio) C.primeAudio();
     LRN = { w: w, step: 0, round: 0, idx: 0, tries: 0, att: '', ok: false, fill: null, filled: false, first: first, cov: 0, t0: now(), spelled: [] };
     C.show('redlearn');
-    sayWord(w);
+    sayWord(w);   // still inside the tap that started the lesson, so iPad Safari will speak
   }
   function renderLearn() {
     if (!LRN) return;
@@ -2707,16 +3338,22 @@ body.shake-screen #app{animation:shake .3s linear 2}
   function startPlay() {
     var o = R().last, pool = learnedIn(o.level);
     if (pool.length < MIN_WORDS) return;
+    resumeSpeech();
+    if (C.primeAudio) C.primeAudio();
     RG = { level: o.level, game: o.game, mode: o.mode, pool: pool, correct: 0, wrong: 0, total: 0, streak: 0, bestStreak: 0, hearts: 3,
       t0: 0, elapsed: 0, running: false, q: null, recent: [], requeue: [], locked: true, misses: [], helped: false, promos: [],
       earned: { coins: 0, eggs: [] }, qStart: 0, done: false, prev: R().records[W.recKey(o.game, o.level, o.mode)], picked: null };
     INP = null;
     C.show('redplay');
+    nextQ();   // speak the first word from this tap; the countdown used to speak too late for iOS
+    RG.locked = true;
+    if (INP) INP.locked = true;
     var g = RG;
     C.countdown(function () {
       if (RG !== g || RG.done) return;
       RG.locked = false; RG.running = true; RG.t0 = performance.now();
-      nextQ();
+      if (RG.q) RG.qStart = performance.now();
+      if (INP && !RG.picked) INP.locked = false;
       if (RG.mode === 'speed') loop();
     });
   }
@@ -2926,7 +3563,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     h += '<div class="rewards-list"><div>🪙 <b>+' + X.coins + ' coins</b> total</div>';
     X.rw.notes.forEach(function (n) { h += '<div style="color:var(--muted);font-size:16px">' + esc(n) + '</div>'; });
     X.promos.forEach(function (p) { h += '<div>' + (p.to === 'mastered' ? '👑 <b>' + esc(p.w) + '</b> is MASTERED!' : '🌸 <b>' + esc(p.w) + '</b> is now a Known word!') + '</div>'; });
-    X.eggs.forEach(function (e) { h += '<div>🥚 ' + L.EGG_INFO[e.type].name + (e.minRarity !== 'common' ? ' <b style="color:' + L.RARITY_INFO[e.minRarity].color + '">(' + L.RARITY_INFO[e.minRarity].name + ' or better!)</b>' : '') + ' — ' + esc(e.why) + '</div>'; });
+    X.eggs.forEach(function (e) { var info = L.EGG_INFO[e.type] || L.EGG_INFO.clothing, rare = L.RARITY_INFO[e.minRarity] || L.RARITY_INFO.common; h += '<div>🥚 ' + info.name + (e.minRarity && e.minRarity !== 'common' ? ' <b style="color:' + rare.color + '">(' + rare.name + ' or better!)</b>' : '') + ' — ' + esc(e.why) + '</div>'; });
     if (X.mode === 'speed' && X.run.finished) { var nt = W.tiersFor(X.game).filter(function (t) { return X.run.timeMs > t.sec * 1000; })[0]; if (nt) h += '<div>🎯 Next goal: under <b>' + nt.label + '</b> for ' + nt.icon + ' ' + nt.name + '!</div>'; }
     var miss = {}; X.misses.forEach(function (id) { miss[id] = 1; });
     var mw = Object.keys(miss).map(byId).filter(Boolean);
@@ -3029,7 +3666,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     var list = all.filter(function (w) { return w.level === PV.lvl; });
     list.forEach(function (w) {
       var p = prog(w.id), off = !!R().off[w.id], due = p && p.box >= 1 ? (p.due <= now() ? 'now' : 'in ' + Math.ceil((p.due - now()) / W.DAY) + 'd') : '--';
-      h += '<tr class="' + (off ? 'off' : '') + '"><td><input type="checkbox" data-act="rp-toggle" data-v="' + esc(w.id) + '"' + (off ? '' : ' checked') + '></td><td>' + wordHtml(w, 'sm') + '<div class="p-note">' + esc(w.s) + '</div></td><td>' + statusBadge(p) + '</td><td>' + (p ? p.right + ' / ' + p.wrong : '--') + '</td><td>' + due + (p && p.lastTs ? '<div class="p-note">seen ' + fmtAgo(p.lastTs) + '</div>' : '') + '</td><td>' +
+      h += '<tr class="' + (off ? 'off' : '') + '"><td><input type="checkbox" data-act="rp-toggle" data-v="' + esc(w.id) + '"' + (off ? '' : ' checked') + '></td><td>' + wordHtml(w, 'sm') + '<div class="p-note">' + esc(w.s) + '</div></td><td>' + statusBadge(p) + '</td><td>' + (p ? esc(p.right) + ' / ' + esc(p.wrong) : '--') + '</td><td>' + esc(due) + (p && p.lastTs ? '<div class="p-note">seen ' + esc(fmtAgo(p.lastTs)) + '</div>' : '') + '</td><td>' +
         (p ? '<button class="btn white small" data-act="rp-reset" data-v="' + esc(w.id) + '">↺</button>' : '') + (w.custom ? '<button class="btn white small" data-act="rp-del" data-v="' + esc(w.id) + '">🗑</button>' : '') + '</td></tr>';
     });
     if (!list.length) h += '<tr><td colspan="6" class="p-note">No words here yet. Add some above!</td></tr>';
@@ -3165,6 +3802,9 @@ body.shake-screen #app{animation:shake .3s linear 2}
         armVoicePoll();
         document.addEventListener('pointerdown', function () { voiceListSig = null; refreshVoices(); armVoicePoll(); }, { once: true });
       }
+      // First tap unlocks speech and the sound chip. touchend covers iPad Safari when pointerdown is not the gesture.
+      document.addEventListener('pointerdown', primeFromGesture, true);
+      document.addEventListener('touchend', primeFromGesture, { capture: true, passive: true });
       document.addEventListener('change', function (e) {
         var t = e.target, k = t && t.dataset ? t.dataset.rchange : null; if (!k) return;
         var se = S().settings;
@@ -3193,7 +3833,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       });
       return {
         renders: { red: renderHub, redmenu: function () { fixPool(); renderMenu(); }, redlearn: renderLearn, redplay: renderPlay, redresults: renderResults },
-        act: act, key: key, stop: stop, isLive: isLive, stars: stars, maxStars: 90, tileText: tileText,
+        act: act, key: key, stop: stop, isLive: isLive, stars: stars, maxStars: 90, tileText: tileText, unlockSpeech: unlockSpeech,
         parentHtml: parentHtml, rerenderParent: rerenderParent,
         debug: function () {
           return { tts: TTS.log.slice(), voice: TTS.voice() ? TTS.voice().name : null,
@@ -3242,29 +3882,44 @@ body.shake-screen #app{animation:shake .3s linear 2}
   function redDefaults() {
     return { words: {}, custom: [], off: {}, records: {}, sessions: [], learned: [], last: { level: '1', game: 'spell', mode: 'streak', input: 'tiles' } };
   }
-  var S;
+  var S, saveWarning = '';
   function load() {
-    try { S = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { S = null; }
-    var d = defaults();
-    if (!S || typeof S !== 'object') S = d;
-    for (var k in d) if (!(k in S)) S[k] = d[k];
-    if (!S.settings || typeof S.settings !== 'object') S.settings = d.settings;
-    for (var k2 in d.settings) if (!(k2 in S.settings)) S.settings[k2] = d.settings[k2];
-    if (!S.last || typeof S.last !== 'object') S.last = d.last;
-    if (!L.METHOD_INFO[S.last.method]) S.last.method = 'pad';   // older saves: everything was Number Pad
-    var rd = redDefaults();
-    if (!S.red || typeof S.red !== 'object') S.red = rd;
-    for (var k3 in rd) if (!S.red[k3] || typeof S.red[k3] !== typeof rd[k3] || Array.isArray(S.red[k3]) !== Array.isArray(rd[k3])) S.red[k3] = rd[k3];
-    for (var k4 in rd.last) if (!(k4 in S.red.last)) S.red.last[k4] = rd.last[k4];
+    var raw = null, had = false;
+    try { had = localStorage.getItem(STORE_KEY) != null; raw = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { raw = null; }
+    if (raw && window.NMQSave) {
+      var pin = (raw.settings && typeof raw.settings.pin === 'string' && /^\d{4}$/.test(raw.settings.pin)) ? raw.settings.pin : '1234';
+      var result = null;
+      try { result = window.NMQSave.sanitize(raw, { pin: pin }); } catch (e2) { result = null; }
+      if (result && result.ok) { S = result.save; return; }
+    }
+    S = defaults();
+    // Unreadable storage is left on disk until a later successful save, so a bad parse cannot wipe a backup the parent still has.
+    if (!had) return;
   }
-  function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { /* storage full or private mode */ } }
+  function save() {
+    var result = window.NMQSave.persist(S, function (state) { localStorage.setItem(STORE_KEY, JSON.stringify(state)); });
+    saveWarning = result.warning || '';
+    return result.ok;
+  }
+  function saveBanner(kid) {
+    var text = window.NMQSave.saveMessage(saveWarning, kid);
+    return text ? '<div class="save-warn">' + esc(text) + '</div>' : '';
+  }
+  function finite(n) { n = Number(n); return isFinite(n) ? n : 0; }
 
   // ---------------------------------------------------------------- sound (generated tones only)
   var AC = null;
+  function primeAudio() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      if (!AC) AC = new Ctx();
+      if (AC.state === 'suspended' && AC.resume) AC.resume();
+    } catch (e) { /* no audio on this device */ }
+  }
   function audio() {
     if (!S.settings.sound) return null;
-    if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
-    if (AC.state === 'suspended') AC.resume();
+    primeAudio();
     return AC;
   }
   function tone(freq, dur, type, vol, delay) {
@@ -3336,10 +3991,42 @@ body.shake-screen #app{animation:shake .3s linear 2}
 
   // ---------------------------------------------------------------- navigation
   var current = 'home';
+  var didRecover = false;
+  function recoverSave() {
+    if (didRecover || !S || !S.red || !Array.isArray(S.red.custom) || !window.NMQWords) return false;
+    didRecover = true;
+    var kept = [];
+    S.red.custom.forEach(function (c) {
+      try { if (window.NMQWords.allWords([c]).length > window.NMQWords.BUILTIN.length) kept.push(c); }
+      catch (e) { /* drop this entry */ }
+    });
+    S.red.custom = kept;
+    return true;
+  }
   function show(name) {
     current = name;
     document.querySelectorAll('.screen').forEach(function (s) { s.classList.toggle('active', s.id === 's-' + name); });
-    var r = RENDER[name]; if (r) r();
+    var r = RENDER[name]; if (!r) return;
+    try { r(); }
+    catch (err) {
+      if (recoverSave()) { try { r(); return; } catch (err2) { err = err2; } }
+      var el = $('#s-' + name);
+      if (!el) return;
+      el.textContent = '';
+      var note = document.createElement('div');
+      note.className = 'card';
+      note.style.margin = '24px';
+      note.textContent = 'This screen could not open the saved game. A grown-up can restore a backup, or reset site data for this page.';
+      el.appendChild(note);
+      if (name !== 'home') {
+        var back = document.createElement('button');
+        back.className = 'btn white';
+        back.style.margin = '0 24px';
+        back.textContent = 'Home';
+        back.addEventListener('click', function () { show('home'); });
+        el.appendChild(back);
+      }
+    }
   }
 
   // Speed stars are kept per answer method; a module's star count is the best of them, so the
@@ -3355,8 +4042,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
   function totalStars() { return mathStars() + (RW ? RW.stars() : 0); }
   function ownedCount() { return Object.keys(S.owned).length; }
   function topbar(extra) {
-    return '<div class="topbar">' + extra +
-      '<span class="pill" title="coins">🪙 <b id="coin-count">' + S.coins + '</b></span>' +
+    return saveBanner(true) + '<div class="topbar">' + extra +
+      '<span class="pill" title="coins">🪙 <b id="coin-count">' + esc(S.coins) + '</b></span>' +
       '<span class="pill" title="stars">⭐ ' + totalStars() + '</span>' +
       (S.eggs.length ? '<button class="pill egg" data-act="hatch">🥚 ' + S.eggs.length + ' Hatch!</button>' : '') +
       '<button class="iconbtn" data-act="mute" aria-label="sound">' + (S.settings.sound ? '🔊' : '🔇') + '</button>' +
@@ -3374,7 +4061,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     return { streak: bs, speed: sp };
   }
   function modName(p) { return L.OP_INFO[p[0]].name + ' ' + L.DIFF_INFO[p[1]].name + (p[3] && L.METHOD_INFO[p[3]] ? ' · ' + L.METHOD_INFO[p[3]].icon : ''); }
-  function methodLabel(m) { var i = L.METHOD_INFO[m || 'pad']; return i.icon + ' ' + i.name; }
+  function methodLabel(m) { var i = L.METHOD_INFO[m || 'pad']; return i ? i.icon + ' ' + i.name : esc(m || ''); }
   RENDER_home = function () {
     var b = bestOverall();
     $('#s-home').innerHTML = topbar('<div class="logo">' + esc(S.name) + '\'s Brain Quest<small>LEVEL UP YOUR BRAIN!</small></div>' +
@@ -3444,6 +4131,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
   var G = null, rafId = 0;
   var PRAISE = ['NICE!', 'AWESOME!', 'GREAT!', 'BOOM!', 'YES!', 'SUPER!', 'WOW!', 'AMAZING!', 'BRAINY!', 'NAILED IT!'];
   function startGame() {
+    primeAudio();
     var o = S.last;
     var method = L.METHOD_INFO[o.method] ? o.method : 'pad';
     G = { op: o.op, diff: o.diff, mode: o.mode, method: method, rereads: 0, correct: 0, wrong: 0, total: 0, streak: 0, bestStreak: 0, hearts: 3,
@@ -3866,7 +4554,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     if (ms.total) h += '<div class="mastery-line">🧠 <b>' + ms.counts.fluent + '</b> fluent · <b>' + ms.counts.known + '</b> known' + (ms.open ? '' : ' · <b>' + ms.counts.new + '</b> not seen yet') + (ms.ready ? ' · ✨ ready for the next level!' : '') + '</div>';
     h += '<div class="rewards-list"><div>🪙 <b>+' + R.coins + ' coins</b> total</div>';
     R.rw.notes.forEach(function (n) { h += '<div style="color:var(--muted);font-size:16px">' + esc(n) + '</div>'; });
-    R.eggs.forEach(function (e) { h += '<div>🥚 ' + L.EGG_INFO[e.type].name + (e.minRarity !== 'common' ? ' <b style="color:' + L.RARITY_INFO[e.minRarity].color + '">(' + L.RARITY_INFO[e.minRarity].name + ' or better!)</b>' : '') + ' — ' + esc(e.why) + '</div>'; });
+    R.eggs.forEach(function (e) { var info = L.EGG_INFO[e.type] || L.EGG_INFO.clothing, rare = L.RARITY_INFO[e.minRarity] || L.RARITY_INFO.common; h += '<div>🥚 ' + info.name + (e.minRarity && e.minRarity !== 'common' ? ' <b style="color:' + rare.color + '">(' + rare.name + ' or better!)</b>' : '') + ' — ' + esc(e.why) + '</div>'; });
     if (R.mode === 'speed' && R.run.finished) {
       var nextT = L.SPEED_TIERS.filter(function (t) { return R.run.timeMs > t.sec * 1000; })[0];
       if (nextT) h += '<div>🎯 Next goal: under <b>' + nextT.label + '</b> for ' + nextT.icon + ' ' + nextT.name + '!</div>';
@@ -3885,14 +4573,20 @@ body.shake-screen #app{animation:shake .3s linear 2}
     renderEgg();
     $('#egg-overlay').classList.add('show');
   }
+  function fixEgg(egg) {
+    if (!egg || typeof egg !== 'object') return { type: 'clothing', minRarity: 'common' };
+    if (!L.EGG_INFO[egg.type]) egg.type = 'clothing';
+    if (!L.RARITY_INFO[egg.minRarity]) egg.minRarity = 'common';
+    return egg;
+  }
   function eggHtml(type) {
-    var e = L.EGG_INFO[type];
+    var e = L.EGG_INFO[type] || L.EGG_INFO.clothing;
     return '<div class="egg" id="egg" data-act="egg-tap" style="background:radial-gradient(circle at 35% 30%,#fff 0 8%,transparent 9%),linear-gradient(160deg,' + e.color + ',' + e.color2 + ')">' +
       '<span class="spot" style="left:22%;top:22%;width:14%;height:11%"></span><span class="spot" style="left:64%;top:16%;width:11%;height:9%"></span><span class="spot" style="left:16%;top:74%;width:13%;height:10%"></span><span class="spot" style="left:70%;top:76%;width:12%;height:9%"></span>' +
       '<span class="e-eye l"></span><span class="e-eye r"></span><span class="e-blush l"></span><span class="e-blush r"></span><span class="e-mouth"></span><span class="e-spark s1">✦</span><span class="e-spark s2">✧</span></div>';
   }
   function renderEgg() {
-    var ov = $('#egg-overlay'), egg = S.eggs[0];
+    var ov = $('#egg-overlay'), egg = fixEgg(S.eggs[0]);
     ov.className = 'overlay show';
     ov.innerHTML = '<div class="egg-title">' + L.EGG_INFO[egg.type].name + (egg.minRarity !== 'common' ? ' <span style="color:' + L.RARITY_INFO[egg.minRarity].color + '">✦ ' + (egg.minRarity === 'mythic' ? 'Guaranteed Mythic!' : L.RARITY_INFO[egg.minRarity].name + ' or better') + '</span>' : '') + '</div>' +
       '<div class="egg-stage"><div class="rays"></div>' + eggHtml(egg.type) + '</div><div class="hint">👆 Tap the egg to hatch it!</div>' +
@@ -3906,7 +4600,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     if (hatch.taps === 1) el.classList.add('crack1');
     if (hatch.taps === 2) { el.classList.remove('crack1'); el.classList.add('crack2'); $('.hint').textContent = '👆 One more tap...!'; }
     if (hatch.taps >= 3) {
-      var egg = S.eggs.shift();
+      var egg = fixEgg(S.eggs.shift());
       var res = L.hatchEgg(egg, S.owned);
       hatch.result = res;
       if (res.duplicate) { S.coins += res.coins; S.totals.coinsEarned += res.coins; } else S.owned[res.item.id] = Date.now();
@@ -3971,15 +4665,16 @@ body.shake-screen #app{animation:shake .3s linear 2}
     var h = topbar('<button class="back" data-act="home">◀ Home</button><div class="logo" style="text-align:center">🎁 Treasure</div>');
     h += '<div class="section-title">Trade your coins for real rewards! A grown-up will hand them out.</div><div class="shop">';
     S.settings.rewards.filter(function (r) { return r.enabled; }).forEach(function (r) {
-      var can = S.coins >= r.cost;
-      h += '<div class="card reward-card"><div class="ri">' + esc(r.icon) + '</div><h3>' + r.amount + ' ' + esc(r.unit) + '</h3><div style="color:var(--muted)">' + esc(r.name) + '</div><div class="cost">🪙 ' + r.cost + ' coins</div>' +
-        '<button class="btn ' + (can ? 'green' : 'gray') + '" data-act="request" data-v="' + esc(r.id) + '"' + (can ? '' : ' disabled') + '>' + (can ? 'Trade!' : 'Need ' + (r.cost - S.coins) + ' more') + '</button></div>';
+      var can = finite(S.coins) >= finite(r.cost);
+      var need = Math.max(0, finite(r.cost) - finite(S.coins));
+      h += '<div class="card reward-card"><div class="ri">' + esc(r.icon) + '</div><h3>' + esc(r.amount) + ' ' + esc(r.unit) + '</h3><div style="color:var(--muted)">' + esc(r.name) + '</div><div class="cost">🪙 ' + esc(r.cost) + ' coins</div>' +
+        '<button class="btn ' + (can ? 'green' : 'gray') + '" data-act="request" data-v="' + esc(r.id) + '"' + (can ? '' : ' disabled') + '>' + (can ? 'Trade!' : 'Need ' + esc(need) + ' more') + '</button></div>';
     });
     h += '</div>';
     var pend = S.requests.filter(function (q) { return q.status === 'pending'; });
     if (pend.length) {
       h += '<div class="section-title">⏳ Waiting for a grown-up</div><div class="card">';
-      pend.forEach(function (q) { h += '<div style="font-size:20px;padding:4px 0">' + esc(q.icon) + ' ' + q.amount + ' ' + esc(q.unit) + ' <span style="color:var(--muted);font-size:15px">(' + new Date(q.ts).toLocaleDateString() + ')</span></div>'; });
+      pend.forEach(function (q) { h += '<div style="font-size:20px;padding:4px 0">' + esc(q.icon) + ' ' + esc(q.amount) + ' ' + esc(q.unit) + ' <span style="color:var(--muted);font-size:15px">(' + new Date(q.ts).toLocaleDateString() + ')</span></div>'; });
       h += '</div>';
     }
     $('#s-shop').innerHTML = h;
@@ -4045,19 +4740,19 @@ body.shake-screen #app{animation:shake .3s linear 2}
     ss.forEach(function (s) { probs += s.problems; corr += s.correct; time += s.durationMs; });
     var weekAgo = Date.now() - 7 * 864e5, wk = ss.filter(function (s) { return s.ts >= weekAgo; });
     var days = {}; wk.forEach(function (s) { days[dayKey(s.ts)] = 1; });
-    var h = '<div class="topbar"><button class="back" data-act="home">◀ Back to game</button><div class="logo">Parent Dashboard<small style="color:#64748b">Everything stays on this iPad</small></div></div><div class="p-grid">';
+    var h = '<div class="topbar"><button class="back" data-act="home">◀ Back to game</button><div class="logo">Parent Dashboard<small style="color:#64748b">Everything stays on this iPad</small></div></div>' + saveBanner(false) + '<div class="p-grid">';
     // pending
     var pend = S.requests.filter(function (q) { return q.status === 'pending'; });
     h += '<div class="p-card"><h3>🎁 Reward requests ' + (pend.length ? '(' + pend.length + ' waiting)' : '') + '</h3>';
     if (!pend.length) h += '<div class="p-note">Nothing waiting. When ' + esc(S.name) + ' trades coins in the Treasure screen, it shows up here.</div>';
     pend.forEach(function (q) {
-      h += '<div class="p-row" style="justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:6px"><span>' + esc(q.icon) + ' <b>' + q.amount + ' ' + esc(q.unit) + '</b> · ' + q.cost + ' coins<br><span class="p-note">' + new Date(q.ts).toLocaleString() + '</span></span>' +
-        '<span><button class="btn green small" data-act="redeem" data-v="' + q.id + '">✔ Given</button> <button class="btn gray small" data-act="decline" data-v="' + q.id + '">Refund</button></span></div>';
+      h += '<div class="p-row" style="justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:6px"><span>' + esc(q.icon) + ' <b>' + esc(q.amount) + ' ' + esc(q.unit) + '</b> · ' + esc(q.cost) + ' coins<br><span class="p-note">' + new Date(q.ts).toLocaleString() + '</span></span>' +
+        '<span><button class="btn green small" data-act="redeem" data-v="' + esc(q.id) + '">✔ Given</button> <button class="btn gray small" data-act="decline" data-v="' + esc(q.id) + '">Refund</button></span></div>';
     });
     var done = S.requests.filter(function (q) { return q.status !== 'pending'; }).slice(-8).reverse();
     if (done.length) {
       h += '<div class="p-note" style="margin-top:8px">Recent:</div>';
-      done.forEach(function (q) { h += '<div class="p-note">' + new Date(q.doneTs || q.ts).toLocaleDateString() + ' · ' + esc(q.icon) + ' ' + q.amount + ' ' + esc(q.unit) + ' · ' + (q.status === 'redeemed' ? '✔ given' : '↩ refunded') + '</div>'; });
+      done.forEach(function (q) { h += '<div class="p-note">' + new Date(q.doneTs || q.ts).toLocaleDateString() + ' · ' + esc(q.icon) + ' ' + esc(q.amount) + ' ' + esc(q.unit) + ' · ' + (q.status === 'redeemed' ? '✔ given' : '↩ refunded') + '</div>'; });
     }
     h += '</div>';
     // overview
@@ -4133,8 +4828,11 @@ body.shake-screen #app{animation:shake .3s linear 2}
     // session log
     h += '<div class="p-card wide"><h3>📝 Session log (latest 40)</h3><div class="scroll-x"><table><tr><th>When</th><th>Module</th><th>Mode</th><th>Answered by</th><th>Correct</th><th>Accuracy</th><th>Avg / problem</th><th>Result</th><th>Stars</th><th>Coins</th><th>Missed</th></tr>';
     ss.slice(-40).reverse().forEach(function (s) {
-      h += '<tr><td>' + new Date(s.ts).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td>' + L.OP_INFO[s.op].name + ' ' + L.DIFF_INFO[s.diff].name + '</td><td>' + s.mode + '</td><td>' + methodLabel(s.method) + (s.method === 'write' && s.rereads ? '<br><span class="p-note">' + s.rereads + ' re-write' + (s.rereads > 1 ? 's' : '') + '</span>' : '') + '</td><td>' + s.correct + '/' + s.problems + '</td><td>' + (s.problems ? Math.round(s.correct / s.problems * 100) : 0) + '%</td><td>' + (s.avgMs / 1000).toFixed(1) + 's</td><td>' +
-        (s.mode === 'speed' ? (s.finished ? L.fmtTime(s.durationMs) : 'stopped') : 'streak ' + s.bestStreak) + '</td><td>' + s.stars + '</td><td>' + s.coins + '</td><td class="p-note">' + esc((s.misses || []).slice(0, 6).join(', ')) + (s.fixed ? '<br>' + s.fixed + ' re-typed ✔' : '') + '</td></tr>';
+      var op = L.OP_INFO[s.op], diff = L.DIFF_INFO[s.diff];
+      var problems = finite(s.problems), correct = finite(s.correct), avg = finite(s.avgMs), rereads = finite(s.rereads);
+      var misses = (Array.isArray(s.misses) ? s.misses : []).slice(0, 6).map(function (m) { return String(m); }).join(', ');
+      h += '<tr><td>' + new Date(s.ts).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td>' + (op ? op.name : esc(s.op)) + ' ' + (diff ? diff.name : esc(s.diff)) + '</td><td>' + esc(s.mode) + '</td><td>' + methodLabel(s.method) + (s.method === 'write' && rereads ? '<br><span class="p-note">' + esc(rereads) + ' re-write' + (rereads > 1 ? 's' : '') + '</span>' : '') + '</td><td>' + esc(correct) + '/' + esc(problems) + '</td><td>' + (problems ? Math.round(correct / problems * 100) : 0) + '%</td><td>' + (avg / 1000).toFixed(1) + 's</td><td>' +
+        (s.mode === 'speed' ? (s.finished ? L.fmtTime(finite(s.durationMs)) : 'stopped') : 'streak ' + esc(finite(s.bestStreak))) + '</td><td>' + esc(finite(s.stars)) + '</td><td>' + esc(finite(s.coins)) + '</td><td class="p-note">' + esc(misses) + (finite(s.fixed) ? '<br>' + esc(finite(s.fixed)) + ' re-typed ✔' : '') + '</td></tr>';
     });
     if (!ss.length) h += '<tr><td colspan="11" class="p-note">No sessions yet.</td></tr>';
     h += '</table></div></div>';
@@ -4144,7 +4842,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     S.settings.rewards.forEach(function (r, i) {
       h += '<div class="p-row" style="border-top:1px solid #e2e8f0;padding-top:8px"><input type="text" style="width:56px" data-rw="' + i + '" data-f="icon" value="' + esc(r.icon) + '"><input type="text" data-rw="' + i + '" data-f="name" value="' + esc(r.name) + '">' +
         '<label><input type="checkbox" data-rw="' + i + '" data-f="enabled"' + (r.enabled ? ' checked' : '') + '> on</label></div>' +
-        '<div class="p-row"><input type="number" inputmode="numeric" data-rw="' + i + '" data-f="cost" value="' + r.cost + '"><label>coins =</label><input type="number" inputmode="numeric" data-rw="' + i + '" data-f="amount" value="' + r.amount + '"><input type="text" style="width:110px" data-rw="' + i + '" data-f="unit" value="' + esc(r.unit) + '"><button class="btn gray small" data-act="rw-del" data-v="' + i + '">🗑</button></div>';
+        '<div class="p-row"><input type="number" inputmode="numeric" data-rw="' + i + '" data-f="cost" value="' + esc(r.cost) + '"><label>coins =</label><input type="number" inputmode="numeric" data-rw="' + i + '" data-f="amount" value="' + esc(r.amount) + '"><input type="text" style="width:110px" data-rw="' + i + '" data-f="unit" value="' + esc(r.unit) + '"><button class="btn gray small" data-act="rw-del" data-v="' + i + '">🗑</button></div>';
     });
     h += '<div class="p-row"><button class="btn small blue" data-act="rw-add">＋ Add reward</button><button class="btn small green" data-act="rw-save">Save rewards</button><span id="rw-msg" class="p-note"></span></div></div>';
     // settings
@@ -4156,7 +4854,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       '<div class="p-row"><label><input type="checkbox" id="set-fix"' + (S.settings.fixAfterMiss ? ' checked' : '') + ' data-act="set-fix"> After a miss, she re-enters the correct answer before moving on (recommended)</label></div>' +
       '<div class="p-row"><label>Fluent = correct within</label><select id="set-fluent" data-act="set-fluent">' + [3000, 4000, 5000, 6000, 8000].map(function (v) { return '<option value="' + v + '"' + (S.settings.fluentMs === v ? ' selected' : '') + '>' + (v / 1000) + 's</option>'; }).join('') + '</select><span class="p-note">includes reading and typing time; 4s is a fair 2nd-grade target on the number pad, use more for Write It</span></div>' +
       '<div class="p-row" style="border-top:1px solid #e2e8f0;padding-top:10px"><button class="btn small white" data-act="export">⬇ Backup file</button><label class="btn small white" style="cursor:pointer">⬆ Restore<input type="file" id="import-file" accept="application/json,.json" style="display:none"></label></div>' +
-      '<div class="p-note">Progress is saved in this browser only. Use Backup before clearing Safari data or switching devices.</div>' +
+      '<div class="p-note">Progress is saved in this browser only. On an iPad, Backup opens the share sheet and stays on this iPad. If that does not appear, the file downloads. If neither works, the backup text is shown so you can copy it.</div>' +
       '<div class="p-row" style="margin-top:10px"><button class="btn small pink" data-act="reset">Reset all progress</button></div></div>';
     h += '</div>';
     $('#s-parent').innerHTML = h;
@@ -4214,7 +4912,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       case 'request':
         var r = S.settings.rewards.filter(function (x) { return x.id === v; })[0];
         if (!r || S.coins < r.cost) break;
-        modal('<div style="font-size:70px">' + esc(r.icon) + '</div><h2>Trade ' + r.cost + ' 🪙 for ' + r.amount + ' ' + esc(r.unit) + '?</h2><div class="btn-row"><button class="btn green" data-act="request-yes" data-v="' + esc(r.id) + '">Yes!</button><button class="btn gray" data-act="modal-close">No</button></div>');
+        modal('<div style="font-size:70px">' + esc(r.icon) + '</div><h2>Trade ' + esc(r.cost) + ' 🪙 for ' + esc(r.amount) + ' ' + esc(r.unit) + '?</h2><div class="btn-row"><button class="btn green" data-act="request-yes" data-v="' + esc(r.id) + '">Yes!</button><button class="btn gray" data-act="modal-close">No</button></div>');
         break;
       case 'request-yes':
         var rr = S.settings.rewards.filter(function (x) { return x.id === v; })[0];
@@ -4244,16 +4942,80 @@ body.shake-screen #app{animation:shake .3s linear 2}
       case 'set-fluent': S.settings.fluentMs = parseInt(el.value, 10) || 4000; save(); RENDER_parent(); break;
       case 'grid-op': gridOp = v; RENDER_parent(); break;
       case 'set-sound': S.settings.sound = el.checked; save(); break;
-      case 'export':
-        var blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
-        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'brain-quest-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-        document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-        break;
+      case 'export': exportBackup(); break;
+      case 'backup-copy': copyBackupText(); break;
       case 'reset':
         if (confirm('Erase ALL progress, coins, items and history? This cannot be undone.')) { var pin = S.settings.pin; S = defaults(); S.settings.pin = pin; save(); show('home'); }
         break;
       default: if (RW) RW.act(name, v, el);
     }
+  }
+  function backupName() { return 'brain-quest-backup-' + new Date().toISOString().slice(0, 10) + '.json'; }
+  function showBackupText(json) {
+    modal('<h2 style="margin:0">Copy this backup</h2><p class="p-note">The share sheet and the download did not open. Select the text below and copy it into a note on this iPad. Nothing leaves this iPad.</p><textarea id="backup-text" readonly rows="8">' + esc(json) + '</textarea><div class="btn-row"><button class="btn green" data-act="backup-copy">Copy</button><button class="btn white" data-act="modal-close">Close</button></div>');
+    var ta = $('#backup-text'); if (ta) { ta.focus(); ta.select(); }
+  }
+  function copyBackupText() {
+    var ta = $('#backup-text'); if (!ta) return;
+    ta.focus(); ta.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(function () {}, function () { ta.focus(); ta.select(); });
+    }
+  }
+  function downloadBackup(json, name) {
+    try {
+      var blob = new Blob([json], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      return true;
+    } catch (e) { return false; }
+  }
+  function exportBackup() {
+    var json = JSON.stringify(S, null, 1), name = backupName(), file = null;
+    try { file = new File([json], name, { type: 'application/json' }); } catch (e) { file = null; }
+    var payload = file ? { files: [file], title: 'Brain Quest backup' } : null;
+    var can = false;
+    try { can = !!(payload && navigator.share && navigator.canShare && navigator.canShare(payload)); } catch (e2) { can = false; }
+    if (can) {
+      navigator.share(payload).catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+        if (!downloadBackup(json, name)) showBackupText(json);
+      });
+      return;
+    }
+    if (!downloadBackup(json, name)) showBackupText(json);
+  }
+  function importBackup(input) {
+    var file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > window.NMQSave.MAX_BACKUP_BYTES) { alert(window.NMQSave.MSG.tooBig); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      var parsed, result;
+      try { parsed = JSON.parse(fr.result); }
+      catch (err) { alert(window.NMQSave.MSG.notBackup); return; }
+      try { result = window.NMQSave.sanitize(parsed, { pin: S.settings && S.settings.pin }); }
+      catch (err2) { result = { ok: false }; }
+      if (!result || !result.ok) { alert(window.NMQSave.MSG.notBackup); return; }
+      if (!confirm('Replace current progress with this backup?')) return;
+      var previous = S;
+      S = result.save;
+      if (!save()) {
+        var why = saveWarning;
+        S = previous;
+        saveWarning = why;
+        alert(window.NMQSave.saveMessage(why, false));
+        show('parent');
+        return;
+      }
+      show('parent');
+    };
+    fr.readAsText(file);
   }
   function readRewards() {
     document.querySelectorAll('[data-rw]').forEach(function (inp) {
@@ -4282,14 +5044,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     });
     document.addEventListener('change', function (e) {
       if (e.target.tagName === 'SELECT' && e.target.dataset.act) { act(e.target.dataset.act, e.target.value, e.target); return; }
-      if (e.target.id === 'import-file' && e.target.files[0]) {
-        var fr = new FileReader();
-        fr.onload = function () {
-          try { var d = JSON.parse(fr.result); if (!d || !d.settings || !d.modules) throw 0; if (confirm('Replace current progress with this backup?')) { S = d; save(); load(); show('parent'); } }
-          catch (err) { alert('That file does not look like a Brain Quest / Math Quest backup.'); }
-        };
-        fr.readAsText(e.target.files[0]);
-      }
+      if (e.target.id === 'import-file' && e.target.files[0]) importBackup(e.target);
     });
     document.addEventListener('keydown', function (e) {
       if (RW && RW.isLive(current)) { RW.key(e); return; }
@@ -4308,7 +5063,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
     load();
     if (window.NMQRed) RW = window.NMQRed.init({
       state: function () { return S; }, save: save, show: show, current: function () { return current; }, SFX: SFX, splash: splash, confetti: confetti,
-      flashShake: flashShake, topbar: topbar, esc: esc, starStr: starStr, modal: modal, closeModal: closeModal, openEggs: openEggs, countdown: countdown,
+      flashShake: flashShake, topbar: topbar, esc: esc, starStr: starStr, modal: modal, closeModal: closeModal, openEggs: openEggs, countdown: countdown, primeAudio: primeAudio,
       fmtClock: fmtClock, praise: PRAISE, redDefaults: redDefaults, rerenderParent: function () { RENDER_parent(); }
     });
     MAX_STARS = MATH_MAX_STARS + (RW ? RW.maxStars : 0);
