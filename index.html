@@ -530,6 +530,11 @@ body.shake-screen #app{animation:shake .3s linear 2}
 .rp-settings select{font-size:16px;padding:6px 8px}
 .rp-voice{display:flex;flex:1 1 280px;align-items:center;gap:8px;min-width:0;max-width:100%}
 .rp-voice select{flex:1 1 auto;min-width:0;max-width:100%;min-height:44px}
+.rp-voice-safari{margin:4px 0 2px;line-height:1.4}
+.rp-voice-details{margin:0 0 8px;font-size:13px;color:#64748b;font-weight:500}
+.rp-voice-details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#334155}
+.rp-voice-details ul{margin:4px 0 8px;padding-left:18px;-webkit-user-select:text;user-select:text}
+.rp-voice-details li{margin:3px 0;word-break:break-all;line-height:1.35}
 .rp-add{display:flex;flex-direction:column;gap:8px;max-width:620px}
 .rp-marks{display:flex;gap:6px;flex-wrap:wrap}
 .rp-mark{width:46px;height:52px;border-radius:12px;background:#f1f5f9;font-size:28px;border:3px solid #e2e8f0;color:var(--ink)}
@@ -2182,6 +2187,27 @@ body.shake-screen #app{animation:shake .3s linear 2}
     s = s.replace(/\bzoey\b/g, 'zoe');
     return s;
   }
+  // Safari's Web Speech API does not expose downloaded Enhanced voices (WebKit bug 203689).
+  // An explicit sentinel means "do not set utterance.voice; let iOS use its system voice."
+  var SYSTEM_URI = 'system';
+  var SYSTEM_NAME = 'iPad default voice';
+  // Apple novelty / Eloquence joke voices. Hidden in the picker unless the parent asks to see all.
+  var NOVELTY = {
+    albert: 1, 'bad news': 1, bahh: 1, bells: 1, boing: 1, bubbles: 1, cellos: 1, 'good news': 1,
+    jester: 1, organ: 1, superstar: 1, trinoids: 1, whisper: 1, wobble: 1, zarvox: 1,
+    fred: 1, junior: 1, kathy: 1, ralph: 1,
+    eddy: 1, flo: 1, grandma: 1, grandpa: 1, reed: 1, rocko: 1, sandy: 1, shelley: 1
+  };
+  // Built-ins Safari actually exposes, best first, ahead of novelty voices.
+  var PREFERRED = ['samantha', 'ava', 'allison', 'susan', 'nicky', 'karen', 'daniel', 'moira', 'tessa'];
+  function isNovelty(voice) { return !!NOVELTY[baseName(voice && voice.name)]; }
+  function isSystem(saved) {
+    if (!saved || typeof saved !== 'object') return true;
+    var uri = String(saved.voiceURI || saved.voiceUri || '').trim();
+    var name = String(saved.voiceName || '').trim();
+    if (!uri && !name) return true;
+    return uri === SYSTEM_URI;
+  }
   function prefer(a, b) {
     var g = langGroup(a) - langGroup(b);
     if (g) return g;
@@ -2211,6 +2237,22 @@ body.shake-screen #app{animation:shake .3s linear 2}
       if (an > bn) return 1;
       return 0;
     });
+  }
+  // showAll keeps joke voices. A saved novelty voice stays visible so the current choice does not vanish.
+  function visibleVoices(list, showAll, saved) {
+    var sorted = sortVoices(list);
+    if (showAll) return sorted;
+    var q = savedQuery(saved);
+    var kept = [];
+    for (var i = 0; i < sorted.length; i++) {
+      var v = sorted[i];
+      if (!isNovelty(v)) { kept.push(v); continue; }
+      if (!q || q.voiceURI === SYSTEM_URI) continue;
+      var sameUri = q.voiceURI && v.voiceURI && v.voiceURI === q.voiceURI;
+      var sameName = q.voiceName && String(v.name || '').toLowerCase() === q.voiceName.toLowerCase();
+      if (sameUri || sameName) kept.push(v);
+    }
+    return kept;
   }
   function labelFor(voice) {
     var name = String((voice && voice.name) || 'Voice');
@@ -2256,29 +2298,32 @@ body.shake-screen #app{animation:shake .3s linear 2}
     hits.sort(prefer);
     return hits[0];
   }
+  function fallbackVoice(list) {
+    var all = usable(list), plain = [], i;
+    for (i = 0; i < all.length; i++) if (!isNovelty(all[i])) plain.push(all[i]);
+    var pool = plain.length ? plain : all;
+    var p, n, hits;
+    for (p = 0; p < PREFERRED.length; p++) {
+      hits = [];
+      for (n = 0; n < pool.length; n++) if (baseName(pool[n].name) === PREFERRED[p]) hits.push(pool[n]);
+      if (hits.length) { hits.sort(prefer); return hits[0]; }
+    }
+    pool = pool.slice().sort(prefer);
+    return pool[0] || null;
+  }
   function pickVoice(voices, saved) {
+    if (isSystem(saved)) return null;
     var list = usable(voices);
     if (!list.length) return null;
     var chosen = matchSaved(list, saved);
     if (chosen) return chosen;
-    if (!savedQuery(saved)) {
-      var zoes = [];
-      for (var z = 0; z < list.length; z++) if (baseName(list[z].name) === 'zoe') zoes.push(list[z]);
-      if (zoes.length) { zoes.sort(prefer); return zoes[0]; }
-    }
-    var enUs = [], en = [];
-    for (var i = 0; i < list.length; i++) {
-      var g = langGroup(list[i]);
-      if (g === 0) enUs.push(list[i]);
-      if (g <= 1) en.push(list[i]);
-    }
-    var pool = enUs.length ? enUs : en.length ? en : list;
-    pool = pool.slice().sort(prefer);
-    return pool[0] || null;
+    return fallbackVoice(list);
   }
 
   var api = {
+    SYSTEM_URI: SYSTEM_URI, SYSTEM_NAME: SYSTEM_NAME, PREFERRED: PREFERRED,
     baseName: baseName, quality: quality, qualityRank: qualityRank, langGroup: langGroup,
+    isNovelty: isNovelty, isSystem: isSystem, visibleVoices: visibleVoices,
     sortVoices: sortVoices, labelFor: labelFor, matchSaved: matchSaved, pickVoice: pickVoice
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -2294,7 +2339,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
 (function (root) {
   'use strict';
 
-  var SCHEMA = 1;
+  var SCHEMA = 2;
   var CAPS = {
     sessions: 200,
     learned: 400,
@@ -2337,9 +2382,22 @@ body.shake-screen #app{animation:shake .3s linear 2}
   };
 
   // Version 0 (a save with no v, or v 0) has the same shape as version 1.
+  // Version 2 stores an explicit voice choice. Empty voiceURI and voiceName was the old
+  // "nothing chosen, auto-pick Zoe" default; that becomes the iPad system voice.
   // Later versions add a function here. sanitize() always runs after migrate().
   var MIGRATIONS = [
-    function toV1(raw) { raw.v = 1; }
+    function toV1(raw) { raw.v = 1; },
+    function toV2(raw) {
+      raw.v = 2;
+      var s = raw.settings;
+      if (!s || typeof s !== 'object' || Array.isArray(s)) return;
+      var uri = typeof s.voiceURI === 'string' ? s.voiceURI.trim() : '';
+      var name = typeof s.voiceName === 'string' ? s.voiceName.trim() : '';
+      if (!uri && !name) {
+        s.voiceURI = 'system';
+        s.voiceName = 'iPad default voice';
+      }
+    }
   ];
 
   function num(v, fallback, min, max) {
@@ -2791,8 +2849,19 @@ body.shake-screen #app{animation:shake .3s linear 2}
         redVoice: settingsIn.redVoice !== false,
         redRate: nearest(settingsIn.redRate, RATES, 0.75),
         redDaily: daily,
-        voiceURI: str(settingsIn.voiceURI, 180),
-        voiceName: safeText(settingsIn.voiceName, 80),
+        voiceURI: (function () {
+          var uri = str(settingsIn.voiceURI, 180);
+          var name = safeText(settingsIn.voiceName, 80);
+          if (!uri && !name) return 'system';
+          return uri;
+        })(),
+        voiceName: (function () {
+          var uri = str(settingsIn.voiceURI, 180);
+          var name = safeText(settingsIn.voiceName, 80);
+          if (uri === 'system' && !name) return 'iPad default voice';
+          if (!uri && !name) return 'iPad default voice';
+          return name;
+        })(),
         rewards: sanitizeRewards(settingsIn.rewards)
       }
     };
@@ -2913,22 +2982,33 @@ body.shake-screen #app{animation:shake .3s linear 2}
       try { return s.getVoices() || []; } catch (e) { return []; }
     },
     voice: function () {
+      if (window.NMQVoice.isSystem(voiceSettings())) return null;
       if (this.cache) return this.cache;
       var picked = window.NMQVoice.pickVoice(this.rawVoices(), voiceSettings());
       if (picked) this.cache = picked;
       return picked || null;
     },
-    on: function () { return !!S().settings.redVoice && !!this.voice(); },
+    on: function () {
+      if (!S().settings.redVoice || !this.synth()) return false;
+      if (window.NMQVoice.isSystem(voiceSettings())) return true;
+      return !!this.voice();
+    },
     // Preview and lessons share this. A missing saved voice falls back inside pickVoice; it does not throw.
+    // The iPad default sentinel sets lang and leaves utterance.voice unset so iOS uses its system voice.
     // Cancel a stuck queue, then resume if iOS left the synthesizer paused.
     speak: function (text, rate) {
-      var s = this.synth(), v = this.voice();
-      if (!s || !v || !text) return false;
+      var s = this.synth();
+      if (!s || !text) return false;
+      var system = window.NMQVoice.isSystem(voiceSettings());
+      var v = system ? null : this.voice();
+      if (!system && !v) return false;
       try {
         try { if (s.paused && s.resume) s.resume(); } catch (e1) { /* ignore */ }
         if (s.speaking || s.pending) s.cancel();
         var u = new window.SpeechSynthesisUtterance(text);
-        u.voice = v; u.lang = v.lang || 'en-US'; u.rate = rate || +S().settings.redRate || 0.75; u.pitch = 1.1;
+        if (system) u.lang = 'en-US';
+        else { u.voice = v; u.lang = v.lang || 'en-US'; }
+        u.rate = rate || +S().settings.redRate || 0.75; u.pitch = 1.1;
         this.utter = u;   // keep a reference so the utterance is not garbage-collected mid-speech
         s.speak(u);
         try { if (s.paused && s.resume) s.resume(); } catch (e2) { /* iOS sometimes starts paused */ }
@@ -3575,14 +3655,16 @@ body.shake-screen #app{animation:shake .3s linear 2}
   }
 
   // ---------------------------------------------------------------- GROWN-UP SECTION
-  var PV = { lvl: '1', draft: null, msg: '' };   // draft: { w, red:{idx:1}, s }
+  var PV = { lvl: '1', draft: null, msg: '', showAllVoices: false };   // draft: { w, red:{idx:1}, s }
   function fmtAgo(ts) { if (!ts) return '--'; var d = Math.floor((now() - ts) / W.DAY); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; }
+  function voiceChoices() { return window.NMQVoice.visibleVoices(TTS.rawVoices(), PV.showAllVoices, voiceSettings()); }
   function voiceOptionsHtml() {
-    var list = window.NMQVoice.sortVoices(TTS.rawVoices());
-    var picked = list.length ? window.NMQVoice.pickVoice(list, voiceSettings()) : null;
-    if (!list.length) return '<option value="">Looking for voices…</option>';
+    var list = voiceChoices();
+    var system = window.NMQVoice.isSystem(voiceSettings());
+    var picked = !system && list.length ? window.NMQVoice.pickVoice(list, voiceSettings()) : null;
+    var h = '<option value="system"' + (system ? ' selected' : '') + '>iPad default voice</option>';
+    if (!list.length) return h;
     var groups = [[0, 'English (US)'], [1, 'English'], [2, 'Other languages']];
-    var h = '';
     groups.forEach(function (g) {
       var chunk = '';
       list.forEach(function (v, i) {
@@ -3592,6 +3674,15 @@ body.shake-screen #app{animation:shake .3s linear 2}
       if (chunk) h += '<optgroup label="' + g[1] + '">' + chunk + '</optgroup>';
     });
     return h;
+  }
+  function voiceDetailsHtml() {
+    var list = window.NMQVoice.sortVoices(TTS.rawVoices());
+    var h = '<details class="rp-voice-details"><summary>Voice list details</summary><div>' + list.length + (list.length === 1 ? ' voice' : ' voices') + '</div><ul>';
+    list.forEach(function (v) {
+      var local = v.localService === true ? 'true' : v.localService === false ? 'false' : '';
+      h += '<li>' + esc(v.name || '') + ' · ' + esc(v.lang || '') + ' · ' + esc(v.voiceURI || '') + ' · localService ' + esc(local) + '</li>';
+    });
+    return h + '</ul></details>';
   }
   var voiceListSig = null, voicePollTimer = null, refreshVoices = function () {};
   function armVoicePoll() {
@@ -3617,11 +3708,12 @@ body.shake-screen #app{animation:shake .3s linear 2}
   function voiceMsg() {
     var s = TTS.synth();
     if (!s) return '🔇 This browser has no speech voices, so words are shown as text only.';
+    var saved = voiceSettings();
+    if (window.NMQVoice.isSystem(saved)) return '🔊 Using the iPad default voice (en-US). Speech is made on this iPad; this page sends nothing.';
     var raw = TTS.rawVoices();
-    if (!raw.length) return '🔇 No voices yet. On iPad: Settings → Accessibility → Spoken Content → Voices → English, download one (Zoe or Samantha), then return here. Words stay on screen until a voice is ready.';
+    if (!raw.length) return '🔇 No voices yet. Built-in voices show up a moment after the page opens. Words stay on screen until a voice is ready.';
     var v = TTS.voice();
     if (!v) return '🔇 No voice could be selected. Words are shown as text.';
-    var saved = voiceSettings();
     var matched = window.NMQVoice.matchSaved(raw, saved);
     var note = (saved.voiceURI || saved.voiceName) && !matched ? ' The saved voice is not on this iPad, so another voice is speaking.' : '';
     var where = v.localService === false ? ' This voice may use online speech.' : ' Speech is made on this iPad; this page sends nothing.';
@@ -3648,9 +3740,13 @@ body.shake-screen #app{animation:shake .3s linear 2}
     var se = S().settings;
     h += '<div class="rp-settings"><label><input type="checkbox" data-rchange="voice"' + (se.redVoice ? ' checked' : '') + '> 🔊 Speak words aloud</label>' +
       '<label class="rp-voice">Reading voice <select id="rp-voice" data-rchange="voice-pick" aria-label="Reading voice">' + voiceOptionsHtml() + '</select></label>' +
+      '<label><input type="checkbox" data-rchange="voice-all"' + (PV.showAllVoices ? ' checked' : '') + '> Show all voices</label>' +
       '<label>Voice speed <select data-rchange="rate">' + [[0.6, 'Slow'], [0.75, 'Calm'], [0.9, 'Normal']].map(function (o) { return '<option value="' + o[0] + '"' + (+se.redRate === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
       '<label>New words per day <select data-rchange="daily">' + [1, 2, 3, 5, 0].map(function (n) { return '<option value="' + n + '"' + (+se.redDaily === n ? ' selected' : '') + '>' + (n ? n : 'No limit') + '</option>'; }).join('') + '</select></label>' +
-      '<button class="btn white small" data-act="rp-test-voice">▶ Test voice</button></div><div class="p-note" id="rp-voice-msg">' + voiceMsg() + '</div>';
+      '<button class="btn white small" data-act="rp-test-voice">▶ Test voice</button></div>' +
+      '<div class="p-note rp-voice-safari">Safari on iPad only lets web pages use built-in voices, so downloaded voices like Zoe may not appear.</div>' +
+      voiceDetailsHtml() +
+      '<div class="p-note" id="rp-voice-msg">' + voiceMsg() + '</div>';
     var tm = W.topMissed(R().words, all, 8);
     h += '<h4>💙 Most-missed words</h4>';
     if (!tm.length) h += '<div class="p-note">No misses yet.</div>';
@@ -3705,9 +3801,14 @@ body.shake-screen #app{animation:shake .3s linear 2}
         if (d) { R().last = d.last; } R().custom = keep.custom; R().off = keep.off;
         C.save(); rerenderParent(); break;
       case 'rp-test-voice':
-        var sel = $('#rp-voice'), list = window.NMQVoice.sortVoices(TTS.rawVoices());
-        var chosen = sel && sel.value !== '' ? list[+sel.value] : null;
-        if (chosen) { S().settings.voiceURI = chosen.voiceURI || ''; S().settings.voiceName = chosen.name || ''; C.save(); }
+        var sel = $('#rp-voice'), list = voiceChoices();
+        if (sel && sel.value === 'system') {
+          S().settings.voiceURI = 'system'; S().settings.voiceName = 'iPad default voice';
+        } else {
+          var chosen = sel && sel.value !== '' ? list[+sel.value] : null;
+          if (chosen) { S().settings.voiceURI = chosen.voiceURI || ''; S().settings.voiceName = chosen.name || ''; }
+        }
+        C.save();
         TTS.cache = null;
         armVoicePoll();
         TTS.speak('Hi! I am your reading voice.', +S().settings.redRate || 0.75);
@@ -3811,12 +3912,23 @@ body.shake-screen #app{animation:shake .3s linear 2}
         if (k === 'voice') se.redVoice = !!t.checked;
         else if (k === 'rate') se.redRate = +t.value || 0.75;
         else if (k === 'daily') se.redDaily = +t.value || 0;
+        else if (k === 'voice-all') {
+          PV.showAllVoices = !!t.checked;
+          voiceListSig = null;
+          rerenderParent();
+          return;
+        }
         else if (k === 'voice-pick') {
-          var list = window.NMQVoice.sortVoices(TTS.rawVoices());
-          var v = list[+t.value];
-          if (!v) return;
-          se.voiceURI = v.voiceURI || '';
-          se.voiceName = v.name || '';
+          if (t.value === 'system') {
+            se.voiceURI = 'system';
+            se.voiceName = 'iPad default voice';
+          } else {
+            var list = voiceChoices();
+            var v = list[+t.value];
+            if (!v) return;
+            se.voiceURI = v.voiceURI || '';
+            se.voiceName = v.name || '';
+          }
           TTS.cache = null;
         }
         C.save(); showVoiceNote();
@@ -3862,14 +3974,14 @@ body.shake-screen #app{animation:shake .3s linear 2}
   // ---------------------------------------------------------------- state
   function defaults() {
     return {
-      v: 1, name: 'Naomi', coins: 0, look: { skin: 0, hair: 1, style: 0 }, equipped: {}, owned: {}, eggs: [],
+      v: 2, name: 'Naomi', coins: 0, look: { skin: 0, hair: 1, style: 0 }, equipped: {}, owned: {}, eggs: [],
       modules: {}, facts: {}, sessions: [], requests: [],
       totals: { coinsEarned: 0, eggsHatched: 0 },
       last: { op: 'add', diff: 'easy', mode: 'streak', method: 'pad' },
       red: redDefaults(),
       settings: {
         pin: '1234', sound: true, autoSubmit: true, fixAfterMiss: true, fluentMs: 4000, redVoice: true, redRate: 0.75, redDaily: 3,
-        voiceURI: '', voiceName: '',
+        voiceURI: 'system', voiceName: 'iPad default voice',
         rewards: [
           { id: 'robux', icon: '💎', name: 'Robux', cost: 400, amount: 80, unit: 'Robux', enabled: true },
           { id: 'screen', icon: '📱', name: 'Screen time', cost: 100, amount: 15, unit: 'minutes', enabled: true },
