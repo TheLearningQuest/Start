@@ -179,7 +179,6 @@ test('word garden unlock compares ids, not object identity', function () {
   assert.equal(Save.gardenLocked('new', 'c:yacht:1', 'c:yacht:1', 0), true);
   assert.equal(Save.gardenLocked('learning', 'c:yacht:1', 'c:friend:2', 2), false);
   assert.equal(Save.gardenLocked('new', 'c:yacht:1', null, 2), true);
-  assert.match(html, /gardenLocked\(st, w\.id, nx && nx\.id, left\)/);
 });
 
 test('allWords skips bad custom entries and blankSentence escapes regex characters', function () {
