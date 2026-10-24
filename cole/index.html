@@ -73,6 +73,7 @@
   .guide.done { opacity: .15; }
   .fade .guide { opacity: .3; }
   .paint, .ink { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .ink { stroke-width: 5.5; }
   .under { fill: none; stroke: rgba(15,23,42,.3); stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
   .paint { stroke-width: 7.2; }
   .arrow { fill: #f97316; stroke: #9a3412; stroke-width: .8; }
@@ -93,7 +94,32 @@
     min-height: 180px; border-radius: 28px; background: #fff; box-shadow: 0 8px 0 #94a3b8;
     display: grid; place-items: center; padding: 8px;
   }
-  .choice svg { width: min(180px, 34vw); height: auto; }
+  .choice svg { width: min(220px, 40vw); height: auto; }
+  .snum { font-family: system-ui, sans-serif; font-size: 8px; font-weight: 800; fill: #475569; pointer-events: none; }
+  .snum.on { font-size: 11px; fill: #ea580c; }
+  .units { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .unit {
+    min-height: 150px; border-radius: 24px; background: #fff; box-shadow: 0 8px 0 #94a3b8;
+    display: grid; place-items: center; padding: 8px; position: relative;
+  }
+  .unit svg { width: min(150px, 32vw); height: auto; }
+  .unit .badge { top: 8px; right: 8px; width: 28px; height: 28px; }
+  .intro-art { display: grid; place-items: center; margin-top: 8px; }
+  .intro-art svg { width: min(340px, 78vw); height: auto; }
+  .go {
+    width: 120px; height: 120px; border-radius: 50%; background: #22c55e;
+    box-shadow: 0 8px 0 #15803d; display: grid; place-items: center; margin: 16px auto;
+  }
+  .go svg { width: 64px; height: 64px; }
+  .swatch.goal { box-shadow: 0 0 0 6px #fff, 0 0 0 12px #0f172a; }
+  .modes { display: flex; gap: 10px; justify-content: center; margin-bottom: 8px; }
+  .mode {
+    width: 92px; height: 92px; border-radius: 22px; background: #fff; box-shadow: 0 5px 0 #cbd5e1;
+    display: grid; place-items: center;
+  }
+  .mode.on { outline: 5px solid #f97316; }
+  .mode svg { width: 70px; height: 70px; }
+  .pages button.locked { opacity: .45; }
   .pattern { display: flex; gap: 10px; justify-content: center; margin: 8px 0 16px; }
   .pattern svg { width: 72px; height: 72px; background: #fff; border-radius: 16px; }
   .gear { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px; }
@@ -133,6 +159,7 @@
     .home { display: grid; grid-template-columns: minmax(260px, 36%) 1fr; align-items: center; gap: 18px; min-height: calc(100vh - 24px); min-height: calc(100dvh - 24px); }
     .trace-main { display: grid; grid-template-columns: 112px 1fr; gap: 8px; align-items: center; }
     .trace-main .swatches { flex-direction: column; }
+    .units { grid-template-columns: repeat(4, 1fr); }
     #board { height: calc(100vh - 108px); height: calc(100dvh - 108px); }
   }
   @media (prefers-reduced-motion: reduce) { .no { animation: none; } }
@@ -272,7 +299,7 @@
     var n = 0;
     for (var id in src) {
       if (!Object.prototype.hasOwnProperty.call(src, id)) continue;
-      if (n >= 40 || !/^[a-z]{1,16}$/.test(id)) continue;
+      if (n >= 120 || !/^[a-z0-9-]{1,24}$/.test(id)) continue;
       if (src[id] === true) { out[id] = true; n++; }
     }
     return out;
@@ -359,7 +386,10 @@
    Letter and number strokes, swatches, and tracing scores. No DOM.
    Browser: window.ColeTrace. Tests load this block.
    Shared letter names: ../audio/letters/<a-z>.m4a
-   Cole prompts and numbers: audio/n0.m4a through audio/n10.m4a */
+   Cole prompts and numbers: audio/n0.m4a through audio/n10.m4a
+   Stroke order is Handwriting Without Tears: capitals start at the top,
+   big lines first, frog-jump starts. STROKE_TABLES is the one place a
+   later Zaner-Bloser or D'Nealian table can be swapped in. */
 (function (root) {
   'use strict';
   var SWATCHES = [
@@ -423,71 +453,78 @@
     for (var i = 1; i < spec.length; i += 2) pts.push([spec[i], spec[i + 1]]);
     return smooth(pts);
   }
-  var SPEC = {
-    A: [['L', 50, 18, 18, 88], ['L', 50, 18, 82, 88], ['L', 32, 58, 68, 58]],
-    B: [['L', 28, 18, 28, 88], ['P', 28, 18, 58, 16, 72, 30, 60, 46, 28, 50], ['P', 28, 50, 66, 50, 78, 66, 62, 88, 28, 88]],
-    C: [['P', 72, 26, 46, 16, 22, 32, 16, 54, 24, 78, 50, 90, 74, 76]],
-    D: [['L', 28, 18, 28, 88], ['P', 28, 18, 62, 18, 82, 42, 78, 70, 58, 88, 28, 88]],
-    E: [['L', 26, 18, 26, 88], ['L', 26, 18, 74, 18], ['L', 26, 50, 64, 50], ['L', 26, 88, 74, 88]],
-    F: [['L', 28, 18, 28, 88], ['L', 28, 18, 76, 18], ['L', 28, 50, 66, 50]],
-    G: [['P', 74, 28, 48, 16, 22, 32, 16, 56, 26, 82, 52, 90, 74, 78], ['L', 50, 60, 78, 60]],
-    H: [['L', 22, 18, 22, 88], ['L', 78, 18, 78, 88], ['L', 22, 52, 78, 52]],
-    I: [['L', 50, 24, 50, 84], ['L', 32, 24, 68, 24], ['L', 32, 84, 68, 84]],
-    J: [['P', 62, 18, 62, 62, 48, 88, 28, 82, 24, 64]],
-    K: [['L', 26, 18, 26, 88], ['L', 72, 18, 26, 52], ['L', 26, 52, 76, 88]],
-    L: [['L', 28, 18, 28, 88], ['L', 28, 88, 78, 88]],
-    M: [['L', 16, 88, 16, 20], ['L', 16, 20, 50, 64], ['L', 50, 64, 84, 20], ['L', 84, 20, 84, 88]],
-    N: [['L', 20, 88, 20, 18], ['L', 20, 18, 80, 88], ['L', 80, 88, 80, 18]],
-    O: [['O', 50, 53, 30, 35]],
-    P: [['L', 28, 18, 28, 88], ['P', 28, 18, 64, 16, 78, 32, 62, 50, 28, 50]],
-    Q: [['O', 46, 50, 26, 32], ['L', 58, 68, 82, 92]],
-    R: [['L', 28, 18, 28, 88], ['P', 28, 18, 66, 16, 78, 32, 60, 50, 28, 50], ['L', 44, 50, 78, 88]],
-    S: [['P', 70, 30, 42, 16, 20, 32, 32, 50, 62, 60, 76, 76, 48, 94, 24, 80]],
-    T: [['L', 50, 18, 50, 88], ['L', 22, 18, 78, 18]],
-    U: [['P', 22, 18, 22, 64, 40, 90, 60, 90, 78, 64, 78, 18]],
-    V: [['L', 18, 18, 50, 88], ['L', 50, 88, 82, 18]],
-    W: [['L', 12, 18, 30, 88], ['L', 30, 88, 50, 42], ['L', 50, 42, 70, 88], ['L', 70, 88, 88, 18]],
-    X: [['L', 20, 18, 80, 88], ['L', 80, 18, 20, 88]],
-    Y: [['L', 18, 18, 50, 52], ['L', 82, 18, 50, 52], ['L', 50, 52, 50, 88]],
-    Z: [['L', 20, 18, 80, 18], ['L', 80, 18, 20, 88], ['L', 20, 88, 80, 88]],
-    a: [['O', 42, 72, 18, 16], ['L', 60, 54, 60, 90]],
-    b: [['L', 30, 16, 30, 90], ['O', 50, 72, 20, 16]],
-    c: [['P', 66, 58, 46, 50, 26, 60, 24, 78, 42, 92, 64, 84]],
-    d: [['O', 42, 72, 18, 16], ['L', 60, 16, 60, 90]],
-    e: [['L', 28, 72, 64, 72], ['P', 64, 72, 64, 56, 40, 50, 24, 64, 26, 82, 46, 92, 68, 84]],
-    f: [['P', 64, 30, 46, 16, 34, 30], ['L', 36, 28, 36, 92], ['L', 22, 54, 56, 54]],
-    g: [['O', 42, 70, 18, 16], ['P', 60, 56, 60, 96, 46, 112, 28, 102]],
-    h: [['L', 28, 16, 28, 90], ['P', 28, 62, 28, 50, 48, 50, 58, 66, 58, 90]],
-    i: [['L', 44, 58, 44, 90], ['L', 44, 42, 44, 48]],
-    j: [['L', 52, 42, 52, 48], ['P', 52, 58, 52, 96, 38, 112, 24, 100]],
-    k: [['L', 30, 16, 30, 90], ['L', 58, 56, 30, 74], ['L', 30, 74, 62, 90]],
-    l: [['L', 48, 16, 48, 90]],
-    m: [['L', 16, 90, 16, 54], ['P', 16, 66, 16, 52, 32, 52, 40, 68, 40, 90], ['P', 40, 66, 40, 52, 56, 52, 66, 68, 66, 90]],
-    n: [['L', 28, 90, 28, 54], ['P', 28, 66, 28, 52, 48, 52, 60, 66, 60, 90]],
-    o: [['O', 50, 72, 22, 18]],
-    p: [['L', 30, 52, 30, 112], ['O', 52, 72, 20, 16]],
-    q: [['O', 42, 72, 18, 16], ['L', 60, 52, 60, 112]],
-    r: [['L', 32, 90, 32, 54], ['P', 32, 70, 32, 54, 52, 54, 62, 68]],
-    s: [['P', 62, 56, 40, 50, 26, 62, 38, 74, 58, 80, 46, 94, 26, 86]],
-    t: [['L', 42, 36, 42, 86], ['L', 26, 56, 60, 56], ['P', 42, 84, 50, 96, 64, 88]],
-    u: [['P', 28, 54, 28, 78, 42, 92, 58, 80, 58, 54], ['L', 58, 70, 58, 90]],
-    v: [['L', 24, 54, 50, 92], ['L', 50, 92, 76, 54]],
-    w: [['L', 14, 54, 30, 92], ['L', 30, 92, 50, 66], ['L', 50, 66, 70, 92], ['L', 70, 92, 86, 54]],
-    x: [['L', 26, 54, 74, 92], ['L', 74, 54, 26, 92]],
-    y: [['L', 24, 54, 48, 84], ['P', 76, 54, 52, 80, 40, 100, 28, 112]],
-    z: [['L', 26, 54, 74, 54], ['L', 74, 54, 26, 92], ['L', 26, 92, 74, 92]],
-    '0': [['O', 50, 54, 26, 32]],
-    '1': [['L', 34, 34, 50, 18], ['L', 50, 18, 50, 90]],
-    '2': [['P', 28, 38, 30, 20, 52, 16, 74, 32, 64, 52, 28, 90], ['L', 28, 90, 76, 90]],
-    '3': [['P', 26, 28, 50, 16, 74, 28, 58, 46, 40, 50], ['P', 48, 50, 74, 54, 76, 72, 56, 90, 28, 82]],
-    '4': [['L', 64, 18, 64, 90], ['P', 64, 22, 24, 64, 82, 64]],
-    '5': [['P', 72, 20, 30, 20, 30, 50], ['P', 30, 48, 58, 44, 78, 60, 68, 90, 30, 86]],
-    '6': [['P', 68, 30, 44, 16, 22, 40, 22, 72, 38, 92, 64, 86, 70, 66, 48, 58, 28, 68]],
-    '7': [['L', 24, 22, 76, 22], ['L', 76, 22, 34, 90]],
-    '8': [['O', 50, 36, 20, 16], ['O', 50, 72, 24, 18]],
-    '9': [['O', 48, 38, 20, 16], ['P', 66, 28, 70, 52, 60, 90, 38, 88]],
-    '10': [['L', 20, 28, 20, 90], ['O', 66, 58, 18, 28]]
+  function S(dir, spec) { return { dir: dir, pts: strokeOf(spec) }; }
+  /* One table per method. hwt is Handwriting Without Tears.
+     Capitals start at the top. Big lines come first. Frog-jump strokes
+     begin again at the starting corner. Swap STROKE_METHOD when a
+     Zaner-Bloser or D'Nealian table is added beside hwt. */
+  var STROKE_METHOD = 'hwt';
+  var HWT = {
+    A: [S('down-left', ['L', 50, 16, 18, 90]), S('down-right', ['L', 50, 16, 82, 90]), S('right', ['L', 32, 58, 68, 58])],
+    B: [S('down', ['L', 30, 16, 30, 90]), S('curve', ['P', 30, 16, 56, 14, 70, 28, 58, 46, 30, 50]), S('curve', ['P', 30, 50, 66, 50, 78, 68, 60, 90, 30, 90])],
+    C: [S('curve', ['P', 74, 28, 52, 16, 26, 30, 18, 56, 28, 82, 52, 92, 74, 78])],
+    D: [S('down', ['L', 28, 16, 28, 90]), S('curve', ['P', 28, 16, 62, 16, 84, 40, 80, 72, 56, 90, 28, 90])],
+    E: [S('down', ['L', 26, 16, 26, 90]), S('right', ['L', 26, 16, 74, 16]), S('right', ['L', 26, 52, 64, 52]), S('right', ['L', 26, 90, 74, 90])],
+    F: [S('down', ['L', 28, 16, 28, 90]), S('right', ['L', 28, 16, 76, 16]), S('right', ['L', 28, 52, 66, 52])],
+    G: [S('curve', ['P', 74, 28, 50, 16, 24, 32, 18, 58, 30, 84, 54, 92, 74, 78]), S('left', ['L', 78, 60, 48, 60])],
+    H: [S('down', ['L', 22, 16, 22, 90]), S('down', ['L', 78, 16, 78, 90]), S('right', ['L', 22, 52, 78, 52])],
+    I: [S('down', ['L', 50, 22, 50, 86]), S('right', ['L', 32, 22, 68, 22]), S('right', ['L', 32, 86, 68, 86])],
+    J: [S('curve', ['P', 62, 28, 62, 64, 48, 90, 28, 82, 24, 62]), S('right', ['L', 40, 20, 74, 20])],
+    K: [S('down', ['L', 28, 16, 28, 90]), S('down-left', ['L', 72, 18, 28, 52]), S('down-right', ['L', 28, 52, 76, 90])],
+    L: [S('down', ['L', 28, 18, 28, 88]), S('right', ['L', 28, 88, 78, 88])],
+    M: [S('down', ['L', 18, 16, 18, 90]), S('down-right', ['L', 18, 16, 50, 88]), S('up-right', ['L', 50, 88, 82, 16]), S('down', ['L', 82, 16, 82, 90])],
+    N: [S('down', ['L', 22, 16, 22, 90]), S('down-right', ['L', 22, 16, 78, 90]), S('up', ['L', 78, 90, 78, 16])],
+    O: [S('curve', ['P', 50, 18, 28, 28, 18, 54, 28, 82, 50, 94, 74, 84, 86, 54, 74, 28, 50, 18])],
+    P: [S('down', ['L', 28, 16, 28, 90]), S('curve', ['P', 28, 16, 64, 14, 78, 32, 62, 50, 28, 50])],
+    Q: [S('curve', ['P', 46, 18, 24, 32, 20, 58, 32, 84, 52, 92, 70, 80, 78, 52, 70, 28, 46, 18]), S('down-right', ['L', 58, 68, 82, 92])],
+    R: [S('down', ['L', 28, 16, 28, 90]), S('curve', ['P', 28, 16, 66, 14, 78, 32, 60, 50, 28, 50]), S('down-right', ['L', 44, 50, 78, 90])],
+    S: [S('curve', ['P', 70, 30, 46, 16, 24, 32, 34, 50, 62, 62, 76, 78, 50, 96, 26, 82])],
+    T: [S('down', ['L', 50, 16, 50, 90]), S('right', ['L', 22, 16, 78, 16])],
+    U: [S('curve', ['P', 22, 16, 22, 66, 40, 90, 60, 90, 78, 66, 78, 16])],
+    V: [S('down-right', ['L', 18, 16, 50, 90]), S('up-right', ['L', 50, 90, 82, 16])],
+    W: [S('down-right', ['L', 14, 16, 30, 90]), S('up-right', ['L', 30, 90, 50, 40]), S('down-right', ['L', 50, 40, 70, 90]), S('up-right', ['L', 70, 90, 88, 16])],
+    X: [S('down-right', ['L', 20, 16, 80, 90]), S('down-left', ['L', 80, 16, 20, 90])],
+    Y: [S('down-right', ['L', 22, 16, 50, 52]), S('down-left', ['L', 78, 16, 50, 90])],
+    Z: [S('right', ['L', 20, 16, 80, 16]), S('down-left', ['L', 80, 16, 20, 90]), S('right', ['L', 20, 90, 80, 90])],
+    a: [S('magic-c', ['P', 64, 64, 46, 52, 28, 66, 30, 86, 50, 94, 68, 80, 66, 58, 66, 92])],
+    b: [S('down', ['P', 32, 18, 32, 92, 32, 68, 50, 54, 72, 70, 64, 90, 40, 94, 32, 78])],
+    c: [S('magic-c', ['P', 66, 60, 46, 50, 26, 62, 28, 84, 50, 94, 68, 82])],
+    d: [S('magic-c', ['P', 46, 68, 28, 56, 24, 76, 40, 92, 60, 84, 62, 64, 62, 18, 62, 92])],
+    e: [S('right', ['P', 28, 72, 64, 72, 66, 56, 42, 50, 24, 66, 28, 86, 50, 94, 68, 84])],
+    f: [S('curve', ['P', 58, 40, 42, 18, 32, 32, 36, 92]), S('right', ['L', 22, 52, 56, 52])],
+    g: [S('magic-c', ['P', 46, 66, 28, 54, 24, 74, 40, 90, 60, 82, 62, 62, 62, 48, 62, 112, 40, 108])],
+    h: [S('down', ['P', 30, 16, 30, 90, 30, 58, 48, 50, 62, 66, 62, 90])],
+    i: [S('down', ['L', 48, 56, 48, 92]), S('down', ['L', 48, 40, 48, 48])],
+    j: [S('curve', ['P', 54, 56, 54, 96, 40, 112, 26, 100]), S('down', ['L', 54, 40, 54, 48])],
+    k: [S('down', ['L', 32, 16, 32, 92]), S('down-left', ['P', 60, 56, 32, 74, 64, 92])],
+    l: [S('down', ['L', 50, 16, 50, 92])],
+    m: [S('down', ['P', 18, 92, 18, 54, 18, 50, 36, 50, 42, 70, 42, 92, 42, 54, 60, 50, 72, 68, 72, 92])],
+    n: [S('down', ['P', 30, 92, 30, 54, 30, 50, 52, 50, 64, 68, 64, 92])],
+    o: [S('magic-c', ['P', 50, 54, 30, 62, 28, 78, 46, 94, 68, 86, 72, 68, 58, 56, 50, 54])],
+    p: [S('down', ['P', 32, 56, 32, 112, 32, 70, 52, 54, 70, 70, 64, 90, 42, 94, 32, 76])],
+    q: [S('magic-c', ['P', 44, 66, 26, 56, 24, 78, 42, 92, 60, 80, 62, 58, 62, 112])],
+    r: [S('down', ['P', 34, 92, 34, 54, 34, 50, 54, 50, 66, 64])],
+    s: [S('curve', ['P', 64, 56, 42, 50, 28, 62, 40, 76, 58, 84, 46, 96, 28, 88])],
+    t: [S('down', ['L', 44, 28, 44, 90]), S('right', ['L', 26, 54, 62, 54])],
+    u: [S('curve', ['P', 28, 54, 28, 80, 44, 94, 62, 80, 62, 54, 62, 92])],
+    v: [S('down-right', ['L', 26, 52, 50, 92]), S('up-right', ['L', 50, 92, 76, 52])],
+    w: [S('down-right', ['L', 16, 52, 32, 92]), S('up-right', ['L', 32, 92, 50, 64]), S('down-right', ['L', 50, 64, 68, 92]), S('up-right', ['L', 68, 92, 86, 52])],
+    x: [S('down-right', ['L', 26, 52, 74, 92]), S('down-left', ['L', 74, 52, 26, 92])],
+    y: [S('down-right', ['L', 26, 52, 48, 80]), S('down-left', ['L', 74, 52, 36, 112])],
+    z: [S('right', ['L', 26, 52, 74, 52]), S('down-left', ['L', 74, 52, 26, 92]), S('right', ['L', 26, 92, 74, 92])],
+    '0': [S('curve', ['P', 50, 18, 26, 30, 18, 56, 28, 84, 50, 96, 74, 84, 84, 56, 74, 30, 50, 18])],
+    '1': [S('down', ['L', 50, 18, 50, 90])],
+    '2': [S('curve', ['P', 30, 28, 36, 16, 62, 16, 78, 36, 70, 58, 36, 90]), S('right', ['L', 30, 90, 78, 90])],
+    '3': [S('curve', ['P', 28, 24, 50, 14, 74, 28, 58, 46, 40, 52, 64, 52, 78, 66, 74, 86, 52, 96, 28, 84])],
+    '4': [S('down', ['L', 28, 20, 28, 54]), S('right', ['L', 28, 54, 72, 54]), S('down', ['L', 72, 16, 72, 92])],
+    '5': [S('down', ['L', 32, 22, 32, 52]), S('curve', ['P', 32, 52, 32, 70, 48, 96, 74, 86, 70, 60, 48, 52]), S('right', ['L', 32, 20, 76, 20])],
+    '6': [S('curve', ['P', 36, 18, 24, 40, 22, 72, 40, 94, 66, 88, 74, 66, 52, 56, 32, 68])],
+    '7': [S('right', ['L', 24, 20, 78, 20]), S('down-left', ['L', 78, 20, 34, 92])],
+    '8': [S('curve', ['P', 50, 20, 32, 28, 28, 42, 42, 54, 68, 66, 74, 82, 62, 100, 40, 96, 28, 78, 40, 62, 58, 46, 70, 30, 62, 22, 50, 18])],
+    '9': [S('curve', ['P', 66, 24, 48, 14, 28, 30, 32, 50, 52, 48, 68, 28, 70, 92])],
+    '10': [S('down', ['L', 22, 22, 22, 90]), S('curve', ['P', 70, 28, 52, 22, 46, 48, 56, 74, 74, 70, 80, 48, 70, 30])]
   };
+  var STROKE_TABLES = { hwt: HWT };
 
   var ORDER = [];
   function addRange(from, to) {
@@ -499,12 +536,17 @@
   ORDER.push('10');
 
   var GLYPHS = {};
+  var TABLE = STROKE_TABLES[STROKE_METHOD];
   for (var gi = 0; gi < ORDER.length; gi++) {
     var id = ORDER[gi];
-    var parts = SPEC[id];
-    var strokes = [];
-    for (var si = 0; si < parts.length; si++) strokes.push(strokeOf(parts[si]));
-    GLYPHS[id] = { id: id, strokes: strokes };
+    var parts = TABLE[id];
+    var strokes = [], dirs = [], starts = [];
+    for (var si = 0; si < parts.length; si++) {
+      strokes.push(parts[si].pts);
+      dirs.push(parts[si].dir);
+      starts.push(parts[si].pts[0]);
+    }
+    GLYPHS[id] = { id: id, method: STROKE_METHOD, strokes: strokes, dirs: dirs, starts: starts };
   }
 
   function glyph(id) { return GLYPHS[id] || null; }
@@ -564,10 +606,19 @@
     }
     return j / pts.length;
   }
+  function isBackwards(guide, user) {
+    var gs = guide[0], ge = guide[guide.length - 1];
+    var us = user[0], ue = user[user.length - 1];
+    if (dist(gs, ge) < 10) return false;
+    var forward = dist(us, gs) + dist(ue, ge);
+    var reverse = dist(us, ge) + dist(ue, gs);
+    return reverse + 4 < forward;
+  }
   function scoreStroke(guide, user, tol, need) {
     if (tol == null) tol = 16;
     if (need == null) need = 0.7;
     if (!guide || !user || user.length < 2) return { ok: false, reason: 'short', coverage: 0 };
+    if (isBackwards(guide, user)) return { ok: false, reason: 'backwards', coverage: 0 };
     var start = dist(user[0], guide[0]);
     if (start > tol * 1.65) return { ok: false, reason: 'start', coverage: 0 };
     var cov = coverage(guide, user, tol);
@@ -630,7 +681,7 @@
   }
 
   var api = {
-    SWATCHES: SWATCHES, ORDER: ORDER, STAGE_NAMES: STAGE_NAMES, TAILS: TAILS,
+    SWATCHES: SWATCHES, ORDER: ORDER, STAGE_NAMES: STAGE_NAMES, TAILS: TAILS, METHOD: STROKE_METHOD,
     glyph: glyph, selectSwatch: selectSwatch, spokenName: spokenName, stageName: stageName,
     stageLine: stageLine, nameClip: nameClip, scoreStroke: scoreStroke, scoreAttempt: scoreAttempt,
     progressAfter: progressAfter, nextGlyph: nextGlyph, suggested: suggested, pointAlong: pointAlong, dist: dist
@@ -642,30 +693,193 @@
 </script>
 <script>
 /* COLE_EXPLORE_MODULE_START
-   Picture questions. The words are spoken. No DOM.
-   Browser: window.ColeExplore. Tests load this block. */
+   Picture units. The words are spoken. No DOM.
+   Browser: window.ColeExplore. Tests load this block.
+   Pictures are one flat style so a later set can replace PICS. */
 (function (root) {
   'use strict';
-  var QUESTIONS = [
-    { id: 'float', say: 'Which one floats?', clip: 'audio/q-float.m4a', choices: [
-      { id: 'boat', ok: true }, { id: 'rock', ok: false }
+  var S = ' stroke="#1f2937" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"';
+  function f(fill) { return ' fill="' + fill + '"' + S; }
+  function eye(x, y) { return '<circle cx="' + x + '" cy="' + y + '" r="3.6" fill="#1f2937"/>'; }
+  function eyes(x, y) { return eye(x, y) + eye(x + 16, y); }
+  function smile(x, y) { return '<path d="M' + x + ' ' + (y) + ' Q' + (x + 10) + ' ' + (y + 10) + ' ' + (x + 20) + ' ' + y + '" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>'; }
+
+  var PICS = {
+    pond: '<ellipse cx="60" cy="78" rx="50" ry="24"' + f('#38bdf8') + '/><ellipse cx="60" cy="72" rx="36" ry="10" fill="#7dd3fc"/>' +
+      '<path d="M28 70 C40 58 52 80 64 66 C72 58 80 72 90 64" fill="none" stroke="#0369a1" stroke-width="3"/>' +
+      '<path d="M34 62 C48 48 58 74 46 78 C36 80 28 72 34 62 Z"' + f('#4ade80') + '/><path d="M40 64 L48 74" stroke="#166534" stroke-width="2"/>' +
+      '<path d="M78 88 L88 70 L104 82 L98 102 L74 98 Z"' + f('#94a3b8') + '/>',
+    living: '<ellipse cx="38" cy="78" rx="22" ry="14"' + f('#d97706') + '/><circle cx="58" cy="62" r="14"' + f('#f59e0b') + '/>' +
+      '<ellipse cx="68" cy="50" rx="6" ry="10"' + f('#b45309') + '/>' + eye(54, 60) + '<path d="M50 68 Q58 74 66 68" fill="none" stroke="#1f2937" stroke-width="2"/>' +
+      '<rect x="86" y="70" width="6" height="28"' + f('#16a34a') + '/><circle cx="89" cy="58" r="8"' + f('#f472b6') + '/><circle cx="78" cy="66" r="7"' + f('#fb7185') + '/><circle cx="100" cy="66" r="7"' + f('#f472b6') + '/><circle cx="89" cy="66" r="5" fill="#facc15"/>',
+    homes: '<path d="M34 78 C34 48 86 48 86 78 Z"' + f('#d6d3d1') + '/><ellipse cx="60" cy="78" rx="36" ry="10"' + f('#a8a29e') + '/>' +
+      '<circle cx="78" cy="46" r="12"' + f('#38bdf8') + '/><polygon points="88,46 104,40 100,52" fill="#f59e0b" stroke="#1f2937" stroke-width="3"/>' + eye(74, 44) +
+      '<path d="M24 92 H96" stroke="#65a30d" stroke-width="6" stroke-linecap="round"/>',
+    garden: '<circle cx="24" cy="86" r="10"' + f('#a16207') + '/><path d="M24 76 V70" stroke="#166534" stroke-width="3"/>' +
+      '<path d="M48 90 V62" stroke="#16a34a" stroke-width="4"/><ellipse cx="42" cy="70" rx="8" ry="5"' + f('#4ade80') + '/><ellipse cx="56" cy="68" rx="8" ry="5"' + f('#22c55e') + '/>' +
+      '<rect x="70" y="62" width="5" height="28"' + f('#16a34a') + '/><circle cx="72" cy="50" r="8"' + f('#f472b6') + '/><circle cx="62" cy="56" r="6"' + f('#fb7185') + '/><circle cx="82" cy="56" r="6"' + f('#f472b6') + '/>' +
+      '<ellipse cx="102" cy="40" rx="12" ry="8"' + f('#c084fc') + '/><ellipse cx="102" cy="40" rx="8" ry="12"' + f('#f9a8d4') + '/><rect x="100" y="36" width="4" height="16" fill="#1f2937" rx="2"/>',
+    weather: '<circle cx="36" cy="40" r="16"' + f('#facc15') + '/><path d="M36 16 V22 M36 58 V64 M14 40 H20 M52 40 H58 M20 24 L24 28 M52 24 L48 28 M20 56 L24 52 M52 56 L48 52" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>' +
+      '<ellipse cx="78" cy="36" rx="22" ry="14"' + f('#e2e8f0') + '/><path d="M70 54 L66 78 M78 52 L78 80 M88 54 L92 76" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>' +
+      '<path d="M28 96 H52 L48 78 H36 Z"' + f('#166534') + '/><path d="M36 78 H48 L44 70 H40 Z"' + f('#14532d') + '/>',
+    seasons: '<rect x="16" y="70" width="6" height="24" fill="#92400e"/><circle cx="19" cy="62" r="12"' + f('#fb7185') + '/>' +
+      '<rect x="42" y="70" width="6" height="24" fill="#92400e"/><circle cx="45" cy="62" r="12"' + f('#e2e8f0') + '/><circle cx="40" cy="58" r="2" fill="#fff"/><circle cx="50" cy="66" r="2" fill="#fff"/>' +
+      '<rect x="68" y="70" width="6" height="24" fill="#92400e"/><circle cx="71" cy="62" r="12"' + f('#4ade80') + '/><circle cx="66" cy="58" r="3"' + f('#f9a8d4') + '/>' +
+      '<rect x="94" y="70" width="6" height="24" fill="#92400e"/><circle cx="97" cy="62" r="12"' + f('#22c55e') + '/><circle cx="108" cy="40" r="8"' + f('#facc15') + '/>',
+    patterns: '<circle cx="24" cy="36" r="14"' + f('#3b82f6') + '/><rect x="46" y="22" width="28" height="28" rx="4"' + f('#f97316') + '/><circle cx="96" cy="36" r="14"' + f('#3b82f6') + '/>' +
+      '<circle cx="22" cy="86" r="8" fill="#2563eb"/><circle cx="42" cy="86" r="8" fill="#2563eb"/><circle cx="62" cy="86" r="8" fill="#2563eb"/><circle cx="82" cy="86" r="8" fill="#2563eb"/><circle cx="102" cy="86" r="8" fill="#2563eb"/>',
+    cause: '<circle cx="60" cy="36" r="16"' + f('#ef4444') + '/><path d="M60 58 V96" stroke="#1f2937" stroke-width="4" stroke-linecap="round"/><path d="M46 82 L60 100 L74 82" fill="none" stroke="#1f2937" stroke-width="4" stroke-linejoin="round"/>',
+    leaf: '<path d="M60 16 C98 40 96 82 60 106 C24 82 22 40 60 16 Z"' + f('#4ade80') + '/><path d="M60 30 V94" stroke="#166534" stroke-width="3"/><path d="M60 48 L42 40 M60 64 L80 56 M60 78 L46 86" stroke="#166534" stroke-width="3" stroke-linecap="round"/>',
+    rock: '<path d="M20 80 L32 44 L54 26 L86 30 L104 56 L96 90 L64 104 L28 96 Z"' + f('#94a3b8') + '/><circle cx="48" cy="64" r="6" fill="#cbd5e1" stroke="#1f2937" stroke-width="3"/><circle cx="74" cy="74" r="4" fill="#64748b"/>',
+    boat: '<path d="M16 62 H104 L90 92 H30 Z"' + f('#f59e0b') + '/><rect x="56" y="28" width="6" height="36" fill="#92400e"/><path d="M62 30 L92 58 H62 Z"' + f('#fff') + '/>' +
+      '<path d="M14 100 Q30 90 46 100 T78 100 T110 100" fill="none" stroke="#0284c7" stroke-width="4"/>',
+    boot: '<path d="M34 18 H62 V58 H86 V92 H28 V70 H34 Z"' + f('#166534') + '/><rect x="34" y="28" width="28" height="8" fill="#86efac"/>',
+    duck: '<ellipse cx="58" cy="70" rx="28" ry="16"' + f('#facc15') + '/><circle cx="86" cy="56" r="14"' + f('#fde047') + '/><path d="M96 56 H114 L104 64 Z"' + f('#f97316') + '/>' + eye(82, 52) +
+      '<path d="M20 86 Q40 76 60 86 T100 86" fill="none" stroke="#0284c7" stroke-width="4"/>',
+    stone: '<ellipse cx="60" cy="68" rx="34" ry="26"' + f('#9ca3af') + '/><ellipse cx="48" cy="60" rx="10" ry="7" fill="#d1d5db"/>',
+    coin: '<circle cx="60" cy="60" r="34"' + f('#fbbf24') + '/><circle cx="60" cy="60" r="22" fill="none" stroke="#b45309" stroke-width="3"/><polygon points="60,42 64,54 76,54 66,62 70,74 60,66 50,74 54,62 44,54 56,54"' + f('#f59e0b') + '/>',
+    feather: '<path d="M70 18 C40 40 28 70 36 100" fill="none" stroke="#64748b" stroke-width="3"/><path d="M70 18 C90 36 86 60 70 70 C48 58 46 36 70 18 Z"' + f('#e0f2fe') + '/><path d="M68 28 L54 40 M66 42 L48 50 M64 54 L50 62" stroke="#0284c7" stroke-width="2"/>',
+    ball: '<circle cx="60" cy="60" r="34"' + f('#fff') + '/><path d="M60 26 L74 48 L68 74 L52 74 L46 48 Z" fill="none" stroke="#1f2937" stroke-width="3"/><path d="M28 52 H46 M74 52 H92 M40 86 Q60 96 80 86" fill="none" stroke="#1f2937" stroke-width="3"/>' +
+      '<path d="M36 40 Q60 28 84 40" fill="none" stroke="#ef4444" stroke-width="4"/>',
+    dog: '<ellipse cx="52" cy="78" rx="30" ry="18"' + f('#d97706') + '/><circle cx="86" cy="58" r="16"' + f('#f59e0b') + '/><ellipse cx="98" cy="42" rx="7" ry="12"' + f('#b45309') + '/><ellipse cx="74" cy="44" rx="6" ry="10"' + f('#b45309') + '/>' +
+      eye(80, 56) + '<ellipse cx="96" cy="64" rx="5" ry="3" fill="#1f2937"/><path d="M22 74 Q8 58 24 60" fill="none" stroke="#b45309" stroke-width="4" stroke-linecap="round"/><rect x="30" y="90" width="8" height="14" rx="3" fill="#92400e"/><rect x="48" y="90" width="8" height="14" rx="3" fill="#92400e"/>',
+    flower: '<rect x="56" y="58" width="8" height="40"' + f('#16a34a') + '/><circle cx="60" cy="40" r="12"' + f('#facc15') + '/><circle cx="40" cy="48" r="12"' + f('#f472b6') + '/><circle cx="80" cy="48" r="12"' + f('#f472b6') + '/><circle cx="48" cy="28" r="12"' + f('#fb7185') + '/><circle cx="74" cy="28" r="12"' + f('#fb7185') + '/>',
+    tree: '<rect x="52" y="62" width="16" height="40" rx="3"' + f('#92400e') + '/><circle cx="60" cy="46" r="28"' + f('#22c55e') + '/><circle cx="44" cy="50" r="8" fill="#4ade80"/><circle cx="76" cy="42" r="7" fill="#16a34a"/>',
+    car: '<path d="M18 70 H102 V88 H18 Z"' + f('#ef4444') + '/><path d="M30 70 L42 46 H78 L90 70 Z"' + f('#f87171') + '/><rect x="46" y="50" width="14" height="16" fill="#bae6fd"/><rect x="64" y="50" width="14" height="16" fill="#bae6fd"/>' +
+      '<circle cx="36" cy="90" r="10"' + f('#1f2937') + '/><circle cx="84" cy="90" r="10"' + f('#1f2937') + '/><circle cx="36" cy="90" r="4" fill="#cbd5e1"/><circle cx="84" cy="90" r="4" fill="#cbd5e1"/>',
+    fish: '<ellipse cx="52" cy="60" rx="28" ry="18"' + f('#38bdf8') + '/><polygon points="78,60 104,40 104,80"' + f('#0284c7') + '/><path d="M40 48 Q52 40 64 50" fill="#7dd3fc"/><circle cx="36" cy="56" r="4" fill="#fff"/>' + eye(36, 56),
+    shoe: '<path d="M16 58 H58 L70 42 H100 V70 H24 Z"' + f('#92400e') + '/><path d="M58 58 L70 42" stroke="#1f2937" stroke-width="4"/><path d="M28 58 V70 M42 54 V70" stroke="#fde68a" stroke-width="3"/>',
+    bird: '<ellipse cx="58" cy="68" rx="26" ry="16"' + f('#38bdf8') + '/><circle cx="84" cy="52" r="14"' + f('#7dd3fc') + '/><polygon points="94,52 114,46 106,60"' + f('#f59e0b') + '/>' + eye(80, 50) +
+      '<path d="M36 64 Q24 48 40 56" fill="#0284c7"/>',
+    hat: '<ellipse cx="60" cy="78" rx="40" ry="10"' + f('#facc15') + '/><path d="M36 78 C36 40 84 40 84 78 Z"' + f('#fde047') + '/><rect x="36" y="70" width="48" height="10"' + f('#f59e0b') + '/>',
+    cup: '<path d="M28 28 H80 L72 96 H36 Z"' + f('#93c5fd') + '/><path d="M80 40 H96 Q104 56 80 64" fill="none" stroke="#1f2937" stroke-width="4"/><ellipse cx="54" cy="28" rx="26" ry="8"' + f('#dbeafe') + '/>',
+    cat: '<ellipse cx="58" cy="80" rx="28" ry="16"' + f('#fb923c') + '/><circle cx="84" cy="60" r="16"' + f('#fdba74') + '/><polygon points="72,50 76,28 86,48"' + f('#fb923c') + '/><polygon points="90,48 102,28 100,52"' + f('#fb923c') + '/>' +
+      eyes(76, 58) + '<path d="M80 66 H92" stroke="#1f2937" stroke-width="2"/><path d="M70 66 H60 M96 66 H108" stroke="#1f2937" stroke-width="2"/><path d="M24 78 Q10 96 30 90" fill="none" stroke="#ea580c" stroke-width="4"/>',
+    nest: '<path d="M24 70 C28 98 92 98 96 70 Z"' + f('#d6d3d1') + '/><path d="M30 74 Q40 66 36 78 M48 70 Q56 60 54 80 M70 70 Q78 62 76 80" fill="none" stroke="#78716c" stroke-width="3"/><ellipse cx="60" cy="66" rx="16" ry="8"' + f('#a8a29e') + '/>',
+    cave: '<path d="M14 100 L14 48 Q60 8 106 48 V100 Z"' + f('#a8a29e') + '/><path d="M36 100 V62 Q60 40 84 62 V100 Z" fill="#1f2937"/>',
+    water: '<ellipse cx="60" cy="70" rx="46" ry="26"' + f('#38bdf8') + '/><path d="M24 64 Q36 54 48 64 T72 64 T100 64" fill="none" stroke="#0369a1" stroke-width="3"/><path d="M30 78 Q44 68 58 78 T90 78" fill="none" stroke="#fff" stroke-width="3"/>',
+    hive: '<path d="M60 16 V28" stroke="#92400e" stroke-width="3"/><path d="M40 36 H80 L88 52 H32 Z"' + f('#facc15') + '/><path d="M34 58 H86 L92 76 H28 Z"' + f('#fde047') + '/><path d="M36 82 H84 L78 100 H42 Z"' + f('#facc15') + '/><ellipse cx="60" cy="90" rx="8" ry="6" fill="#1f2937"/>',
+    barn: '<path d="M16 48 L60 18 L104 48 V100 H16 Z"' + f('#ef4444') + '/><rect x="46" y="62" width="28" height="38"' + f('#fef3c7') + '/><path d="M46 62 L74 100 M74 62 L46 100" stroke="#1f2937" stroke-width="3"/><rect x="22" y="54" width="16" height="12" fill="#bae6fd" stroke="#1f2937" stroke-width="3"/>',
+    doghouse: '<path d="M16 50 L60 18 L104 50 V100 H16 Z"' + f('#b45309') + '/><rect x="44" y="62" width="32" height="38" fill="#1f2937"/><circle cx="70" cy="80" r="3" fill="#facc15"/>',
+    seed: '<ellipse cx="60" cy="64" rx="16" ry="22"' + f('#a16207') + '/><path d="M60 44 V84" stroke="#78350f" stroke-width="2"/><ellipse cx="60" cy="58" rx="6" ry="4" fill="#d6a15a"/>',
+    plant: '<rect x="56" y="70" width="8" height="32"' + f('#16a34a') + '/><ellipse cx="44" cy="74" rx="16" ry="8"' + f('#4ade80') + '/><ellipse cx="78" cy="70" rx="16" ry="8"' + f('#22c55e') + '/><ellipse cx="60" cy="52" rx="14" ry="16"' + f('#86efac') + '/><circle cx="60" cy="36" r="8"' + f('#facc15') + '/>',
+    butterfly: '<ellipse cx="40" cy="48" rx="18" ry="14"' + f('#c084fc') + '/><ellipse cx="80" cy="48" rx="18" ry="14"' + f('#f9a8d4') + '/><ellipse cx="40" cy="74" rx="14" ry="12"' + f('#a78bfa') + '/><ellipse cx="80" cy="74" rx="14" ry="12"' + f('#f472b6') + '/><rect x="56" y="40" width="8" height="44" rx="4" fill="#1f2937"/><path d="M58 40 Q48 24 56 28 M66 40 Q76 24 68 28" fill="none" stroke="#1f2937" stroke-width="2"/><circle cx="54" cy="52" r="3" fill="#facc15"/><circle cx="66" cy="70" r="3" fill="#facc15"/>',
+    caterpillar: '<circle cx="30" cy="70" r="12"' + f('#86efac') + '/><circle cx="48" cy="66" r="12"' + f('#4ade80') + '/><circle cx="66" cy="70" r="12"' + f('#22c55e') + '/><circle cx="86" cy="62" r="14"' + f('#4ade80') + '/>' + eyes(78, 58) + smile(76, 66) + '<path d="M80 48 Q76 36 84 34 M92 50 Q100 38 96 32" fill="none" stroke="#1f2937" stroke-width="2"/>',
+    sun: '<circle cx="60" cy="60" r="22"' + f('#facc15') + '/><path d="M60 14 V28 M60 92 V106 M14 60 H28 M92 60 H106 M26 26 L36 36 M94 26 L84 36 M26 94 L36 84 M94 94 L84 84" stroke="#f59e0b" stroke-width="5" stroke-linecap="round"/>' + eyes(52, 56) + smile(50, 66),
+    boots: '<path d="M22 16 H46 V62 H70 V96 H16 V70 H22 Z"' + f('#166534') + '/><path d="M58 16 H82 V62 H106 V96 H52 V70 H58 Z"' + f('#15803d') + '/><rect x="22" y="28" width="24" height="8" fill="#86efac"/><rect x="58" y="28" width="24" height="8" fill="#86efac"/>',
+    sunglasses: '<rect x="14" y="46" width="40" height="26" rx="8"' + f('#1f2937') + '/><rect x="66" y="46" width="40" height="26" rx="8"' + f('#1f2937') + '/><path d="M54 56 H66" stroke="#1f2937" stroke-width="4"/><path d="M18 50 H10 M102 50 H110" stroke="#1f2937" stroke-width="4"/>',
+    swimsuit: '<path d="M36 28 H52 L56 70 H28 Z"' + f('#2563eb') + '/><path d="M68 28 H84 L92 70 H64 Z"' + f('#2563eb') + '/><path d="M44 28 Q60 18 76 28" fill="none" stroke="#1d4ed8" stroke-width="4"/>',
+    coat: '<path d="M36 24 L24 108 H52 L60 70 L68 108 H96 L84 24 Q60 40 36 24 Z"' + f('#ef4444') + '/><circle cx="46" cy="48" r="3" fill="#facc15"/><circle cx="46" cy="64" r="3" fill="#facc15"/><circle cx="46" cy="80" r="3" fill="#facc15"/>',
+    rain: '<ellipse cx="60" cy="48" rx="34" ry="22"' + f('#cbd5e1') + '/><ellipse cx="40" cy="52" rx="18" ry="14"' + f('#e2e8f0') + '/><path d="M36 78 L30 100 M60 76 L60 102 M84 78 L90 100" stroke="#38bdf8" stroke-width="5" stroke-linecap="round"/>',
+    umbrella: '<path d="M20 58 Q60 10 100 58 Z"' + f('#ef4444') + '/><path d="M20 58 Q40 46 60 58 Q80 46 100 58" fill="none" stroke="#1f2937" stroke-width="3"/><path d="M60 58 V100" stroke="#1f2937" stroke-width="4"/><path d="M60 100 Q72 100 72 90" fill="none" stroke="#1f2937" stroke-width="4"/>',
+    icecream: '<path d="M40 58 L60 108 L80 58 Z"' + f('#fde68a') + '/><circle cx="60" cy="48" r="20"' + f('#f472b6') + '/><circle cx="48" cy="36" r="12"' + f('#fff') + '/>',
+    autumn: '<rect x="52" y="64" width="16" height="40" rx="3"' + f('#92400e') + '/><circle cx="60" cy="48" r="28"' + f('#f97316') + '/><circle cx="42" cy="52" r="10"' + f('#ef4444') + '/><circle cx="78" cy="44" r="9"' + f('#facc15') + '/><path d="M30 100 Q24 80 34 86" fill="#ef4444"/>',
+    summer: '<rect x="52" y="70" width="14" height="34" rx="3"' + f('#92400e') + '/><circle cx="58" cy="56" r="24"' + f('#22c55e') + '/><circle cx="96" cy="28" r="14"' + f('#facc15') + '/>',
+    winter: '<rect x="54" y="70" width="12" height="34"' + f('#92400e') + '/><path d="M60 78 L40 40 H80 Z"' + f('#e2e8f0') + '/><circle cx="28" cy="30" r="4" fill="#fff" stroke="#94a3b8" stroke-width="2"/><circle cx="96" cy="24" r="3" fill="#fff" stroke="#94a3b8" stroke-width="2"/><circle cx="90" cy="48" r="3" fill="#fff" stroke="#94a3b8" stroke-width="2"/>',
+    spring: '<rect x="54" y="68" width="12" height="36"' + f('#92400e') + '/><circle cx="60" cy="52" r="24"' + f('#86efac') + '/><circle cx="46" cy="46" r="6"' + f('#f9a8d4') + '/><circle cx="70" cy="42" r="6"' + f('#f472b6') + '/><circle cx="62" cy="60" r="5"' + f('#fbcfe8') + '/>',
+    circle: '<circle cx="60" cy="60" r="34"' + f('#3b82f6') + '/>',
+    square: '<rect x="26" y="26" width="68" height="68" rx="8"' + f('#f97316') + '/>',
+    triangle: '<polygon points="60,16 108,100 12,100"' + f('#22c55e') + '/>',
+    elephant: '<ellipse cx="58" cy="70" rx="40" ry="28"' + f('#94a3b8') + '/><circle cx="96" cy="48" r="18"' + f('#cbd5e1') + '/><ellipse cx="112" cy="40" rx="10" ry="14"' + f('#94a3b8') + '/><path d="M100 62 Q118 96 90 88" fill="none" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>' + eye(90, 46) + '<ellipse cx="28" cy="92" rx="12" ry="8"' + f('#64748b') + '/>',
+    mouse: '<ellipse cx="62" cy="70" rx="16" ry="12"' + f('#e2e8f0') + '/><circle cx="78" cy="60" r="10"' + f('#f8fafc') + '/><circle cx="74" cy="52" r="6"' + f('#fbcfe8') + '/><circle cx="86" cy="50" r="6"' + f('#fbcfe8') + '/>' + eye(76, 60) + '<path d="M46 74 Q24 96 40 78" fill="none" stroke="#94a3b8" stroke-width="3"/>',
+    apple: '<circle cx="60" cy="68" r="32"' + f('#ef4444') + '/><rect x="56" y="28" width="6" height="16" fill="#166534"/><ellipse cx="74" cy="36" rx="12" ry="6"' + f('#22c55e') + '/><ellipse cx="48" cy="60" rx="8" ry="12" fill="#f87171" opacity=".7"/>',
+    dots5: '<circle cx="30" cy="36" r="12" fill="#2563eb"/><circle cx="60" cy="36" r="12" fill="#2563eb"/><circle cx="90" cy="36" r="12" fill="#2563eb"/><circle cx="44" cy="78" r="12" fill="#2563eb"/><circle cx="76" cy="78" r="12" fill="#2563eb"/>',
+    dots2: '<circle cx="44" cy="60" r="14" fill="#2563eb"/><circle cx="78" cy="60" r="14" fill="#2563eb"/>',
+    fall: '<circle cx="60" cy="86" r="20"' + f('#ef4444') + '/><path d="M60 18 V58" stroke="#1f2937" stroke-width="4"/><path d="M46 44 L60 62 L74 44" fill="none" stroke="#1f2937" stroke-width="4"/>',
+    fly: '<circle cx="60" cy="60" r="16"' + f('#ef4444') + '/><path d="M28 50 Q40 28 52 48" fill="#93c5fd" stroke="#1f2937" stroke-width="3"/><path d="M92 50 Q80 28 68 48" fill="#93c5fd" stroke="#1f2937" stroke-width="3"/>',
+    sprout: '<ellipse cx="60" cy="96" rx="28" ry="10"' + f('#a16207') + '/><path d="M60 96 V48" stroke="#16a34a" stroke-width="4"/><ellipse cx="46" cy="58" rx="14" ry="8"' + f('#4ade80') + '/><ellipse cx="74" cy="52" rx="14" ry="8"' + f('#22c55e') + '/>',
+    roll: '<rect x="18" y="58" width="70" height="24" rx="6"' + f('#3b82f6') + '/><circle cx="34" cy="86" r="10"' + f('#1f2937') + '/><circle cx="72" cy="86" r="10"' + f('#1f2937') + '/><path d="M96 50 H112 M100 64 H114 M98 78 H110" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>',
+    sleep: '<path d="M16 70 H104 V96 H16 Z"' + f('#bfdbfe') + '/><rect x="20" y="48" width="28" height="22" rx="6"' + f('#fff') + '/><path d="M70 40 Q86 28 90 48" fill="none" stroke="#94a3b8" stroke-width="3"/>',
+    bright: '<circle cx="60" cy="60" r="24"' + f('#facc15') + '/><path d="M60 10 V24 M60 96 V110 M10 60 H24 M96 60 H110 M22 22 L32 32 M98 22 L88 32 M22 98 L32 88 M98 98 L88 88" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>',
+    snow: '<circle cx="60" cy="60" r="8" fill="#38bdf8"/><path d="M60 16 V104 M16 60 H104 M28 28 L92 92 M92 28 L28 92" stroke="#38bdf8" stroke-width="5" stroke-linecap="round"/><path d="M60 16 L54 28 H66 Z M60 104 L54 92 H66 Z M16 60 L28 54 V66 Z M104 60 L92 54 V66 Z" fill="#7dd3fc"/>',
+    mixorange: '<circle cx="60" cy="60" r="36"' + f('#f97316') + '/>',
+    mixblue: '<circle cx="60" cy="60" r="36"' + f('#3b82f6') + '/>',
+    pinwheel: '<circle cx="60" cy="60" r="6" fill="#1f2937"/><path d="M60 60 L60 22 A20 20 0 0 1 88 48 Z"' + f('#ef4444') + '/><path d="M60 60 L98 60 A20 20 0 0 1 72 90 Z"' + f('#3b82f6') + '/><path d="M60 60 L60 98 A20 20 0 0 1 32 72 Z"' + f('#facc15') + '/><path d="M60 60 L22 60 A20 20 0 0 1 48 30 Z"' + f('#22c55e') + '/><rect x="56" y="60" width="8" height="48" rx="3" fill="#92400e"/>',
+    sinkrock: '<ellipse cx="60" cy="78" rx="40" ry="18"' + f('#38bdf8') + '/><path d="M40 86 L48 64 L70 60 L86 78 L78 100 L46 98 Z"' + f('#94a3b8') + '/>'
+  };
+
+  function choice(id, ok) { return { id: id, ok: ok === true }; }
+  function Q(id, say, why, a, b, c, pattern) {
+    var choices = [choice(a[0], a[1]), choice(b[0], b[1])];
+    if (c) choices.push(choice(c[0], c[1]));
+    var q = { id: id, say: say, clip: id === 'float' ? 'audio/q-float.m4a' : ('audio/q-' + id + '.m4a'), why: why, whyClip: 'audio/why-' + id + '.m4a', choices: choices };
+    if (pattern) q.pattern = pattern;
+    return q;
+  }
+  var UNITS = [
+    { id: 'float', say: 'Some things float on water. Some things sink.', clip: 'audio/u-float.m4a', intro: 'pond', questions: [
+      Q('float', 'Which one floats?', "Yes! The leaf floats because it's light and flat.", ['leaf', true], ['rock', false]),
+      Q('sink-rock', 'Which one sinks?', 'Yes! The rock sinks because it is heavy.', ['rock', true], ['boat', false]),
+      Q('float-boat', 'Which one floats?', 'Yes! The boat floats because it is hollow and light.', ['boat', true], ['boot', false]),
+      Q('float-duck', 'Which one floats?', 'Yes! The duck floats because it is light and its feathers keep water out.', ['duck', true], ['stone', false]),
+      Q('sink-coin', 'Which one sinks?', 'Yes! The coin sinks because it is heavy for its size.', ['coin', true], ['feather', false]),
+      Q('float-ball', 'Which one floats?', 'Yes! The ball floats because it is full of air.', ['ball', true], ['rock', false])
     ]},
-    { id: 'seed', say: 'What grows from a seed?', clip: 'audio/q-seed.m4a', choices: [
-      { id: 'flower', ok: true }, { id: 'ball', ok: false }
+    { id: 'living', say: 'Living things grow. Some things are not living.', clip: 'audio/u-living.m4a', intro: 'living', questions: [
+      Q('live-dog', 'Which one is living?', 'Yes! A dog is living because it grows and needs food.', ['dog', true], ['ball', false]),
+      Q('not-rock', 'Which one is not living?', 'Yes! A rock is not living. It does not eat or grow.', ['rock', true], ['flower', false]),
+      Q('live-tree', 'Which one is living?', 'Yes! A tree is living because it grows.', ['tree', true], ['car', false]),
+      Q('live-fish', 'Which one needs food?', 'Yes! A fish needs food because it is alive.', ['fish', true], ['shoe', false]),
+      Q('live-bird', 'Which one is living?', 'Yes! A bird is living. It moves, eats, and grows.', ['bird', true], ['hat', false]),
+      Q('not-cup', 'Which one is not living?', 'Yes! A cup is not living. It never grows.', ['cup', true], ['cat', false])
     ]},
-    { id: 'water', say: 'Which animal lives in water?', clip: 'audio/q-water.m4a', choices: [
-      { id: 'fish', ok: true }, { id: 'dog', ok: false }
+    { id: 'homes', say: 'Animals have homes.', clip: 'audio/u-homes.m4a', intro: 'homes', questions: [
+      Q('home-bird', 'Where does a bird live?', 'Yes! A bird lives in a nest.', ['nest', true], ['cave', false]),
+      Q('home-fish', 'Where does a fish live?', 'Yes! A fish lives in water.', ['water', true], ['nest', false]),
+      Q('home-bee', 'Where does a bee live?', 'Yes! A bee lives in a hive.', ['hive', true], ['barn', false]),
+      Q('home-horse', 'Where does a horse live?', 'Yes! A horse lives in a barn.', ['barn', true], ['nest', false]),
+      Q('home-bear', 'Where does a bear sleep?', 'Yes! A bear sleeps in a cave.', ['cave', true], ['hive', false]),
+      Q('home-dog', 'Where does a dog sleep?', 'Yes! A dog can sleep in a doghouse.', ['doghouse', true], ['pond', false])
     ]},
-    { id: 'next', say: 'What comes next?', clip: 'audio/q-next.m4a', pattern: ['circle', 'square', 'circle', 'square'], choices: [
-      { id: 'circle', ok: true }, { id: 'triangle', ok: false }, { id: 'square', ok: false }
+    { id: 'grow', say: 'A seed can grow into a plant. A caterpillar can become a butterfly.', clip: 'audio/u-grow.m4a', intro: 'garden', questions: [
+      Q('seed', 'What grows from a seed?', 'Yes! A flower grows from a seed.', ['flower', true], ['shoe', false]),
+      Q('grow-first', 'What comes first?', 'Yes! A plant starts as a seed.', ['seed', true], ['flower', false]),
+      Q('grow-sprout', 'What comes after the sprout?', 'Yes! A sprout grows into a plant.', ['plant', true], ['rock', false]),
+      Q('grow-cat', 'What does a caterpillar become?', 'Yes! A caterpillar becomes a butterfly.', ['butterfly', true], ['fish', false]),
+      Q('grow-before', 'What comes before the butterfly?', 'Yes! The caterpillar comes before the butterfly.', ['caterpillar', true], ['bird', false]),
+      Q('grow-need', 'What does a plant need?', 'Yes! A plant needs sun and water to grow.', ['sun', true], ['shoe', false])
     ]},
-    { id: 'bigger', say: 'Which is bigger?', clip: 'audio/q-bigger.m4a', choices: [
-      { id: 'elephant', ok: true }, { id: 'mouse', ok: false }
+    { id: 'weather', say: 'Weather changes. We wear different things.', clip: 'audio/u-weather.m4a', intro: 'weather', questions: [
+      Q('wear-rain', 'What do you wear in the rain?', 'Yes! Boots keep your feet dry in the rain.', ['boots', true], ['sunglasses', false]),
+      Q('wear-sun', 'What do you wear when it is sunny?', 'Yes! A sun hat helps on a sunny day.', ['hat', true], ['swimsuit', false]),
+      Q('wear-cold', 'What do you wear when it is cold?', 'Yes! A coat keeps you warm when it is cold.', ['coat', true], ['swimsuit', false]),
+      Q('sky-rain', 'What falls from a rainy cloud?', 'Yes! Rain falls from a rainy cloud.', ['rain', true], ['sun', false]),
+      Q('sky-sun', 'What do you see in the sky on a sunny day?', 'Yes! You see the sun on a sunny day.', ['sun', true], ['umbrella', false]),
+      Q('hold-rain', 'What do you hold when it rains?', 'Yes! An umbrella keeps you dry.', ['umbrella', true], ['icecream', false])
     ]},
-    { id: 'sort', say: 'Which one is a fruit?', clip: 'audio/q-sort.m4a', choices: [
-      { id: 'apple', ok: true }, { id: 'shoe', ok: false }
+    { id: 'seasons', say: 'The year has four seasons.', clip: 'audio/u-seasons.m4a', intro: 'seasons', questions: [
+      Q('season-fall', 'When do leaves turn red and fall?', 'Yes! Leaves fall in autumn.', ['autumn', true], ['summer', false]),
+      Q('season-snow', 'When is it snowy?', 'Yes! Winter is the snowy season.', ['winter', true], ['summer', false]),
+      Q('season-bloom', 'When do flowers bloom?', 'Yes! Flowers bloom in spring.', ['spring', true], ['winter', false]),
+      Q('season-hot', 'When is it hottest?', 'Yes! Summer is the hottest season.', ['summer', true], ['winter', false]),
+      Q('season-next', 'What season comes after winter?', 'Yes! Spring comes after winter.', ['spring', true], ['autumn', false])
+    ]},
+    { id: 'patterns', say: 'Look for the pattern. Some things are bigger. Some groups have more.', clip: 'audio/u-patterns.m4a', intro: 'patterns', questions: [
+      Q('next', 'What comes next?', 'Yes! Circle comes next. The pattern is circle, square, circle, square.', ['circle', true], ['triangle', false], ['square', false], ['circle', 'square', 'circle', 'square']),
+      Q('bigger', 'Which is bigger?', 'Yes! The elephant is bigger.', ['elephant', true], ['mouse', false]),
+      Q('smaller', 'Which is smaller?', 'Yes! The mouse is smaller.', ['mouse', true], ['elephant', false]),
+      Q('sort', 'Which one is a fruit?', 'Yes! An apple is a fruit.', ['apple', true], ['car', false]),
+      Q('more', 'Which group has more?', 'Yes! Five is more than two.', ['dots5', true], ['dots2', false]),
+      Q('shape', 'Which shape is a triangle?', 'Yes! A triangle has three sides.', ['triangle', true], ['circle', false])
+    ]},
+    { id: 'cause', say: 'One thing can make another thing happen.', clip: 'audio/u-cause.m4a', intro: 'cause', questions: [
+      Q('drop-ball', 'What happens if you drop a ball?', 'Yes! The ball falls down.', ['fall', true], ['fly', false]),
+      Q('water-seed', 'What happens when you water a seed?', 'Yes! A seed grows when you water it.', ['sprout', true], ['stone', false]),
+      Q('push-car', 'What happens if you push a toy car?', 'Yes! The car rolls when you push it.', ['roll', true], ['sleep', false]),
+      Q('sun-out', 'What happens when the sun comes out?', 'Yes! It gets bright when the sun comes out.', ['bright', true], ['snow', false]),
+      Q('mix', 'What happens if you mix red and yellow?', 'Yes! Red and yellow make orange.', ['mixorange', true], ['mixblue', false]),
+      Q('blow', 'What happens when you blow on a pinwheel?', 'Yes! The pinwheel spins when you blow on it.', ['pinwheel', true], ['sinkrock', false])
     ]}
   ];
+  var QUESTIONS = [];
+  for (var ui = 0; ui < UNITS.length; ui++) {
+    var qs = UNITS[ui].questions;
+    for (var qi = 0; qi < qs.length; qi++) QUESTIONS.push(qs[qi]);
+  }
+  function unitById(id) {
+    for (var i = 0; i < UNITS.length; i++) if (UNITS[i].id === id) return UNITS[i];
+    return null;
+  }
   function byId(id) {
     for (var i = 0; i < QUESTIONS.length; i++) if (QUESTIONS[i].id === id) return QUESTIONS[i];
     return null;
@@ -678,11 +892,99 @@
     }
     return false;
   }
-  var api = { QUESTIONS: QUESTIONS, byId: byId, correct: correct };
+  var api = { UNITS: UNITS, QUESTIONS: QUESTIONS, PICS: PICS, byId: byId, unitById: unitById, correct: correct };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ColeExplore = api;
 })(typeof window !== 'undefined' ? window : this);
 /* COLE_EXPLORE_MODULE_END */
+
+</script>
+<script>
+/* COLE_COLOR_MODULE_START
+   Color-by-name pages and letter-sound pages. No DOM.
+   Browser: window.ColeColor. Tests load this block. */
+(function (root) {
+  'use strict';
+  var NAMED = [
+    { id: 'truck', say: 'Color the dump truck yellow.', clip: 'audio/c-truck.m4a', parts: [{ id: 'bed', color: 'yellow' }, { id: 'cab', color: 'yellow' }] },
+    { id: 'apple', say: 'Color the apple red.', clip: 'audio/c-apple.m4a', parts: [{ id: 'fruit', color: 'red' }] },
+    { id: 'frog', say: 'Color the frog green.', clip: 'audio/c-frog.m4a', parts: [{ id: 'body', color: 'green' }] },
+    { id: 'fish', say: 'Color the fish blue.', clip: 'audio/c-fish.m4a', parts: [{ id: 'body', color: 'blue' }] },
+    { id: 'orange', say: 'Color the orange orange.', clip: 'audio/c-orange.m4a', parts: [{ id: 'fruit', color: 'orange' }] },
+    { id: 'sun', say: 'Color the sun yellow.', clip: 'audio/c-sun.m4a', parts: [{ id: 'face', color: 'yellow' }, { id: 'rays', color: 'yellow' }] }
+  ];
+  var LETTERS = [
+    { id: 'A', word: 'Apple', sound: 'a', say: 'A says a. Apple.' },
+    { id: 'B', word: 'Bus', sound: 'b', say: 'B says b. Bus.' },
+    { id: 'C', word: 'Cat', sound: 'c', say: 'C says c. Cat.' },
+    { id: 'D', word: 'Dump truck', sound: 'd', say: 'D says d. Dump truck.' },
+    { id: 'E', word: 'Excavator', sound: 'e', say: 'E says e. Excavator.' },
+    { id: 'F', word: 'Fish', sound: 'f', say: 'F says f. Fish.' },
+    { id: 'G', word: 'Goat', sound: 'g', say: 'G says g. Goat.' },
+    { id: 'H', word: 'Hat', sound: 'h', say: 'H says h. Hat.' },
+    { id: 'I', word: 'Igloo', sound: 'i', say: 'I says i. Igloo.' },
+    { id: 'J', word: 'Jet', sound: 'j', say: 'J says j. Jet.' },
+    { id: 'K', word: 'Kite', sound: 'k', say: 'K says k. Kite.' },
+    { id: 'L', word: 'Leaf', sound: 'l', say: 'L says l. Leaf.' },
+    { id: 'M', word: 'Moon', sound: 'm', say: 'M says m. Moon.' },
+    { id: 'N', word: 'Nest', sound: 'n', say: 'N says n. Nest.' },
+    { id: 'O', word: 'Octopus', sound: 'o', say: 'O says o. Octopus.' },
+    { id: 'P', word: 'Pig', sound: 'p', say: 'P says p. Pig.' },
+    { id: 'Q', word: 'Quilt', sound: 'kw', say: 'Q says kw. Quilt.' },
+    { id: 'R', word: 'Rocket', sound: 'r', say: 'R says r. Rocket.' },
+    { id: 'S', word: 'Sun', sound: 's', say: 'S says s. Sun.' },
+    { id: 'T', word: 'Tree', sound: 't', say: 'T says t. Tree.' },
+    { id: 'U', word: 'Umbrella', sound: 'u', say: 'U says u. Umbrella.' },
+    { id: 'V', word: 'Van', sound: 'v', say: 'V says v. Van.' },
+    { id: 'W', word: 'Whale', sound: 'w', say: 'W says w. Whale.' },
+    { id: 'X', word: 'Fox', sound: 'ks', say: 'X says ks. Fox.' },
+    { id: 'Y', word: 'Yo-yo', sound: 'y', say: 'Y says y. Yo-yo.' },
+    { id: 'Z', word: 'Zebra', sound: 'z', say: 'Z says z. Zebra.' }
+  ];
+  var COLORS = ['red', 'orange', 'yellow', 'green', 'blue'];
+  function namedById(id) {
+    for (var i = 0; i < NAMED.length; i++) if (NAMED[i].id === id) return NAMED[i];
+    return null;
+  }
+  function letterById(id) {
+    var up = String(id || '').toUpperCase();
+    for (var i = 0; i < LETTERS.length; i++) if (LETTERS[i].id === up) return LETTERS[i];
+    return null;
+  }
+  function goalColor(page) {
+    if (!page || !page.parts || !page.parts.length) return '';
+    return page.parts[0].color;
+  }
+  function regionOk(page, fills, partId) {
+    fills = fills || {};
+    for (var i = 0; i < page.parts.length; i++) {
+      if (page.parts[i].id === partId) return fills[partId] === page.parts[i].color;
+    }
+    return false;
+  }
+  function complete(page, fills) {
+    fills = fills || {};
+    if (!page) return false;
+    for (var i = 0; i < page.parts.length; i++) {
+      if (fills[page.parts[i].id] !== page.parts[i].color) return false;
+    }
+    return page.parts.length > 0;
+  }
+  function wrongLine(got, want) {
+    return { clip: 'audio/try-' + got + '-' + want + '.m4a', text: "That's " + got + ", try " + want + "." };
+  }
+  function traceFirst(letter) {
+    return 'Trace the letter ' + String(letter || '').toUpperCase() + ' first.';
+  }
+  var api = {
+    NAMED: NAMED, LETTERS: LETTERS, COLORS: COLORS,
+    namedById: namedById, letterById: letterById, goalColor: goalColor,
+    regionOk: regionOk, complete: complete, wrongLine: wrongLine, traceFirst: traceFirst
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.ColeColor = api;
+})(typeof window !== 'undefined' ? window : this);
+/* COLE_COLOR_MODULE_END */
 </script>
 <script>
 (function () {
@@ -690,6 +992,7 @@
   var Save = window.ColeSave;
   var Trace = window.ColeTrace;
   var Ex = window.ColeExplore;
+  var Color = window.ColeColor;
   var state = Save.load();
   var glyphId = 'A';
   var strokeI = 0;
@@ -698,8 +1001,12 @@
   var colorStep = true;
   var busy = false;
   var playToken = 0;
+  var exploreMode = 'pick';
+  var unitId = 'float';
   var qIndex = 0;
-  var colorId = 'excavator';
+  var colorMode = 'name';
+  var colorId = 'truck';
+  var colorSpeak = false;
   var fills = {};
   var ink = [];
   var brush = false;
@@ -792,11 +1099,12 @@
     for (var i = 0; i < g.strokes.length; i++) h += poly(g.strokes[i], 'paint', '#334155');
     return h + '</svg>';
   }
-  function swatchButtons(huge) {
+  function swatchButtons(huge, goal) {
     var h = '<div class="swatches' + (huge ? ' huge' : '') + '">';
     for (var i = 0; i < Trace.SWATCHES.length; i++) {
       var s = Trace.SWATCHES[i];
-      h += '<button class="swatch' + (s.id === state.swatch ? ' on' : '') + '" data-act="swatch" data-v="' + s.id + '" style="background:' + s.hex + '" aria-label="' + s.id + '"></button>';
+      var cls = (s.id === state.swatch ? ' on' : '') + (goal && s.id === goal ? ' goal' : '');
+      h += '<button class="swatch' + cls + '" data-act="swatch" data-v="' + s.id + '" style="background:' + s.hex + '" aria-label="' + s.id + '"></button>';
     }
     return h + '</div>';
   }
@@ -943,20 +1251,34 @@
     for (var i = 0; i < 4; i++) h += '<i class="pip' + (i <= stage ? ' on' : '') + '"></i>';
     $('pips').innerHTML = h;
   }
+  function strokeNum(stroke, n, on) {
+    var a = stroke[0];
+    var x = a[0] + (n % 2 ? -8 : 8);
+    if (x < 8) x = a[0] + 8;
+    if (x > 92) x = a[0] - 8;
+    var y = a[1] + (n > 2 ? 10 : -5);
+    if (y < 12) y = a[1] + 12;
+    if (y > 112) y = a[1] - 4;
+    return '<text class="snum' + (on ? ' on' : '') + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="middle">' + n + '</text>';
+  }
   function renderBoard() {
     var g = Trace.glyph(glyphId);
     var stage = stageOf(glyphId);
     var h = '<rect class="paper" x="5" y="6" width="90" height="108" rx="8"/>';
-    var guideClass = stage === 1 ? ' fade' : '';
-    h += '<g class="' + guideClass + '">';
+    h += '<g class="' + (stage === 1 ? 'fade' : '') + '">';
     if (stage < 2) {
       for (var i = 0; i < g.strokes.length; i++) {
         var cls = i < strokeI ? 'done' : (i === strokeI ? 'now' : 'later');
         h += poly(g.strokes[i], 'guide ' + cls);
       }
     }
-    if (stage < 3 && g.strokes[strokeI]) h += arrowMarkup(g.strokes[strokeI]);
     h += '</g>';
+    if (stage < 3 && g.strokes[strokeI]) h += arrowMarkup(g.strokes[strokeI]);
+    if (stage < 2) {
+      for (var sn = 0; sn < g.strokes.length; sn++) h += strokeNum(g.strokes[sn], sn + 1, sn === strokeI);
+    } else if (stage === 2 && g.strokes[strokeI]) {
+      h += strokeNum(g.strokes[strokeI], strokeI + 1, true);
+    }
     for (var p = 0; p < paints.length; p++) {
       h += poly(paints[p].pts, 'under');
       h += poly(paints[p].pts, 'paint', paints[p].color);
@@ -1020,7 +1342,10 @@
     var tol = stage === 3 ? 22 : 16;
     var res = Trace.scoreStroke(g.strokes[strokeI], pts, tol, 0.7);
     if (!res.ok) {
-      if (pts.length > 3) sayKey('try-again', 'Almost. Try that stroke again.');
+      if (pts.length > 3) {
+        if (res.reason === 'backwards') sayKey('other-way', "Let's go the other way. Follow the arrow.");
+        else sayKey('try-again', "Let's try this stroke again.");
+      }
       $('board').classList.remove('no');
       void $('board').offsetWidth;
       $('board').classList.add('no');
@@ -1061,113 +1386,279 @@
     }, 1100);
   }
 
-  function shapeSvg(id, big) {
-    var body = '';
-    if (id === 'boat') body = '<path d="M8 48 H72 L64 68 H16 Z" fill="#f59e0b"/><path d="M40 44 V16" stroke="#92400e" stroke-width="4"/><path d="M40 18 L62 36 H40 Z" fill="#fff"/>';
-    else if (id === 'rock') body = '<polygon points="16,60 28,28 52,22 74,40 68,68 30,72" fill="#64748b"/>';
-    else if (id === 'flower') body = '<rect x="36" y="40" width="8" height="28" fill="#16a34a"/><circle cx="40" cy="28" r="8" fill="#facc15"/><circle cx="28" cy="36" r="8" fill="#f472b6"/><circle cx="52" cy="36" r="8" fill="#f472b6"/><circle cx="40" cy="48" r="8" fill="#fb7185"/>';
-    else if (id === 'ball') body = '<circle cx="40" cy="40" r="22" fill="#fff" stroke="#0f172a" stroke-width="3"/><polygon points="40,24 50,34 46,48 34,48 30,34" fill="none" stroke="#0f172a" stroke-width="2"/>';
-    else if (id === 'fish') body = '<ellipse cx="38" cy="40" rx="22" ry="14" fill="#38bdf8"/><polygon points="58,40 76,24 76,56" fill="#0284c7"/><circle cx="28" cy="36" r="3" fill="#0f172a"/>';
-    else if (id === 'dog') body = '<ellipse cx="40" cy="48" rx="22" ry="14" fill="#d97706"/><circle cx="62" cy="36" r="12" fill="#f59e0b"/><ellipse cx="70" cy="28" rx="6" ry="10" fill="#b45309"/><circle cx="66" cy="34" r="2" fill="#0f172a"/>';
-    else if (id === 'elephant') body = '<ellipse cx="46" cy="46" rx="' + (big ? 28 : 16) + '" ry="' + (big ? 20 : 12) + '" fill="#94a3b8"/><circle cx="' + (big ? 70 : 58) + '" cy="' + (big ? 36 : 40) + '" r="' + (big ? 14 : 8) + '" fill="#64748b"/><path d="M' + (big ? '72 40 Q86 70 64 62' : '60 44 Q68 54 56 52') + '" fill="none" stroke="#64748b" stroke-width="' + (big ? 6 : 3) + '"/>';
-    else if (id === 'mouse') body = '<ellipse cx="40" cy="46" rx="14" ry="10" fill="#cbd5e1"/><circle cx="54" cy="40" r="8" fill="#e2e8f0"/><circle cx="48" cy="32" r="5" fill="#f8fafc"/><path d="M28 48 Q10 60 24 56" fill="none" stroke="#94a3b8" stroke-width="2"/>';
-    else if (id === 'circle') body = '<circle cx="40" cy="40" r="18" fill="#3b82f6"/>';
-    else if (id === 'square') body = '<rect x="18" y="18" width="44" height="44" rx="6" fill="#f97316"/>';
-    else if (id === 'triangle') body = '<polygon points="40,12 70,66 10,66" fill="#22c55e"/>';
-    else if (id === 'apple') body = '<circle cx="40" cy="44" r="20" fill="#ef4444"/><rect x="37" y="18" width="5" height="12" fill="#166534"/><ellipse cx="50" cy="26" rx="8" ry="4" fill="#22c55e"/>';
-    else if (id === 'shoe') body = '<path d="M14 36 H40 L48 28 H66 V44 H18 Z" fill="#92400e"/>';
-    return '<svg viewBox="0 0 80 80" aria-hidden="true">' + body + '</svg>';
+  function art(id) {
+    return '<svg viewBox="0 0 120 120" aria-hidden="true">' + (Ex.PICS[id] || '') + '</svg>';
+  }
+  function goBtn() {
+    return '<button class="go" data-act="unit-go" aria-label="Start"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4 L20 12 L8 20 Z" fill="#fff"/></svg></button>';
   }
   function renderExplore() {
-    var q = Ex.QUESTIONS[qIndex];
+    if (exploreMode === 'pick') {
+      var cards = '';
+      for (var i = 0; i < Ex.UNITS.length; i++) {
+        var u = Ex.UNITS[i];
+        var done = state.explorer['unit-' + u.id] ? '<span class="badge">' + starSvg('#f59e0b') + '</span>' : '';
+        cards += '<button class="unit" data-act="unit" data-v="' + u.id + '" aria-label="' + u.id + '">' + done + art(u.intro) + '</button>';
+      }
+      $('s-explore').innerHTML = '<div class="top">' + backBtn('home', 'Home') + '</div><div class="units">' + cards + '</div>';
+      return;
+    }
+    var unit = Ex.unitById(unitId) || Ex.UNITS[0];
+    if (exploreMode === 'intro') {
+      $('s-explore').innerHTML = '<div class="top">' + backBtn('units', 'Units') + '</div><div class="intro-art">' + art(unit.intro) + '</div>' + goBtn();
+      playClip(unit.clip, unit.say);
+      return;
+    }
+    var q = unit.questions[qIndex];
     var pattern = '';
     if (q.pattern) {
       pattern = '<div class="pattern">';
-      for (var i = 0; i < q.pattern.length; i++) pattern += shapeSvg(q.pattern[i]);
+      for (var p = 0; p < q.pattern.length; p++) pattern += art(q.pattern[p]);
       pattern += '</div>';
     }
     var choices = '<div class="choices' + (q.choices.length > 2 ? ' three' : '') + '">';
     for (var c = 0; c < q.choices.length; c++) {
       var ch = q.choices[c];
-      choices += '<button class="choice" data-act="answer" data-v="' + ch.id + '" aria-label="' + ch.id + '">' + shapeSvg(ch.id, ch.id === 'elephant') + '</button>';
+      choices += '<button class="choice" data-act="answer" data-v="' + ch.id + '" aria-label="' + ch.id + '">' + art(ch.id) + '</button>';
     }
     choices += '</div>';
-    $('s-explore').innerHTML = '<div class="top">' + backBtn('home', 'Home') + '</div>' + pattern + choices;
+    $('s-explore').innerHTML = '<div class="top">' + backBtn('units', 'Units') + '</div>' + pattern + choices;
     playClip(q.clip, q.say);
   }
-  function colorArt(id, map) {
-    function f(part, fallback) {
-      return (map && map[part]) ? hex(map[part]) : (fallback || '#fff');
+  function fillOf(map, part, fallback) {
+    return (map && map[part]) ? hex(map[part]) : (fallback || '#fff');
+  }
+  function region(tag, attrs, part, map, fallback) {
+    var data = part ? ' data-part="' + part + '"' : '';
+    return '<' + tag + data + ' ' + attrs + ' fill="' + fillOf(map, part, fallback) + '" stroke="#1f2937" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>';
+  }
+  function wheel(cx, cy) {
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="9" fill="#111827" stroke="#1f2937" stroke-width="3"/><circle cx="' + cx + '" cy="' + cy + '" r="3.5" fill="#e2e8f0"/>';
+  }
+  function namedArt(id, map) {
+    if (id === 'truck') {
+      return region('path', 'd="M4 32 H56 L60 58 H8 Z"', 'bed', map) +
+        region('path', 'd="M56 38 H84 L92 58 H56 Z"', 'cab', map) +
+        '<path d="M64 42 H80 V52 H64 Z" fill="#e0f2fe" stroke="#1f2937" stroke-width="4"/>' +
+        wheel(24, 70) + wheel(74, 70);
     }
-    var h = '';
+    if (id === 'apple') {
+      return region('circle', 'cx="50" cy="58" r="28"', 'fruit', map) +
+        '<rect x="47" y="22" width="6" height="16" rx="2" fill="#166534"/>' +
+        '<ellipse cx="64" cy="30" rx="12" ry="6" fill="#22c55e" stroke="#1f2937" stroke-width="4"/>';
+    }
+    if (id === 'frog') {
+      return region('ellipse', 'cx="50" cy="62" rx="32" ry="22"', 'body', map) +
+        region('circle', 'cx="32" cy="40" r="12"', 'body', map) +
+        region('circle', 'cx="68" cy="40" r="12"', 'body', map) +
+        '<circle cx="32" cy="40" r="5" fill="#fff" stroke="#1f2937" stroke-width="3"/>' +
+        '<circle cx="68" cy="40" r="5" fill="#fff" stroke="#1f2937" stroke-width="3"/>' +
+        '<circle cx="32" cy="40" r="2.4" fill="#1f2937"/><circle cx="68" cy="40" r="2.4" fill="#1f2937"/>' +
+        '<path d="M38 66 Q50 76 62 66" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>';
+    }
+    if (id === 'fish') {
+      return region('ellipse', 'cx="46" cy="52" rx="26" ry="18"', 'body', map) +
+        region('polygon', 'points="68,52 92,34 92,70"', 'body', map) +
+        '<circle cx="32" cy="48" r="4" fill="#fff" stroke="#1f2937" stroke-width="2"/>' +
+        '<circle cx="32" cy="48" r="2" fill="#1f2937"/>';
+    }
+    if (id === 'orange') {
+      return region('circle', 'cx="50" cy="56" r="30"', 'fruit', map) +
+        '<ellipse cx="50" cy="28" rx="8" ry="5" fill="#16a34a" stroke="#1f2937" stroke-width="3"/>' +
+        '<path d="M50 34 V44" stroke="#166534" stroke-width="3"/>';
+    }
+    return region('polygon', 'points="50,6 58,28 82,16 68,36 96,50 68,64 82,86 58,72 50,96 42,72 18,86 32,64 4,50 32,36 18,16 42,28"', 'rays', map) +
+      region('circle', 'cx="50" cy="50" r="16"', 'face', map) +
+      '<circle cx="44" cy="48" r="2.2" fill="#1f2937"/><circle cx="56" cy="48" r="2.2" fill="#1f2937"/>' +
+      '<path d="M44 56 Q50 62 56 56" fill="none" stroke="#1f2937" stroke-width="2"/>';
+  }
+  function letterReady(id) {
+    function ok(card) { return !!(card && (card.wins > 0 || card.stage > 0 || card.mastered)); }
+    return ok(state.trace[id]) || ok(state.trace[String(id || '').toLowerCase()]);
+  }
+  function letterArt(id, map) {
+    var body = region('circle', 'cx="50" cy="58" r="26"', 'body', map);
+    if (id === 'A') body = region('circle', 'cx="50" cy="58" r="28"', 'body', map) + '<rect x="47" y="18" width="6" height="14" fill="#166534"/><ellipse cx="66" cy="28" rx="12" ry="6" fill="#22c55e" stroke="#1f2937" stroke-width="4"/>';
+    else if (id === 'B') body = region('rect', 'x="12" y="36" width="70" height="32" rx="8"', 'body', map) + '<rect x="22" y="42" width="14" height="10" fill="#e0f2fe" stroke="#1f2937" stroke-width="3"/><rect x="42" y="42" width="14" height="10" fill="#e0f2fe" stroke="#1f2937" stroke-width="3"/>' + wheel(28, 76) + wheel(64, 76);
+    else if (id === 'C') body = region('ellipse', 'cx="46" cy="64" rx="24" ry="16"', 'body', map) + region('circle', 'cx="70" cy="48" r="16"', 'body', map) + '<polygon points="60,36 66,18 78,36" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="4"/>' + '<polygon points="78,36 92,18 88,40" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="4"/>' + '<circle cx="66" cy="46" r="2.5" fill="#1f2937"/><circle cx="76" cy="46" r="2.5" fill="#1f2937"/>';
+    else if (id === 'D') body = namedArt('truck', { bed: map && map.body, cab: map && map.body }).replace(/data-part="bed"/g, 'data-part="body"').replace(/data-part="cab"/g, 'data-part="body"');
+    else if (id === 'E') body = region('rect', 'x="8" y="58" width="48" height="14" rx="4"', 'body', map) + region('rect', 'x="18" y="40" width="28" height="18" rx="3"', 'body', map) + region('polygon', 'points="34,48 6,28 14,22 40,44"', 'body', map) + region('polygon', 'points="4,20 20,16 22,34 2,32"', 'body', map) + wheel(22, 78) + wheel(46, 78);
+    else if (id === 'F') body = namedArt('fish', map).replace(/data-part="body"/g, 'data-part="body"');
+    else if (id === 'G') body = region('ellipse', 'cx="50" cy="66" rx="28" ry="18"', 'body', map) + region('circle', 'cx="74" cy="46" r="14"', 'body', map) + '<polygon points="66,38 70,16 82,36" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="4"/><polygon points="80,36 94,18 92,40" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="4"/>' + '<circle cx="70" cy="46" r="2" fill="#1f2937"/><rect x="78" y="58" width="16" height="4" rx="2" fill="#1f2937"/>';
+    else if (id === 'H') body = region('ellipse', 'cx="50" cy="70" rx="36" ry="10"', 'body', map) + region('path', 'd="M28 70 C28 28 72 28 72 70 Z"', 'body', map);
+    else if (id === 'I') body = region('path', 'd="M18 62 Q50 18 82 62 V88 H18 Z"', 'body', map) + '<rect x="40" y="48" width="20" height="16" rx="4" fill="#e0f2fe" stroke="#1f2937" stroke-width="3"/>';
+    else if (id === 'J') body = region('path', 'd="M50 16 L70 28 L64 70 H36 L30 28 Z"', 'body', map) + region('polygon', 'points="30,70 50,88 70,70"', 'body', map) + '<circle cx="50" cy="40" r="6" fill="#e0f2fe" stroke="#1f2937" stroke-width="3"/>';
+    else if (id === 'K') body = region('polygon', 'points="50,78 18,42 34,28 50,48 66,28 82,42"', 'body', map) + '<path d="M50 78 V28" stroke="#1f2937" stroke-width="4"/><path d="M28 22 Q50 8 72 22" fill="none" stroke="#1f2937" stroke-width="3"/>';
+    else if (id === 'L') body = region('path', 'd="M50 14 C86 36 84 74 50 96 C16 74 14 36 50 14 Z"', 'body', map) + '<path d="M50 28 V84" stroke="#166534" stroke-width="3"/>';
+    else if (id === 'M') body = region('circle', 'cx="50" cy="54" r="28"', 'body', map) + '<circle cx="40" cy="48" r="4" fill="#fde68a"/><circle cx="58" cy="44" r="3" fill="#fde68a"/>';
+    else if (id === 'N') body = region('path', 'd="M22 72 C26 96 78 96 82 72 Z"', 'body', map) + '<ellipse cx="52" cy="64" rx="14" ry="8" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="4"/>';
+    else if (id === 'O') body = region('ellipse', 'cx="50" cy="58" rx="26" ry="20"', 'body', map) + '<path d="M24 58 Q10 40 28 36" fill="none" stroke="#1f2937" stroke-width="5" stroke-linecap="round"/>' + '<path d="M76 58 Q90 40 72 36" fill="none" stroke="#1f2937" stroke-width="5"/>' + '<path d="M40 78 Q30 96 46 90" fill="none" stroke="#1f2937" stroke-width="5"/>' + '<circle cx="42" cy="54" r="4" fill="#fff" stroke="#1f2937" stroke-width="2"/><circle cx="60" cy="54" r="4" fill="#fff" stroke="#1f2937" stroke-width="2"/>';
+    else if (id === 'P') body = region('ellipse', 'cx="50" cy="62" rx="30" ry="18"', 'body', map) + region('circle', 'cx="72" cy="44" r="14"', 'body', map) + '<ellipse cx="64" cy="36" rx="6" ry="8" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="4"/><ellipse cx="82" cy="34" rx="6" ry="8" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="4"/>' + '<circle cx="68" cy="44" r="2" fill="#1f2937"/><ellipse cx="80" cy="48" rx="5" ry="3" fill="#f9a8d4"/>';
+    else if (id === 'Q') body = region('rect', 'x="16" y="22" width="68" height="58" rx="8"', 'body', map) + '<path d="M16 40 H84 M16 58 H84 M38 22 V80 M62 22 V80" stroke="#1f2937" stroke-width="3"/>';
+    else if (id === 'R') body = region('path', 'd="M50 12 C68 30 70 48 64 78 H36 C30 48 32 30 50 12 Z"', 'body', map) + region('polygon', 'points="34,70 16,86 42,76 62,86 66,70"', 'body', map) + '<circle cx="50" cy="40" r="7" fill="#e0f2fe" stroke="#1f2937" stroke-width="3"/>';
+    else if (id === 'S') body = region('circle', 'cx="50" cy="50" r="18"', 'body', map) + '<path d="M50 8 V24 M50 76 V92 M8 50 H24 M76 50 H92 M18 18 L28 28 M82 18 L72 28 M18 82 L28 72 M82 82 L72 72" stroke="#f59e0b" stroke-width="5" stroke-linecap="round"/>';
+    else if (id === 'T') body = region('rect', 'x="44" y="48" width="12" height="36"', 'body', map) + region('circle', 'cx="50" cy="36" r="24"', 'body', map);
+    else if (id === 'U') body = region('path', 'd="M18 46 Q50 8 82 46 Z"', 'body', map) + '<path d="M50 46 V92" stroke="#1f2937" stroke-width="5"/><path d="M50 92 Q64 92 64 80" fill="none" stroke="#1f2937" stroke-width="5"/>';
+    else if (id === 'V') body = region('path', 'd="M10 58 H78 L86 78 H18 Z"', 'body', map) + region('path', 'd="M24 58 L36 28 H62 L74 58 Z"', 'body', map) + '<rect x="40" y="34" width="16" height="12" fill="#e0f2fe" stroke="#1f2937" stroke-width="3"/>' + wheel(30, 82) + wheel(64, 82);
+    else if (id === 'W') body = region('ellipse', 'cx="50" cy="58" rx="34" ry="18"', 'body', map) + '<path d="M18 52 Q8 70 24 66" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="4"/><circle cx="40" cy="54" r="3" fill="#1f2937"/><path d="M58 62 H78" stroke="#1f2937" stroke-width="3"/>';
+    else if (id === 'X') body = region('ellipse', 'cx="50" cy="64" rx="28" ry="16"', 'body', map) + region('polygon', 'points="28,52 18,24 34,28 40,48"', 'body', map) + region('polygon', 'points="72,52 86,22 74,30 64,48"', 'body', map) + '<circle cx="42" cy="60" r="2.5" fill="#1f2937"/><circle cx="58" cy="60" r="2.5" fill="#1f2937"/><polygon points="46,68 54,68 50,74" fill="#1f2937"/>';
+    else if (id === 'Y') body = '<circle data-part="body" cx="36" cy="36" r="16" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="5"/><circle data-part="body" cx="64" cy="36" r="16" fill="' + fillOf(map, 'body') + '" stroke="#1f2937" stroke-width="5"/><path d="M36 52 V78 M64 52 V78" stroke="#1f2937" stroke-width="4"/><rect x="32" y="74" width="36" height="8" rx="3" fill="#92400e"/>';
+    else if (id === 'Z') body = region('ellipse', 'cx="50" cy="58" rx="32" ry="20"', 'body', map) + '<path d="M22 40 L14 22 L30 36" fill="#1f2937"/><path d="M78 40 L90 20 L74 34" fill="#1f2937"/><path d="M20 58 H34 M42 52 H58 M66 58 H80 M28 68 H44 M52 64 H70" stroke="#1f2937" stroke-width="3"/>';
+    return body;
+  }
+  function freeArt(id, map) {
     if (id === 'excavator') {
-      h += '<rect data-part="tracks" x="8" y="70" width="62" height="16" rx="6" fill="' + f('tracks') + '"/>';
-      h += '<rect data-part="body" x="18" y="48" width="46" height="22" rx="4" fill="' + f('body') + '"/>';
-      h += '<rect data-part="cab" x="40" y="28" width="26" height="22" rx="3" fill="' + f('cab') + '"/>';
-      h += '<polygon data-part="arm" points="36,52 8,30 16,24 42,46" fill="' + f('arm') + '"/>';
-      h += '<polygon data-part="bucket" points="6,22 20,18 22,34 4,32" fill="' + f('bucket') + '"/>';
-    } else if (id === 'truck') {
-      h += '<rect data-part="bed" x="6" y="36" width="50" height="26" rx="3" fill="' + f('bed') + '"/>';
-      h += '<path data-part="cab" d="M56 42 H82 V62 H56 Z" fill="' + f('cab') + '"/>';
-      h += '<rect data-part="window" x="62" y="46" width="14" height="10" fill="' + f('window', '#e0f2fe') + '"/>';
-      h += '<circle cx="28" cy="70" r="10" fill="#111"/><circle cx="70" cy="70" r="10" fill="#111"/>';
-    } else if (id === 'tree') {
-      h += '<rect data-part="trunk" x="44" y="58" width="14" height="30" fill="' + f('trunk') + '"/>';
-      h += '<circle data-part="crown" cx="51" cy="40" r="26" fill="' + f('crown') + '"/>';
-    } else if (id === 'sun') {
-      h += '<polygon data-part="rays" points="50,4 58,28 84,14 68,36 96,50 68,64 84,86 58,72 50,96 42,72 16,86 32,64 4,50 32,36 16,14 42,28" fill="' + f('rays') + '"/>';
-      h += '<circle data-part="face" cx="50" cy="50" r="18" fill="' + f('face') + '"/>';
-    } else if (id === 'dog') {
-      h += '<ellipse data-part="body" cx="48" cy="62" rx="28" ry="16" fill="' + f('body') + '"/>';
-      h += '<circle data-part="head" cx="74" cy="46" r="14" fill="' + f('head') + '"/>';
-      h += '<ellipse data-part="ear" cx="84" cy="34" rx="7" ry="12" fill="' + f('ear') + '"/>';
-      h += '<path data-part="tail" d="M22 58 Q8 40 20 36" fill="none" stroke="' + f('tail', '#fff') + '" stroke-width="6" stroke-linecap="round"/>';
-    } else if (id === 'rocket') {
-      h += '<polygon data-part="fins" points="34,62 18,84 40,74 62,84 66,62" fill="' + f('fins') + '"/>';
-      h += '<path data-part="body" d="M50 8 C66 28 70 48 66 78 H34 C30 48 34 28 50 8 Z" fill="' + f('body') + '"/>';
-      h += '<circle data-part="window" cx="50" cy="46" r="8" fill="' + f('window', '#e0f2fe') + '"/>';
-      h += '<polygon data-part="flame" points="42,80 50,98 58,80" fill="' + f('flame') + '"/>';
-    } else {
-      h += '<path data-part="cape" d="M30 38 L14 88 H70 L58 38 Z" fill="' + f('cape') + '"/>';
-      h += '<rect data-part="body" x="34" y="40" width="32" height="40" rx="10" fill="' + f('body') + '"/>';
-      h += '<circle cx="50" cy="28" r="12" fill="#f6c7a1"/>';
-      h += '<path data-part="mask" d="M38 26 h10 l-2 6 h-6 z M52 26 h10 l-2 6 h-6 z" fill="' + f('mask') + '"/>';
-      h += '<polygon data-part="star" points="50,48 53,56 62,56 55,61 58,70 50,65 42,70 45,61 38,56 47,56" fill="' + f('star') + '"/>';
+      return region('rect', 'x="6" y="62" width="62" height="16" rx="6"', 'tracks', map) +
+        region('rect', 'x="16" y="42" width="46" height="22" rx="4"', 'body', map) +
+        region('rect', 'x="40" y="22" width="26" height="22" rx="3"', 'cab', map) +
+        region('polygon', 'points="36,48 8,26 16,18 42,42"', 'arm', map) +
+        region('polygon', 'points="4,16 22,12 24,32 2,30"', 'bucket', map) +
+        '<rect x="46" y="28" width="14" height="10" fill="#e0f2fe" stroke="#1f2937" stroke-width="3"/>';
     }
-    return h;
+    if (id === 'truck') return namedArt('truck', map);
+    if (id === 'tree') {
+      return region('rect', 'x="42" y="58" width="16" height="32" rx="3"', 'trunk', map) +
+        region('circle', 'cx="50" cy="40" r="26"', 'crown', map);
+    }
+    if (id === 'sun') return namedArt('sun', map);
+    if (id === 'dog') {
+      return region('ellipse', 'cx="46" cy="64" rx="26" ry="16"', 'body', map) +
+        region('circle', 'cx="74" cy="46" r="14"', 'head', map) +
+        region('ellipse', 'cx="84" cy="32" rx="7" ry="12"', 'ear', map) +
+        '<circle cx="70" cy="44" r="2.4" fill="#1f2937"/><ellipse cx="80" cy="50" rx="4" ry="2.4" fill="#1f2937"/>' +
+        '<path data-part="tail" d="M22 60 Q8 42 22 38" fill="none" stroke="' + fillOf(map, 'tail', '#fff') + '" stroke-width="6" stroke-linecap="round"/>';
+    }
+    if (id === 'rocket') {
+      return region('polygon', 'points="34,62 16,86 40,74 62,86 66,62"', 'fins', map) +
+        region('path', 'd="M50 8 C68 28 72 48 66 78 H34 C28 48 32 28 50 8 Z"', 'body', map) +
+        region('circle', 'cx="50" cy="44" r="8"', 'window', map, '#e0f2fe') +
+        region('polygon', 'points="40,78 50,98 60,78"', 'flame', map);
+    }
+    return region('path', 'd="M28 36 L12 90 H72 L58 36 Z"', 'cape', map) +
+      region('rect', 'x="32" y="40" width="32" height="40" rx="10"', 'body', map) +
+      '<circle cx="48" cy="28" r="12" fill="#f6c7a1" stroke="#1f2937" stroke-width="4"/>' +
+      region('path', 'd="M38 26 h10 l-2 6 h-6 z M52 26 h10 l-2 6 h-6 z"', 'mask', map) +
+      region('polygon', 'points="48,48 51,56 60,56 53,61 56,70 48,65 40,70 43,61 36,56 45,56"', 'star', map);
+  }
+  function colorArt(id, map, mode) {
+    if (mode === 'letter') return letterArt(id, map);
+    if (mode === 'name') return namedArt(id, map);
+    return freeArt(id, map);
   }
   function inkMarkup(list, livePts) {
     var h = '';
-    function one(s) { h += poly(s.pts, 'ink', hex(s.color)).replace('class="ink"', 'class="ink" stroke-width="4"'); }
+    function one(s) {
+      h += poly(s.pts, 'ink', hex(s.color)).replace('class="ink"', 'class="ink" stroke-width="5.5"');
+    }
     for (var i = 0; i < list.length; i++) one(list[i]);
     if (livePts && livePts.length > 1) one({ color: state.swatch, pts: livePts });
     return h;
   }
+  function modeIcon(kind) {
+    if (kind === 'name') return '<svg viewBox="0 0 80 80" aria-hidden="true"><rect x="8" y="28" width="36" height="18" rx="3" fill="#facc15" stroke="#1f2937" stroke-width="3"/><path d="M44 32 H68 V46 H44 Z" fill="#fde047" stroke="#1f2937" stroke-width="3"/><circle cx="22" cy="54" r="6" fill="#111"/><circle cx="56" cy="54" r="6" fill="#111"/></svg>';
+    if (kind === 'letter') return '<svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="46" r="20" fill="#ef4444" stroke="#1f2937" stroke-width="3"/><rect x="37" y="16" width="5" height="12" fill="#166534"/><ellipse cx="50" cy="22" rx="8" ry="4" fill="#22c55e" stroke="#1f2937" stroke-width="2"/></svg>';
+    return '<svg viewBox="0 0 80 80" aria-hidden="true"><rect x="34" y="8" width="12" height="36" rx="4" fill="#a855f7" stroke="#1f2937" stroke-width="3"/><path d="M30 44 h20 l-4 22 h-12 z" fill="#f59e0b" stroke="#1f2937" stroke-width="3"/></svg>';
+  }
   function renderColor() {
+    var goal = '';
+    if (colorMode === 'name') goal = Color.goalColor(Color.namedById(colorId));
+    var modes = '<div class="modes">';
+    modes += '<button class="mode' + (colorMode === 'name' ? ' on' : '') + '" data-act="cmode" data-v="name" aria-label="Colors">' + modeIcon('name') + '</button>';
+    modes += '<button class="mode' + (colorMode === 'letter' ? ' on' : '') + '" data-act="cmode" data-v="letter" aria-label="Letter pictures">' + modeIcon('letter') + '</button>';
+    modes += '<button class="mode' + (colorMode === 'free' ? ' on' : '') + '" data-act="cmode" data-v="free" aria-label="Free coloring">' + modeIcon('free') + '</button>';
+    modes += '</div>';
     var pages = '';
-    for (var i = 0; i < Save.PICTURES.length; i++) {
-      var id = Save.PICTURES[i];
-      pages += '<button data-act="page" data-v="' + id + '" class="' + (id === colorId ? 'on' : '') + '" aria-label="' + id + '"><svg viewBox="0 0 100 100">' + colorArt(id, id === colorId ? fills : {}) + '</svg></button>';
+    if (colorMode === 'name') {
+      for (var i = 0; i < Color.NAMED.length; i++) {
+        var n = Color.NAMED[i];
+        pages += '<button data-act="page" data-v="' + n.id + '" class="' + (n.id === colorId ? 'on' : '') + '" aria-label="' + n.id + '"><svg viewBox="0 0 100 100">' + namedArt(n.id, n.id === colorId ? fills : {}) + '</svg></button>';
+      }
+    } else if (colorMode === 'letter') {
+      for (var li = 0; li < Color.LETTERS.length; li++) {
+        var letter = Color.LETTERS[li];
+        var locked = !letterReady(letter.id);
+        pages += '<button data-act="page" data-v="' + letter.id + '" class="' + (letter.id === colorId ? 'on' : '') + (locked ? ' locked' : '') + '" aria-label="' + letter.word + '">' + (locked ? lockSvg() : '<svg viewBox="0 0 100 100">' + letterArt(letter.id, letter.id === colorId ? fills : {}) + '</svg>') + '</button>';
+      }
+    } else {
+      for (var fi = 0; fi < Save.PICTURES.length; fi++) {
+        var fid = Save.PICTURES[fi];
+        pages += '<button data-act="page" data-v="' + fid + '" class="' + (fid === colorId ? 'on' : '') + '" aria-label="' + fid + '"><svg viewBox="0 0 100 100">' + freeArt(fid, fid === colorId ? fills : {}) + '</svg></button>';
+      }
     }
     var tools = '<div class="tools">';
     tools += '<button class="tool' + (brush ? ' on' : '') + '" data-act="brush" aria-label="Brush"><svg viewBox="0 0 40 40"><rect x="18" y="6" width="8" height="20" rx="2" fill="#7c3aed"/><path d="M16 26 h12 l-2 8 h-8 z" fill="#f59e0b"/></svg></button>';
     tools += '<button class="tool" data-act="eraser" aria-label="Clear"><svg viewBox="0 0 40 40"><rect x="8" y="16" width="24" height="12" rx="2" fill="#fca5a5" transform="rotate(-20 20 22)"/></svg></button>';
-    tools += '<button class="tool" data-act="keep" aria-label="Save"><svg viewBox="0 0 40 40"><path d="M8 8 H26 L32 14 V32 H8 Z" fill="#fff" stroke="#0f172a" stroke-width="2"/><rect x="14" y="20" width="12" height="8" fill="#38bdf8"/></svg></button>';
+    if (colorMode === 'free') tools += '<button class="tool" data-act="keep" aria-label="Save"><svg viewBox="0 0 40 40"><path d="M8 8 H26 L32 14 V32 H8 Z" fill="#fff" stroke="#0f172a" stroke-width="2"/><rect x="14" y="20" width="12" height="8" fill="#38bdf8"/></svg></button>';
     tools += '</div>';
-    var gals = '<div class="gallery">';
-    for (var g = 0; g < state.gallery.length; g++) {
-      var item = state.gallery[g];
-      gals += '<button data-act="gallery" data-v="' + g + '" aria-label="Saved picture"><svg viewBox="0 0 100 100">' + colorArt(item.id, item.fills) + inkMarkup(item.ink) + '</svg></button>';
+    var gals = '';
+    if (colorMode === 'free') {
+      gals = '<div class="gallery">';
+      for (var g = 0; g < state.gallery.length; g++) {
+        var item = state.gallery[g];
+        gals += '<button data-act="gallery" data-v="' + g + '" aria-label="Saved picture"><svg viewBox="0 0 100 100">' + freeArt(item.id, item.fills) + inkMarkup(item.ink) + '</svg></button>';
+      }
+      gals += '</div>';
     }
-    gals += '</div>';
-    $('s-color').innerHTML = '<div class="top">' + backBtn('home', 'Home') + '</div><div class="pages">' + pages + '</div>' + swatchButtons(false) + tools +
-      '<svg id="paper" viewBox="0 0 100 100">' + colorArt(colorId, fills) + inkMarkup(ink, null) + '</svg>' + gals;
+    var paperArt = colorArt(colorId, fills, colorMode);
+    $('s-color').innerHTML = '<div class="top">' + backBtn('home', 'Home') + '</div>' + modes + '<div class="pages">' + pages + '</div>' + swatchButtons(false, goal) + tools +
+      '<svg id="paper" viewBox="0 0 100 100">' + paperArt + inkMarkup(ink, null) + '</svg>' + gals;
+    if (colorSpeak) {
+      colorSpeak = false;
+      if (colorMode === 'name') {
+        var page = Color.namedById(colorId);
+        sayKey(page.clip.replace(/^audio\//, '').replace(/\.m4a$/, ''), page.say);
+      } else if (colorMode === 'letter') {
+        if (!letterReady(colorId)) sayKey('first-' + colorId.toLowerCase(), Color.traceFirst(colorId));
+        else {
+          var info = Color.letterById(colorId);
+          sayKey('let-' + colorId.toLowerCase(), info.say);
+        }
+      } else sayKey('color', 'Tap a color, then tap the picture.');
+    }
     var paper = $('paper');
     var liveLine = null;
     paper.addEventListener('pointerdown', function (e) {
+      if (colorMode === 'letter' && !letterReady(colorId)) {
+        sayKey('first-' + colorId.toLowerCase(), Color.traceFirst(colorId));
+        return;
+      }
       if (!brush) {
         var part = e.target && e.target.getAttribute && e.target.getAttribute('data-part');
-        if (part) { fills[part] = state.swatch; renderColor(); }
+        if (!part) return;
+        if (colorMode === 'name') {
+          var named = Color.namedById(colorId);
+          var want = '';
+          for (var pi = 0; pi < named.parts.length; pi++) if (named.parts[pi].id === part) want = named.parts[pi].color;
+          if (!want) return;
+          if (state.swatch !== want) {
+            var line = Color.wrongLine(state.swatch, want);
+            sayKey(line.clip.replace(/^audio\//, '').replace(/\.m4a$/, ''), line.text);
+            paper.classList.remove('no');
+            void paper.offsetWidth;
+            paper.classList.add('no');
+            return;
+          }
+        }
+        fills[part] = state.swatch;
+        if (colorMode === 'name') {
+          var donePage = Color.namedById(colorId);
+          var key = 'color-' + donePage.id;
+          if (Color.complete(donePage, fills) && !state.explorer[key]) {
+            state.explorer[key] = true;
+            state.stars += 1;
+            save();
+            colorSpeak = false;
+            renderColor();
+            $('yay').hidden = false;
+            $('yay').innerHTML = starSvg('#f59e0b') + starSvg('#facc15') + starSvg('#fb7185');
+            sayKey('star', 'You did it! You earned a star.');
+            var token = ++playToken;
+            setTimeout(function () { if (token === playToken) $('yay').hidden = true; }, 1100);
+            return;
+          }
+        }
+        colorSpeak = false;
+        renderColor();
         return;
       }
       e.preventDefault();
@@ -1177,22 +1668,22 @@
     paper.addEventListener('pointermove', function (e) {
       if (!liveLine) return;
       e.preventDefault();
-      var p = toPt(e, paper);
+      var pt = toPt(e, paper);
       var last = liveLine[liveLine.length - 1];
-      if (Trace.dist(last, p) < 1.2) return;
-      liveLine.push(p);
+      if (Trace.dist(last, pt) < 1.2) return;
+      liveLine.push(pt);
       var nodes = paper.querySelectorAll('.liveink');
       for (var n = 0; n < nodes.length; n++) nodes[n].remove();
-      paper.insertAdjacentHTML('beforeend', poly(liveLine, 'ink liveink', hex(state.swatch)).replace('class="ink liveink"', 'class="ink liveink" stroke-width="4"'));
+      paper.insertAdjacentHTML('beforeend', poly(liveLine, 'ink liveink', hex(state.swatch)).replace('class="ink liveink"', 'class="ink liveink" stroke-width="5.5"'));
     });
     paper.addEventListener('pointerup', function () {
       if (!liveLine) return;
       if (liveLine.length > 1 && ink.length < 8) ink.push({ color: state.swatch, pts: liveLine.slice(0, 24) });
       liveLine = null;
+      colorSpeak = false;
       renderColor();
     });
   }
-
   function onClick(e) {
     var b = e.target.closest ? e.target.closest('[data-act]') : null;
     if (!b || b.id === 'mute' && e.target.closest('#paper')) return;
@@ -1207,11 +1698,26 @@
     if (act === 'home') { playToken++; busy = false; show('s-home'); return; }
     if (act === 'closet') { show('s-closet'); return; }
     if (act === 'pick') { playToken++; busy = false; show('s-pick'); return; }
-    if (act === 'explore') { qIndex = 0; show('s-explore'); return; }
+    if (act === 'explore') { exploreMode = 'pick'; show('s-explore'); return; }
+    if (act === 'units') { exploreMode = 'pick'; renderExplore(); return; }
+    if (act === 'unit') { unitId = v; qIndex = 0; exploreMode = 'intro'; renderExplore(); return; }
+    if (act === 'unit-go') { exploreMode = 'ask'; qIndex = 0; renderExplore(); return; }
     if (act === 'color') {
+      colorMode = 'name';
+      colorId = 'truck';
       fills = {}; ink = []; brush = false;
+      colorSpeak = true;
       show('s-color');
-      sayKey('color', 'Tap a color, then tap the picture.');
+      return;
+    }
+    if (act === 'cmode') {
+      colorMode = v;
+      fills = {}; ink = []; brush = false;
+      if (v === 'name') colorId = 'truck';
+      else if (v === 'letter') colorId = 'A';
+      else colorId = 'excavator';
+      colorSpeak = true;
+      renderColor();
       return;
     }
     if (act === 'soon') { sayKey('soon', 'Red words are coming soon.'); return; }
@@ -1234,29 +1740,46 @@
       return;
     }
     if (act === 'answer') {
-      var q = Ex.QUESTIONS[qIndex];
+      var unit = Ex.unitById(unitId);
+      var q = unit.questions[qIndex];
       if (!Ex.correct(q.id, v)) {
         b.classList.remove('no');
         void b.offsetWidth;
         b.classList.add('no');
-        sayKey('q-no', 'Try another picture.');
+        sayKey('q-no', "Let's look again.");
         return;
       }
-      var earned = !state.explorer[q.id];
-      state.explorer[q.id] = true;
-      if (earned) state.stars += 1;
-      save();
-      sayKey(earned ? 'star' : 'q-yes', earned ? 'That\'s the one! You earned a star.' : 'That\'s the one!');
+      sayKey('why-' + q.id, q.why);
+      var last = qIndex + 1 >= unit.questions.length;
       var token = ++playToken;
       setTimeout(function () {
         if (token !== playToken) return;
         if (!$('s-explore').classList.contains('on')) return;
-        qIndex = (qIndex + 1) % Ex.QUESTIONS.length;
-        renderExplore();
-      }, 900);
+        if (!last) { qIndex++; renderExplore(); return; }
+        var key = 'unit-' + unit.id;
+        var earned = !state.explorer[key];
+        if (earned) { state.explorer[key] = true; state.stars += 1; save(); }
+        if (earned) {
+          $('yay').hidden = false;
+          $('yay').innerHTML = starSvg('#f59e0b') + starSvg('#facc15') + starSvg('#fb7185');
+          sayKey('star', 'You did it! You earned a star.');
+        }
+        setTimeout(function () {
+          if (token !== playToken) return;
+          $('yay').hidden = true;
+          exploreMode = 'pick';
+          renderExplore();
+        }, earned ? 1200 : 400);
+      }, 1700);
       return;
     }
-    if (act === 'page') { colorId = v; fills = {}; ink = []; renderColor(); return; }
+    if (act === 'page') {
+      if (colorMode === 'letter' && !letterReady(v)) {
+        sayKey('first-' + v.toLowerCase(), Color.traceFirst(v));
+        return;
+      }
+      colorId = v; fills = {}; ink = []; colorSpeak = true; renderColor(); return;
+    }
     if (act === 'brush') { brush = !brush; renderColor(); return; }
     if (act === 'eraser') { fills = {}; ink = []; renderColor(); return; }
     if (act === 'keep') {
@@ -1272,6 +1795,8 @@
     if (act === 'gallery') {
       var item = state.gallery[+v];
       if (!item) return;
+      colorMode = 'free';
+      colorSpeak = false;
       colorId = item.id;
       fills = {};
       for (var k in item.fills) if (Object.prototype.hasOwnProperty.call(item.fills, k)) fills[k] = item.fills[k];
