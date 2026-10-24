@@ -199,3 +199,54 @@ test('a save that already reached version 3 from only one side keeps that side a
   assert.equal(saved.red.plot.cards['rw-k-said'].flower, 'tulip');
   assert.match(html, /media-src 'self'/);
 });
+
+test('harder words land on rarer seed packets, and the wheel stops on that slot', function () {
+  const easy = Garden.byId('rw-k-and', []);
+  const hard = Garden.byId('rw-2-through', []);
+  assert.deepEqual(Array.from(Garden.packetWeights(easy, 0)), [6, 2, 1, 0]);
+  assert.deepEqual(Array.from(Garden.packetWeights(hard, 0)), [0, 1, 3, 5]);
+  function tilt(word) {
+    const weights = Garden.packetWeights(word, 0);
+    let total = 0, sum = 0;
+    weights.forEach(function (n, i) { total += n; sum += n * i; });
+    return sum / total;
+  }
+  assert.ok(tilt(hard) > tilt(easy) + 1);
+  assert.equal(Garden.pickPacket(easy, 0, 0), 'common');
+  assert.equal(Garden.pickPacket(hard, 0, 0.99), 'mythic');
+  assert.equal(Garden.pickPacket(easy, 0, 0.99), 'epic');
+  assert.equal(Garden.slotUnder(0), 0);
+  assert.equal(Garden.WHEEL_SLOTS[Garden.slotUnder(45)], 'mythic');
+  const dest = Garden.stopAngle(10, 500, 'mythic');
+  assert.ok(dest > 10);
+  assert.equal(Garden.WHEEL_SLOTS[Garden.slotUnder(dest)], 'mythic');
+  const back = Garden.stopAngle(800, -500, 'rare');
+  assert.ok(back < 800);
+  assert.equal(Garden.WHEEL_SLOTS[Garden.slotUnder(back)], 'rare');
+});
+
+test('a half-finished seed award is kept and junk is dropped', function () {
+  const kept = Save.sanitize({
+    v: 3,
+    settings: { pin: '1111' },
+    red: { plot: { award: { id: 'rw-k-said', phase: 'packet', rarity: 'epic', kind: 'seed' }, cards: { 'rw-k-said': { step: 1 } } } }
+  }).save;
+  assert.equal(kept.red.plot.award.id, 'rw-k-said');
+  assert.equal(kept.red.plot.award.phase, 'packet');
+  assert.equal(kept.red.plot.award.rarity, 'epic');
+  assert.equal(kept.red.plot.award.kind, 'seed');
+  assert.equal(kept.red.plot.cards['rw-k-said'].step, 1);
+  const junk = Save.sanitize({
+    v: 3,
+    settings: { pin: '1111' },
+    red: { plot: { award: { id: '<no>', phase: 'explode', rarity: 'ultra' } } }
+  }).save;
+  assert.equal(junk.red.plot.award, null);
+  const thirst = Save.sanitize({
+    v: 3,
+    settings: { pin: '1111' },
+    red: { plot: { award: { id: 'rw-k-the', phase: 'water', rarity: 'common', kind: 'thirst' } } }
+  }).save;
+  assert.equal(thirst.red.plot.award.kind, 'thirst');
+  assert.equal(thirst.red.plot.award.phase, 'water');
+});
