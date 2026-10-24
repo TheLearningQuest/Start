@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Brain Quest">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="theme-color" content="#5b3df5">
 <title>Naomi's Brain Quest</title>
 <style>
@@ -379,8 +379,22 @@ body.shake-screen #app{animation:shake .3s linear 2}
 .ink-read.good{background:#7c3aed}
 .ink-read.unsure{background:#0ea5e9;white-space:normal;max-width:92%;text-align:center}
 .ink-btns{display:flex;gap:12px}
-.ink-btns .btn{flex:1;font-size:24px;min-height:62px;border-radius:20px}
+.ink-btns .btn{flex:1;font-size:22px;min-height:62px;border-radius:20px}
 .ink-btns .btn.white{box-shadow:0 6px 0 #f0abfc;border:3px solid #fbcfe8}
+.ink-ask{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  padding:16px;background:rgba(255,247,251,.94);text-align:center}
+.ink-ask[hidden]{display:none}
+.ink-ask p{margin:0;font-size:clamp(22px,3vw,32px);color:#4c1d95}
+.ink-ask .choices{display:flex;gap:14px;width:100%;max-width:560px}
+.ink-ask .choices .btn{flex:1;min-height:96px;font-size:64px;border-radius:28px;line-height:1}
+.hand-teach{position:fixed;inset:0;z-index:85;display:flex;flex-direction:column;gap:10px;padding:max(12px,env(safe-area-inset-top)) 14px max(12px,env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,#fff1f7,#f5f3ff)}
+.hand-teach[hidden]{display:none}
+.hand-teach h2{margin:0;text-align:center;font-size:clamp(26px,4vw,36px);color:#4c1d95}
+.hand-teach .hand-sub{text-align:center;color:#7c3aed;font-size:18px;margin:0}
+.hand-stage{flex:1;min-height:200px;position:relative;border-radius:22px;overflow:hidden;border:4px dashed #f0abfc;background:#fff}
+.hand-stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.hand-teach .ink-btns .btn{font-size:20px}
 
 /* ===================== Red Words (OG heart words) ===================== */
 .tile.live.red{background:linear-gradient(135deg,#ff6fa5,#c084fc);grid-column:auto;min-height:170px}
@@ -699,6 +713,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
 <canvas id="confetti"></canvas>
 <div class="overlay" id="egg-overlay"></div>
 <div class="modal" id="modal"></div>
+<div id="hand-teach" class="hand-teach" hidden></div>
 <script>
 /* Naomi's Math Quest - pure game logic (no DOM). Usable in the browser and in Node tests. */
 (function (root) {
@@ -1548,12 +1563,15 @@ body.shake-screen #app{animation:shake .3s linear 2}
 
 </script>
 <script>
-/* Naomi's Math Quest - on-device handwritten digit reader for "Write It".
+/* NMQ_INK_MODULE_START
+   Naomi's Math Quest - on-device handwritten digit reader for "Write It".
    Plain JS, no libraries, no models, no network. Usable in the browser and in Node tests.
    1) segment(strokes): group strokes into digits by horizontal overlap of their bounding boxes.
    2) classify(group): $P point-cloud matching (Vatavu, Anthony & Wobbrock 2012) against
       hand-made templates (several per digit, including kid variants), plus a few shape checks.
-   3) read(strokes): digits left-to-right with a confidence; low confidence => ask to write again. */
+   3) read(strokes): digits left-to-right with a confidence.
+   4) planInk(read, answer, final): when to accept, wait for another stroke, or ask "9 or 4?".
+   Personal samples (settings.hand) are extra templates via loadPersonal(). */
 (function (root) {
   'use strict';
   var N = 40;                 // resample size
@@ -1777,11 +1795,77 @@ body.shake-screen #app{animation:shake .3s linear 2}
     return { text: text, value: ok ? parseInt(text, 10) : null, digits: digits, ok: ok, reason: reason };
   }
 
-  var api = { read: read, segment: segment, classify: classify, TEMPLATES: TEMPLATES, N: N,
+  // Margin between the top two candidates. Confusable pairs (her 9s, and 1 vs 7) need a wider gap.
+  var MARGIN_MIN = 0.045, MARGIN_CONFUSE = 0.11, UNREADABLE_DIST = 0.42;
+  var ACCEPT_NOW_MS = 90, WAIT_MORE_MS = 1900;
+  var CONFUSE = { 1: { 7: 1 }, 7: { 1: 1 }, 4: { 9: 1 }, 9: { 4: 1, 6: 1 }, 6: { 9: 1, 0: 1 }, 0: { 6: 1 }, 5: { 3: 1 }, 3: { 5: 1 } };
+  function pairConfusable(a, b) { return !!(CONFUSE[a] && CONFUSE[a][b]); }
+  function ambiguousDigit(d) {
+    if (!d || !d.ranked || d.ranked.length < 2) return null;
+    var top = d.ranked[0], second = d.ranked[1];
+    if (!(top.d >= 0) || !(second.d >= 0) || top.d > UNREADABLE_DIST) return null;
+    var margin = second.d - top.d;
+    var need = pairConfusable(top.digit, second.digit) ? MARGIN_CONFUSE : MARGIN_MIN;
+    if (margin < need) return { top: String(top.digit), second: String(second.digit), margin: margin, at: -1 };
+    return null;
+  }
+  /* readResult from read(), answer is the fact's number, final is true once the wait has elapsed.
+     action: accept (snappy correct read), wait (another stroke may be coming), ask (two buttons;
+     her tap is the answer), retry (couldn't read — streak stays), submit (a clear other number),
+     ignore (no ink). */
+  function planInk(readResult, answer, final) {
+    var res = readResult || {};
+    var text = String(res.text || '');
+    var ans = String(answer == null ? '' : answer);
+    var digits = res.digits || [];
+    if (!text) {
+      var empty = !res.reason || res.reason === 'empty';
+      return { action: final && !empty ? 'retry' : 'ignore', waitMs: 0, choices: [], prompt: '', reason: res.reason || 'empty' };
+    }
+    var amb = null, ambAt = -1;
+    for (var i = 0; i < digits.length; i++) {
+      var hit = ambiguousDigit(digits[i]);
+      if (hit) { amb = hit; ambAt = i; break; }
+    }
+    var full = text === ans;
+    var prefix = text.length > 0 && text.length < ans.length && ans.indexOf(text) === 0;
+    if (!final) {
+      if (full && !amb) return { action: 'accept', waitMs: ACCEPT_NOW_MS, choices: [], prompt: '', reason: 'match' };
+      var why = prefix ? 'prefix' : amb ? 'ambiguous' : (res.ok ? 'mismatch' : (res.reason || 'unsure'));
+      return { action: 'wait', waitMs: WAIT_MORE_MS, choices: [], prompt: prefix ? 'Keep going…' : '', reason: why };
+    }
+    if (amb && !prefix) {
+      var chars = text.split('');
+      if (ambAt < 0 || ambAt >= chars.length) ambAt = chars.length - 1;
+      var one = chars.slice(), two = chars.slice();
+      one[ambAt] = amb.top; two[ambAt] = amb.second;
+      var c1 = one.join(''), c2 = two.join('');
+      return { action: 'ask', waitMs: 0, choices: [c1, c2], prompt: 'Did you mean ' + c1 + ' or ' + c2 + '?', reason: 'ambiguous' };
+    }
+    if (full) return { action: 'accept', waitMs: 0, choices: [], prompt: '', reason: 'match' };
+    if (!res.ok) return { action: 'retry', waitMs: 0, choices: [], prompt: '', reason: res.reason || 'unsure' };
+    return { action: 'submit', waitMs: 0, choices: [], prompt: '', reason: prefix ? 'prefix' : 'mismatch' };
+  }
+
+  function loadPersonal(samples) {
+    for (var i = TEMPLATES.length - 1; i >= 0; i--) if (TEMPLATES[i].personal) TEMPLATES.splice(i, 1);
+    (samples || []).forEach(function (sample) {
+      if (!sample || typeof sample.d !== 'number' || sample.d < 0 || sample.d > 9) return;
+      if (!sample.s || !sample.s.length) return;
+      try {
+        TEMPLATES.push({ digit: sample.d, cloud: prep(sample.s), aspect: aspectOf(sample.s), strokes: sample.s.length, personal: true });
+      } catch (err) { /* a bad sample never replaces the built-in templates */ }
+    });
+  }
+
+  var api = { read: read, segment: segment, classify: classify, planInk: planInk, loadPersonal: loadPersonal,
+    TEMPLATES: TEMPLATES, N: N, ACCEPT_NOW_MS: ACCEPT_NOW_MS, WAIT_MORE_MS: WAIT_MORE_MS,
+    MARGIN_MIN: MARGIN_MIN, MARGIN_CONFUSE: MARGIN_CONFUSE,
     _tune: function (d, r, a) { ACCEPT_DIST = d * N / 2; ACCEPT_RATIO = r; if (a != null) ASPECT_W = a; }, _orient: function (w) { ORIENT_W = w; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.NMQInk = api;
 })(this);
+/* NMQ_INK_MODULE_END */
 
 </script>
 <script>
@@ -2405,7 +2489,11 @@ body.shake-screen #app{animation:shake .3s linear 2}
     eggs: 40,
     rewards: 24,
     facts: 4000,
-    misses: 30
+    misses: 30,
+    hand: 40,
+    handPerDigit: 4,
+    handStrokes: 4,
+    handPoints: 24
   };
   var MAX_BACKUP_BYTES = 1500000;
   var EMERGENCY_KEEP = 20;
@@ -2441,7 +2529,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
   // Version 0 (a save with no v, or v 0) has the same shape as version 1.
   // Version 2 stores an explicit voice choice. Empty voiceURI and voiceName was the old
   // "nothing chosen, auto-pick Zoe" default; that becomes the iPad system voice.
-  // Version 3 stores the word-garden plot (planted flowers, nursery, shop) on red.plot.
+  // Version 3 stores her handwritten digit samples in settings.hand and the word-garden plot on red.plot.
+  // It is safe to run more than once, and sanitize() fills either half if a save already reached version 3 from only one of them.
   // Later versions add a function here. sanitize() always runs after migrate().
   var MIGRATIONS = [
     function toV1(raw) { raw.v = 1; },
@@ -2458,6 +2547,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
     },
     function toV3(raw) {
       raw.v = 3;
+      var s = raw.settings;
+      if (s && typeof s === 'object' && !Array.isArray(s) && !Array.isArray(s.hand)) s.hand = [];
       if (!raw.red || typeof raw.red !== 'object' || Array.isArray(raw.red)) raw.red = {};
       if (!raw.red.plot || typeof raw.red.plot !== 'object' || Array.isArray(raw.red.plot)) raw.red.plot = {};
     }
@@ -2888,6 +2979,37 @@ body.shake-screen #app{animation:shake .3s linear 2}
     };
   }
 
+  function sanitizeHand(list) {
+    var out = [], counts = {};
+    if (!Array.isArray(list)) return out;
+    for (var i = 0; i < list.length && out.length < CAPS.hand; i++) {
+      var item = list[i];
+      if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+      var d = item.d;
+      if (typeof d !== 'number' || !isFinite(d) || d !== Math.floor(d) || d < 0 || d > 9) continue;
+      if ((counts[d] || 0) >= CAPS.handPerDigit) continue;
+      if (!Array.isArray(item.s) || !item.s.length || item.s.length > CAPS.handStrokes) continue;
+      var strokes = [], ok = true;
+      for (var si = 0; si < item.s.length && ok; si++) {
+        var stroke = item.s[si];
+        if (!Array.isArray(stroke) || stroke.length < 1 || stroke.length > CAPS.handPoints) { ok = false; break; }
+        var pts = [];
+        for (var pi = 0; pi < stroke.length; pi++) {
+          var p = stroke[pi];
+          if (!Array.isArray(p) || p.length < 2) { ok = false; break; }
+          var x = Number(p[0]), y = Number(p[1]);
+          if (!isFinite(x) || !isFinite(y)) { ok = false; break; }
+          pts.push([Math.round(Math.max(-4000, Math.min(8000, x))), Math.round(Math.max(-4000, Math.min(8000, y)))]);
+        }
+        if (ok) strokes.push(pts);
+      }
+      if (!ok || !strokes.length) continue;
+      counts[d] = (counts[d] || 0) + 1;
+      out.push({ d: d, s: strokes });
+    }
+    return out;
+  }
+
   function nearest(value, list, fallback) {
     var n = num(value, fallback, null, null);
     var best = fallback, dist = Infinity;
@@ -2972,6 +3094,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
           if (!uri && !name) return 'iPad default voice';
           return name;
         })(),
+        hand: sanitizeHand(settingsIn.hand),
         rewards: sanitizeRewards(settingsIn.rewards)
       }
     };
@@ -3313,8 +3436,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
 <script>
 /* Naomi's Brain Quest - Red Words garden (claw, nursery, flowers).
    Recorded clips, when a grown-up adds them later, live at audio/words/<id>.m4a,
-   audio/letters/<a-z>.m4a, and audio/sounds/<sound>.m4a. Playing those files will
-   need media-src 'self' in the CSP. Until then, speech is the voice. */
+   audio/letters/<a-z>.m4a, and audio/sounds/<sound>.m4a. media-src 'self' allows those
+   same-origin files. Until the files are here, speech is the voice. */
 (function () {
   'use strict';
   var G = window.NMQGarden, W = window.NMQWords, C = null;
@@ -3944,7 +4067,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       red: redDefaults(),
       settings: {
         pin: '1234', sound: true, autoSubmit: true, fixAfterMiss: true, fluentMs: 4000, redVoice: true, redRate: 0.75, redDaily: 3,
-        voiceURI: 'system', voiceName: 'iPad default voice',
+        voiceURI: 'system', voiceName: 'iPad default voice', hand: [],
         rewards: [
           { id: 'robux', icon: '💎', name: 'Robux', cost: 400, amount: 80, unit: 'Robux', enabled: true },
           { id: 'screen', icon: '📱', name: 'Screen time', cost: 100, amount: 15, unit: 'minutes', enabled: true },
@@ -3966,9 +4089,10 @@ body.shake-screen #app{animation:shake .3s linear 2}
       var pin = (raw.settings && typeof raw.settings.pin === 'string' && /^\d{4}$/.test(raw.settings.pin)) ? raw.settings.pin : '1234';
       var result = null;
       try { result = window.NMQSave.sanitize(raw, { pin: pin }); } catch (e2) { result = null; }
-      if (result && result.ok) { S = result.save; return; }
+      if (result && result.ok) { S = result.save; applyHand(); return; }
     }
     S = defaults();
+    applyHand();
     // Unreadable storage is left on disk until a later successful save, so a bad parse cannot wipe a backup the parent still has.
     if (!had) return;
   }
@@ -4259,8 +4383,10 @@ body.shake-screen #app{animation:shake .3s linear 2}
       h += '<div class="bubble-field" id="bubbles" aria-label="Pop the right answer"></div>';
     } else if (G.method === 'write') {
       h += '<div class="ink-wrap" id="ink-wrap"><canvas id="ink" aria-label="Write your answer here"></canvas>' +
-        '<div class="ink-hint" id="ink-hint">✏️ Write your answer here</div><div class="ink-read" id="ink-read"></div></div>' +
+        '<div class="ink-hint" id="ink-hint">✏️ Write your answer here</div><div class="ink-read" id="ink-read"></div>' +
+        '<div class="ink-ask" id="ink-ask" hidden></div></div>' +
         '<div class="ink-btns"><button class="btn white" data-act="ink-clear">🧽 Clear</button>' +
+        '<button class="btn white" data-act="hand-teach">✍️ My numbers</button>' +
         (S.settings.autoSubmit ? '' : '<button class="btn green" data-act="ink-go" id="ink-go">✔ Check</button>') + '</div>';
     } else {
       h += '<div class="numpad">';
@@ -4385,7 +4511,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
 
   // ---------------------------------------------------------------- WRITE IT (handwriting)
   var INK = null;
-  var INK_IDLE_MS = 900, INK_SUBMIT_MS = 600, INK_WAIT_MORE_MS = 1300, INK_RETRY_MS = 1100;
+  var INK_RETRY_MS = 1100;
   function inkSetup() {
     var cv = $('#ink'); if (!cv) return;
     if (INK && INK.ro) INK.ro.disconnect();
@@ -4407,7 +4533,9 @@ body.shake-screen #app{animation:shake .3s linear 2}
         if (e.pointerType === 'pen' && INK.ptype !== 'pen') INK.cur = null; else return;
       }
       inkCancelTimers();
-      if (INK.read && !INK.read.ok) { INK.strokes = []; inkRedraw(); }
+      inkHideAsk();
+      if (INK.phase === 'retry') { INK.strokes = []; inkRedraw(); }
+      INK.phase = '';
       inkShowRead(null);
       INK.pid = e.pointerId; INK.ptype = e.pointerType;
       try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -4428,7 +4556,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       INK.pid = null;
       if (INK.cur && INK.cur.length) INK.strokes.push(INK.cur);
       INK.cur = null; inkRedraw();
-      if (INK.strokes.length) inkLater(inkRecognize, INK_IDLE_MS);
+      if (INK.strokes.length) inkJudge(false, false);
     }
     cv.addEventListener('pointerup', end);
     cv.addEventListener('pointercancel', end);
@@ -4458,36 +4586,152 @@ body.shake-screen #app{animation:shake .3s linear 2}
   }
   function inkClear() {
     if (!INK || !$('#ink')) return;
-    inkCancelTimers(); INK.strokes = []; INK.cur = null; INK.pid = null; INK.read = null;
+    inkCancelTimers(); inkHideAsk(); INK.strokes = []; INK.cur = null; INK.pid = null; INK.read = null; INK.phase = '';
     inkRedraw(); inkShowRead(null);
     var hint = $('#ink-hint'); if (hint) hint.classList.remove('gone');
   }
-  function inkRecognize(thenSubmit) {
-    if (!INK || !G || G.locked) return;
+  function inkHideAsk() {
+    var el = $('#ink-ask'); if (!el) return;
+    el.hidden = true; el.innerHTML = '';
+  }
+  function inkAsk(plan) {
+    var el = $('#ink-ask'); if (!el) return;
+    var h = '<p>' + esc(plan.prompt || ('Did you mean ' + plan.choices[0] + ' or ' + plan.choices[1] + '?')) + '</p><div class="choices">';
+    plan.choices.forEach(function (c, i) {
+      h += '<button class="btn ' + (i ? 'blue' : 'pink') + '" data-act="ink-pick" data-v="' + esc(c) + '">' + esc(c) + '</button>';
+    });
+    h += '</div>';
+    el.innerHTML = h;
+    el.hidden = false;
+  }
+  function inkJudge(final, force) {
+    if (!INK || !G || G.locked || !window.NMQInk) return;
     inkCancelTimers();
     var res = window.NMQInk.read(INK.strokes, 3);
     INK.read = res;
-    if (!res.ok) {
-      if (res.reason === 'empty') return;
-      G.rereads++;
-      inkShowRead('Hmm 🤔 I couldn\'t read that — try again!', 'unsure');
-      $('#ans').innerHTML = '&nbsp;';
-      inkLater(function () { if (INK.read === res) { INK.strokes = []; inkRedraw(); inkShowRead('✏️ Try writing it again, nice and big!', 'unsure'); $('#ink-hint').classList.remove('gone'); } }, INK_RETRY_MS);
+    var plan = window.NMQInk.planInk(res, G.problem && G.problem.answer, !!final);
+    if (plan.action === 'ignore') { INK.phase = ''; return; }
+    if (plan.action === 'wait') {
+      INK.phase = 'wait';
+      if (plan.prompt) inkShowRead(plan.prompt, 'unsure');
+      inkLater(function () { inkJudge(true, false); }, plan.waitMs);
       return;
     }
+    if (plan.action === 'ask') { INK.phase = 'ask'; SFX.ink(); inkShowRead(null); inkAsk(plan); return; }
+    if (plan.action === 'retry') {
+      if (res.reason === 'empty') return;
+      INK.phase = 'retry';
+      G.rereads++;
+      inkShowRead('Hmm 🤔 I couldn\'t read that — try again!', 'unsure');
+      var ans = $('#ans'); if (ans) ans.innerHTML = '&nbsp;';
+      inkLater(function () { if (INK && INK.read === res) { INK.strokes = []; inkRedraw(); inkShowRead('✏️ Try writing it again, nice and big!', 'unsure'); var hint = $('#ink-hint'); if (hint) hint.classList.remove('gone'); } }, INK_RETRY_MS);
+      return;
+    }
+    INK.phase = 'read';
     SFX.ink();
     inkShowRead('I read: ' + res.text, 'good');
-    G.input = res.text; $('#ans').textContent = res.text;
-    if (thenSubmit === true) { inkSubmit(); return; }
-    if (!S.settings.autoSubmit) return;                        // wait for the ✔ button
-    var need = String(G.problem.answer).length;
-    inkLater(inkSubmit, res.text.length >= need ? INK_SUBMIT_MS : INK_SUBMIT_MS + INK_WAIT_MORE_MS);
+    G.input = res.text;
+    var box = $('#ans'); if (box) box.textContent = res.text;
+    if (!(S.settings.autoSubmit || force)) return;
+    if (plan.action === 'accept' && !force && plan.waitMs) inkLater(inkSubmit, plan.waitMs);
+    else inkSubmit();
   }
+  function inkRecognize(thenSubmit) { inkJudge(true, !!thenSubmit); }
   function inkSubmit() {
-    if (!G || G.locked || !INK || !INK.read || !INK.read.ok) return;
+    if (!G || G.locked || !INK || !INK.read || !INK.read.text) return;
     inkCancelTimers();
+    inkHideAsk();
     G.input = INK.read.text;
     submit();
+  }
+  function applyHand() {
+    if (window.NMQInk && S && S.settings) window.NMQInk.loadPersonal(S.settings.hand || []);
+  }
+  var HAND = null;
+  function handSimplify(strokes) {
+    var ranked = strokes.filter(function (s) { return s && s.length; }).slice().sort(function (a, b) { return b.length - a.length; }).slice(0, 4);
+    ranked.sort(function (a, b) { return strokes.indexOf(a) - strokes.indexOf(b); });
+    return ranked.map(function (s) {
+      if (s.length <= 24) return s.map(function (p) { return [Math.round(p.x), Math.round(p.y)]; });
+      var out = [], step = (s.length - 1) / 23;
+      for (var i = 0; i < 24; i++) { var p = s[Math.round(i * step)]; out.push([Math.round(p.x), Math.round(p.y)]); }
+      return out;
+    });
+  }
+  function handOpen() {
+    inkCancelTimers();
+    var root = $('#hand-teach'); if (!root) return;
+    HAND = { digit: 0, samples: (S.settings.hand || []).map(function (s) { return { d: s.d, s: s.s }; }), strokes: [], cur: null, pid: null };
+    root.hidden = false;
+    handRender();
+  }
+  function handClose() {
+    var root = $('#hand-teach'); if (root) root.hidden = true;
+    HAND = null;
+  }
+  function handCount(d) { return HAND.samples.filter(function (s) { return s.d === d; }).length; }
+  function handRender() {
+    var root = $('#hand-teach'); if (!root || !HAND) return;
+    var n = handCount(HAND.digit);
+    root.innerHTML = '<h2>Draw a ' + HAND.digit + '</h2><p class="hand-sub">Saved ' + Math.min(n, 2) + ' of 2 for this number · ' + HAND.samples.length + ' drawings on this iPad</p>' +
+      '<div class="hand-stage"><canvas id="hand-cv" aria-label="Draw the number ' + HAND.digit + '"></canvas></div>' +
+      '<div class="ink-btns"><button class="btn green" data-act="hand-keep">Keep it</button><button class="btn white" data-act="hand-erase">Erase</button>' +
+      '<button class="btn white" data-act="hand-skip">Skip</button><button class="btn pink" data-act="hand-done">All done</button></div>';
+    handBind();
+  }
+  function handBind() {
+    var cv = $('#hand-cv'); if (!cv || !HAND) return;
+    function fit() {
+      var r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      if (!r.width || !r.height) return;
+      cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+      handDraw();
+    }
+    fit();
+    requestAnimationFrame(fit);
+    var pt = function (e) { var r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    cv.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      if (!HAND) return;
+      HAND.pid = e.pointerId;
+      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      HAND.cur = [pt(e)];
+      handDraw();
+    });
+    cv.addEventListener('pointermove', function (e) {
+      if (!HAND || HAND.pid !== e.pointerId || !HAND.cur) return;
+      e.preventDefault();
+      HAND.cur.push(pt(e));
+      handDraw();
+    });
+    function end(e) {
+      if (!HAND || HAND.pid !== e.pointerId) return;
+      HAND.pid = null;
+      if (HAND.cur && HAND.cur.length > 1) HAND.strokes.push(HAND.cur);
+      HAND.cur = null; handDraw();
+    }
+    cv.addEventListener('pointerup', end);
+    cv.addEventListener('pointercancel', end);
+  }
+  function handDraw() {
+    var cv = $('#hand-cv'); if (!cv || !HAND) return;
+    var c = cv.getContext('2d'), dpr = cv.width / Math.max(1, cv.getBoundingClientRect().width || 1);
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#7c3aed'; c.lineWidth = 10;
+    HAND.strokes.concat(HAND.cur ? [HAND.cur] : []).forEach(function (s) {
+      if (!s.length) return;
+      c.beginPath(); c.moveTo(s[0].x, s[0].y);
+      for (var i = 1; i < s.length; i++) c.lineTo(s[i].x, s[i].y);
+      c.stroke();
+    });
+  }
+  function handAdvance() {
+    if (handCount(HAND.digit) >= 2) {
+      if (HAND.digit < 9) HAND.digit++;
+    }
+    HAND.strokes = []; HAND.cur = null;
+    handRender();
   }
   function press(k) {
     if (!G || G.locked || G.method !== 'pad') return;
@@ -4927,6 +5171,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       '<div class="p-row"><label>New 4-digit PIN</label><input type="text" id="set-pin" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="••••"><button class="btn small blue" data-act="set-pin">Change PIN</button><span id="pin-msg" class="p-note"></span></div>' +
       '<div class="p-row"><label><input type="checkbox" id="set-auto"' + (S.settings.autoSubmit ? ' checked' : '') + ' data-act="set-auto"> Auto-submit when the answer has enough digits (faster speed runs)</label></div>' +
       '<div class="p-row"><label><input type="checkbox" id="set-sound"' + (S.settings.sound ? ' checked' : '') + ' data-act="set-sound"> Sound effects</label></div>' +
+      '<div class="p-row"><button class="btn small pink" data-act="hand-teach">✍️ Teach it my handwriting</button><span class="p-note">Draw each number a couple of times. Samples stay on this iPad and help with tricky 9s and 1s.</span></div>' +
       '<div class="p-row"><label><input type="checkbox" id="set-fix"' + (S.settings.fixAfterMiss ? ' checked' : '') + ' data-act="set-fix"> After a miss, she re-enters the correct answer before moving on (recommended)</label></div>' +
       '<div class="p-row"><label>Fluent = correct within</label><select id="set-fluent" data-act="set-fluent">' + [3000, 4000, 5000, 6000, 8000].map(function (v) { return '<option value="' + v + '"' + (S.settings.fluentMs === v ? ' selected' : '') + '>' + (v / 1000) + 's</option>'; }).join('') + '</select><span class="p-note">includes reading and typing time; 4s is a fair 2nd-grade target on the number pad, use more for Write It</span></div>' +
       '<div class="p-row" style="border-top:1px solid #e2e8f0;padding-top:10px"><button class="btn small white" data-act="export">⬇ Backup file</button><label class="btn small white" style="cursor:pointer">⬆ Restore<input type="file" id="import-file" accept="application/json,.json" style="display:none"></label></div>' +
@@ -4967,7 +5212,42 @@ body.shake-screen #app{animation:shake .3s linear 2}
       case 'pick-mode': S.last.mode = v; save(); RENDER_math(); break;
       case 'pick-method': if (L.METHOD_INFO[v]) { S.last.method = v; save(); SFX.tap(); RENDER_math(); } break;
       case 'ink-clear': if (G && !G.locked && INK) { inkClear(); SFX.tap(); } break;
-      case 'ink-go': if (G && !G.locked && INK && INK.strokes.length) inkRecognize(true); break;
+      case 'ink-go': if (G && !G.locked && INK && INK.strokes.length) inkJudge(true, true); break;
+      case 'ink-pick':
+        if (!G || G.locked || !INK) break;
+        inkCancelTimers();
+        inkHideAsk();
+        if (!/^\d{1,3}$/.test(String(v || ''))) break;
+        INK.phase = 'read';
+        INK.read = { text: String(v), ok: true, value: parseInt(v, 10), digits: [], reason: 'picked' };
+        G.input = INK.read.text;
+        var pickedBox = $('#ans'); if (pickedBox) pickedBox.textContent = G.input;
+        inkShowRead('I read: ' + G.input, 'good');
+        inkSubmit();
+        break;
+      case 'hand-teach': handOpen(); break;
+      case 'hand-erase': if (HAND) { HAND.strokes = []; HAND.cur = null; handDraw(); } break;
+      case 'hand-skip':
+        if (!HAND) break;
+        HAND.digit = HAND.digit >= 9 ? 0 : HAND.digit + 1;
+        HAND.strokes = []; HAND.cur = null;
+        handRender();
+        break;
+      case 'hand-keep':
+        if (!HAND || HAND.strokes.length < 1) break;
+        if (handCount(HAND.digit) < 4) HAND.samples.push({ d: HAND.digit, s: handSimplify(HAND.strokes) });
+        SFX.tap();
+        handAdvance();
+        break;
+      case 'hand-done':
+        if (!HAND) break;
+        S.settings.hand = HAND.samples;
+        save();
+        applyHand();
+        handClose();
+        if (current === 'parent') RENDER_parent();
+        splash('I learned your numbers!', 'l2', 0);
+        break;
       case 'play': case 'again': startGame(); break;
       case 'quit':
         if (!G) { show('math'); break; }
@@ -5021,7 +5301,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       case 'export': exportBackup(); break;
       case 'backup-copy': copyBackupText(); break;
       case 'reset':
-        if (confirm('Erase ALL progress, coins, items and history? This cannot be undone.')) { var pin = S.settings.pin; S = defaults(); S.settings.pin = pin; save(); show('home'); }
+        if (confirm('Erase ALL progress, coins, items and history? This cannot be undone.')) { var pin = S.settings.pin; S = defaults(); S.settings.pin = pin; applyHand(); save(); show('home'); }
         break;
       default: if (RW) RW.act(name, v, el);
     }
@@ -5081,6 +5361,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
       if (!confirm('Replace current progress with this backup?')) return;
       var previous = S;
       S = result.save;
+      applyHand();
       if (!save()) {
         var why = saveWarning;
         S = previous;

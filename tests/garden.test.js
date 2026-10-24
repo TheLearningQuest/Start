@@ -143,4 +143,59 @@ test('a version 2 save gains an empty garden and keeps custom words and coins', 
   assert.deepEqual(Array.from(junk.red.plot.owned), ['bunny']);
   assert.equal(junk.red.plot.explore, true);
   assert.equal(junk.red.plot.purseAt, 50);
+  assert.ok(Array.isArray(junk.settings.hand));
+});
+
+test('a save that already reached version 3 from only one side keeps that side and gains the other', function () {
+  const inkOnly = Save.sanitize({
+    v: 3,
+    coins: 7,
+    settings: {
+      pin: '1111',
+      voiceURI: 'system',
+      voiceName: 'iPad default voice',
+      hand: [{ d: 9, s: [[[1, 2], [3, 40]]] }]
+    }
+  }).save;
+  assert.equal(inkOnly.settings.hand.length, 1);
+  assert.equal(inkOnly.settings.hand[0].d, 9);
+  assert.equal(inkOnly.red.plot.explore, false);
+  assert.deepEqual(Array.from(inkOnly.red.plot.owned), []);
+
+  const gardenOnly = Save.sanitize({
+    v: 3,
+    coins: 9,
+    settings: { pin: '1111', voiceURI: 'zoe-e', voiceName: 'Zoe (Enhanced)' },
+    red: {
+      plot: {
+        cards: { 'rw-k-said': { step: 3, planted: true, rarity: 'common', flower: 'daisy', level: 2, due: 40 } },
+        owned: ['chick'],
+        explore: true,
+        purseAt: 80
+      }
+    }
+  }).save;
+  assert.deepEqual(Array.from(gardenOnly.settings.hand), []);
+  assert.equal(gardenOnly.settings.voiceURI, 'zoe-e');
+  assert.equal(gardenOnly.red.plot.cards['rw-k-said'].flower, 'daisy');
+  assert.equal(gardenOnly.red.plot.cards['rw-k-said'].planted, true);
+  assert.deepEqual(Array.from(gardenOnly.red.plot.owned), ['chick']);
+
+  const both = {
+    v: 2,
+    settings: { pin: '1111', hand: [{ d: 1, s: [[[0, 0], [0, 80]]] }] },
+    red: { plot: { cards: { 'rw-k-said': { step: 1, flower: 'tulip', rarity: 'common' } }, purseAt: 10 } }
+  };
+  Save.MIGRATIONS[2](both);
+  Save.MIGRATIONS[2](both);
+  assert.equal(both.v, 3);
+  assert.equal(both.settings.hand[0].d, 1);
+  assert.equal(both.red.plot.cards['rw-k-said'].flower, 'tulip');
+  assert.equal(both.red.plot.purseAt, 10);
+  const saved = Save.sanitize(both).save;
+  assert.equal(saved.v, 3);
+  assert.equal(saved.settings.hand[0].d, 1);
+  assert.equal(saved.red.plot.cards['rw-k-said'].step, 1);
+  assert.equal(saved.red.plot.cards['rw-k-said'].flower, 'tulip');
+  assert.match(html, /media-src 'self'/);
 });
