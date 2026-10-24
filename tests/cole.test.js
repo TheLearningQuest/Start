@@ -179,7 +179,9 @@ test('tracing scores a real stroke, rejects a scribble, and advances stages', fu
   assert.equal(shape.ok, false);
   assert.equal(shape.reason, 'shape');
   const backwards = L.strokes[0].slice().reverse();
-  assert.equal(Trace.scoreStroke(L.strokes[0], backwards, 16, 0.7).ok, false);
+  const reversed = Trace.scoreStroke(L.strokes[0], backwards, 16, 0.7);
+  assert.equal(reversed.ok, false);
+  assert.equal(reversed.reason, 'backwards');
   assert.equal(Trace.scoreAttempt(L, L.strokes, { tolerance: 16, need: 0.7 }).ok, true);
   assert.equal(Trace.scoreAttempt(L, [L.strokes[1], L.strokes[0]], { tolerance: 16, need: 0.7 }).ok, false);
   assert.equal(Trace.scoreAttempt(L, [L.strokes[0]], { tolerance: 16 }).ok, false);
@@ -219,23 +221,134 @@ test('tracing scores a real stroke, rejects a scribble, and advances stages', fu
   assert.equal(Trace.spokenName('4'), 'four');
 });
 
-test('explorer questions are picture choices with one right answer', function () {
-  assert.ok(Explore.QUESTIONS.length >= 6);
-  Explore.QUESTIONS.forEach(function (q) {
-    assert.ok(q.choices.length >= 2 && q.choices.length <= 4, q.id);
-    const right = q.choices.filter(function (c) { return c.ok; });
-    assert.equal(right.length, 1, q.id);
-    assert.match(q.say, /\?$/);
+test('strokes follow Handwriting Without Tears order and direction', function () {
+  assert.equal(Trace.METHOD, 'hwt');
+  function expect(id, dirs, check) {
+    const g = Trace.glyph(id);
+    assert.equal(g.method, 'hwt', id);
+    assert.deepEqual(Array.from(g.dirs), dirs, id);
+    assert.equal(g.strokes.length, dirs.length, id);
+    g.strokes.forEach(function (stroke, i) {
+      assert.deepEqual(Array.from(g.starts[i]), Array.from(stroke[0]), id);
+      if (check) check(stroke, i, g);
+    });
+  }
+  function top(p) { return p[1] < 30; }
+  expect('A', ['down-left', 'down-right', 'right'], function (stroke, i) {
+    if (i === 0) {
+      assert.ok(stroke[0][0] > 40 && stroke[0][0] < 60);
+      assert.ok(top(stroke[0]));
+      assert.ok(stroke[stroke.length - 1][0] < stroke[0][0]);
+    }
+    if (i === 2) assert.ok(stroke[stroke.length - 1][0] > stroke[0][0]);
   });
-  assert.equal(Explore.correct('float', 'boat'), true);
+  expect('B', ['down', 'curve', 'curve'], function (stroke, i) {
+    if (i === 0) assert.ok(top(stroke[0]));
+  });
+  expect('E', ['down', 'right', 'right', 'right'], function (stroke, i) {
+    if (i === 0) assert.ok(top(stroke[0]));
+    if (i > 0) assert.ok(stroke[stroke.length - 1][0] > stroke[0][0]);
+  });
+  expect('a', ['magic-c'], function (stroke) {
+    assert.ok(stroke[0][1] > 45 && stroke[0][1] < 75);
+  });
+  expect('b', ['down'], function (stroke) {
+    assert.ok(stroke[0][1] < 30);
+    assert.ok(stroke[1][1] > stroke[0][1]);
+  });
+  expect('d', ['magic-c'], function (stroke) {
+    assert.ok(stroke[0][1] > 40);
+    const ys = stroke.map(function (p) { return p[1]; });
+    assert.ok(Math.min.apply(null, ys) < 30);
+    assert.ok(Math.max.apply(null, ys) > 80);
+  });
+  expect('g', ['magic-c'], function (stroke) {
+    assert.ok(stroke[0][1] > 40 && stroke[0][1] < 80);
+    const ys = stroke.map(function (p) { return p[1]; });
+    assert.ok(Math.max.apply(null, ys) > 100);
+  });
+  expect('2', ['curve', 'right'], function (stroke, i) {
+    if (i === 0) assert.ok(top(stroke[0]));
+    if (i === 1) {
+      assert.ok(stroke[0][1] > 75);
+      assert.ok(stroke[stroke.length - 1][0] > stroke[0][0]);
+    }
+  });
+  expect('5', ['down', 'curve', 'right'], function (stroke, i) {
+    if (i === 2) assert.ok(stroke[0][1] < 35);
+  });
+  expect('8', ['curve'], function (stroke) {
+    assert.ok(stroke[0][0] >= 40 && stroke[0][0] <= 60);
+    assert.ok(top(stroke[0]));
+  });
+});
+
+test('explorer units are picture choices with a spoken why', function () {
+  assert.ok(Explore.UNITS.length >= 8);
+  let count = 0;
+  const seen = {};
+  Explore.UNITS.forEach(function (unit) {
+    assert.ok(unit.questions.length >= 5 && unit.questions.length <= 6, unit.id);
+    assert.ok(unit.say && unit.intro && Explore.PICS[unit.intro], unit.id);
+    unit.questions.forEach(function (q) {
+      count += 1;
+      assert.ok(!seen[q.id], q.id);
+      seen[q.id] = true;
+      assert.ok(q.choices.length >= 2 && q.choices.length <= 4, q.id);
+      const right = q.choices.filter(function (c) { return c.ok; });
+      assert.equal(right.length, 1, q.id);
+      assert.match(q.say, /\?$/);
+      assert.match(q.why, /^Yes! /);
+      q.choices.forEach(function (c) {
+        assert.ok(Explore.PICS[c.id] && Explore.PICS[c.id].indexOf('<') >= 0, c.id);
+      });
+      if (q.pattern) q.pattern.forEach(function (id) { assert.ok(Explore.PICS[id], id); });
+    });
+  });
+  assert.ok(count >= 40);
+  assert.equal(Explore.QUESTIONS.length, count);
+  assert.equal(Explore.correct('float', 'leaf'), true);
   assert.equal(Explore.correct('float', 'rock'), false);
   assert.equal(Explore.correct('seed', 'flower'), true);
-  assert.equal(Explore.correct('water', 'fish'), true);
-  assert.equal(Explore.correct('water', 'dog'), false);
+  assert.equal(Explore.correct('home-fish', 'water'), true);
   assert.equal(Explore.correct('next', 'circle'), true);
   assert.equal(Explore.correct('next', 'triangle'), false);
   assert.equal(Explore.correct('bigger', 'elephant'), true);
   assert.equal(Explore.correct('sort', 'apple'), true);
-  assert.equal(Explore.correct('sort', 'shoe'), false);
-  assert.equal(Explore.correct('missing', 'boat'), false);
+  assert.equal(Explore.correct('sort', 'car'), false);
+  assert.equal(Explore.correct('missing', 'leaf'), false);
+  assert.match(Explore.byId('float').say, /Which one floats\?/);
+  assert.equal(Explore.byId('float').clip, 'audio/q-float.m4a');
+});
+
+const Color = loadBlock('COLE_COLOR_MODULE_START');
+
+test('color by name and letter pictures have spoken targets', function () {
+  assert.equal(Color.NAMED.length, 6);
+  assert.equal(Color.namedById('truck').say, 'Color the dump truck yellow.');
+  assert.equal(Color.goalColor(Color.namedById('truck')), 'yellow');
+  assert.equal(Color.complete(Color.namedById('truck'), { bed: 'yellow', cab: 'yellow' }), true);
+  assert.equal(Color.complete(Color.namedById('truck'), { bed: 'yellow', cab: 'blue' }), false);
+  assert.equal(Color.wrongLine('blue', 'yellow').text, "That's blue, try yellow.");
+  assert.equal(Color.LETTERS.length, 26);
+  assert.equal(Color.letterById('A').word, 'Apple');
+  assert.equal(Color.letterById('B').word, 'Bus');
+  assert.equal(Color.letterById('D').word, 'Dump truck');
+  assert.equal(Color.letterById('E').word, 'Excavator');
+  assert.equal(Color.letterById('E').say, 'E says e. Excavator.');
+  assert.equal(Color.traceFirst('B'), 'Trace the letter B first.');
+  const doc = fs.readFileSync(path.join(__dirname, '..', 'docs', 'recording-script.md'), 'utf8');
+  Explore.UNITS.forEach(function (unit) {
+    assert.ok(doc.indexOf(unit.say) >= 0, unit.say);
+    unit.questions.forEach(function (q) {
+      assert.ok(doc.indexOf(q.say) >= 0, q.say);
+      assert.ok(doc.indexOf(q.why) >= 0, q.why);
+    });
+  });
+  Color.NAMED.forEach(function (page) { assert.ok(doc.indexOf(page.say) >= 0, page.say); });
+  Color.LETTERS.forEach(function (letter) { assert.ok(doc.indexOf(letter.say) >= 0, letter.say); });
+  assert.ok(doc.indexOf("Let's try this stroke again.") >= 0);
+  assert.ok(doc.indexOf("Let's go the other way. Follow the arrow.") >= 0);
+  assert.ok(doc.indexOf("Let's look again.") >= 0);
+  assert.ok(doc.indexOf("That's blue, try yellow.") >= 0);
 });
