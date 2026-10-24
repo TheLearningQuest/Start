@@ -29,12 +29,12 @@ test('kindergarten, first grade, and the explore list load with unique ids', fun
   assert.equal(Garden.FIRST.length, 52);
   assert.equal(Garden.EXPLORE.length, 40);
   const all = Garden.catalog([]);
-  assert.equal(all.length, 136);
+  assert.equal(all.length, 140);
   const seen = {};
   all.forEach(function (w) {
     assert.equal(seen[w.id], undefined, w.id);
     seen[w.id] = 1;
-    assert.match(w.id, /^rw-(k|1|2)-/);
+    assert.match(w.id, /^rw-(k|1|2w|2)-/);
   });
   const eye = Garden.KINDERGARTEN.filter(function (w) { return w.id === 'rw-k-i'; })[0];
   assert.equal(eye.w, 'I');
@@ -49,9 +49,9 @@ test('kindergarten, first grade, and the explore list load with unique ids', fun
   assert.equal(Garden.FIRST.every(function (w) { return w.pathway; }), true);
   assert.equal(Garden.EXPLORE.every(function (w) { return w.pathway; }), false);
   const custom = Garden.catalog([{ id: 'c:yacht:1', w: 'yacht', red: [1] }]);
-  assert.equal(custom.length, 137);
-  assert.equal(custom[136].id, 'c:yacht:1');
-  assert.equal(custom[136].pathway, true);
+  assert.equal(custom.length, 141);
+  assert.equal(custom[140].id, 'c:yacht:1');
+  assert.equal(custom[140].pathway, true);
 });
 
 test('mastery takes three first-try days and a miss steps back once', function () {
@@ -99,7 +99,9 @@ test('the weekly block lists the October weeks and only accepts the documented s
   const context = {};
   vm.createContext(context);
   vm.runInContext(html.slice(start, end), context, { filename: 'weekly.js' });
-  assert.deepEqual(Array.from(context.WEEKLY_RED_WORDS), [
+  assert.deepEqual(Array.from(context.WEEKLY_RED_WORDS).map(function (entry) {
+    return { weekOf: entry.weekOf, words: Array.from(entry.words) };
+  }), [
     { weekOf: '2026-10-19', words: ['far', 'goes'] },
     { weekOf: '2026-10-26', words: ['because', 'very'] }
   ]);
