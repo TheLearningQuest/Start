@@ -642,3 +642,122 @@ Save each take with the clip id under it. Do not add the audio files to the app 
 158. yesterday
    clip: `audio/words/rw-1-yesterday.m4a`
    Say the whole word once, naturally. No heart letters; it is the more regular pattern. Do not spell it in this clip.
+
+## Cole
+
+Record these after the list above, in the same session. Save each take at the clip path under `cole/audio/`. Do not add the audio files yet.
+
+Letter names A through Z reuse `audio/letters/a.m4a` through `audio/letters/z.m4a` (say the letter name only). Lowercase uses the same clip. When a Cole prompt clip is missing, the app speaks the line itself and says the letter or number first.
+
+1. Hi Cole! Pick a picture.
+   clip: `cole/audio/hi.m4a`
+
+2. Pick a color.
+   clip: `cole/audio/pick-color.m4a`
+
+3. Trace on the dots. Start at the dot and follow the arrow.
+   clip: `cole/audio/trace-guide.m4a`
+
+4. The dots are light. Trace it.
+   clip: `cole/audio/trace-fade.m4a`
+
+5. Start at the dot and write it.
+   clip: `cole/audio/trace-dot.m4a`
+
+6. Write it in the box.
+   clip: `cole/audio/trace-free.m4a`
+
+7. Almost. Try that stroke again.
+   clip: `cole/audio/try-again.m4a`
+
+8. Yes!
+   clip: `cole/audio/praise-yes.m4a`
+
+9. You did it!
+   clip: `cole/audio/praise-did.m4a`
+
+10. Great tracing!
+    clip: `cole/audio/praise-great.m4a`
+
+11. You did it! You earned a star.
+    clip: `cole/audio/star.m4a`
+
+12. Keep playing to earn stars.
+    clip: `cole/audio/locked.m4a`
+
+13. Red words are coming soon.
+    clip: `cole/audio/soon.m4a`
+
+14. Tap a color, then tap the picture.
+    clip: `cole/audio/color.m4a`
+
+15. Saved.
+    clip: `cole/audio/saved.m4a`
+
+16. That's the one!
+    clip: `cole/audio/q-yes.m4a`
+
+17. Try another picture.
+    clip: `cole/audio/q-no.m4a`
+
+18. Which one floats?
+    clip: `cole/audio/q-float.m4a`
+
+19. What grows from a seed?
+    clip: `cole/audio/q-seed.m4a`
+
+20. Which animal lives in water?
+    clip: `cole/audio/q-water.m4a`
+
+21. What comes next?
+    clip: `cole/audio/q-next.m4a`
+
+22. Which is bigger?
+    clip: `cole/audio/q-bigger.m4a`
+
+23. Which one is a fruit?
+    clip: `cole/audio/q-sort.m4a`
+
+24. zero
+    clip: `cole/audio/n0.m4a`
+    Say the number name only.
+
+25. one
+    clip: `cole/audio/n1.m4a`
+    Say the number name only.
+
+26. two
+    clip: `cole/audio/n2.m4a`
+    Say the number name only.
+
+27. three
+    clip: `cole/audio/n3.m4a`
+    Say the number name only.
+
+28. four
+    clip: `cole/audio/n4.m4a`
+    Say the number name only.
+
+29. five
+    clip: `cole/audio/n5.m4a`
+    Say the number name only.
+
+30. six
+    clip: `cole/audio/n6.m4a`
+    Say the number name only.
+
+31. seven
+    clip: `cole/audio/n7.m4a`
+    Say the number name only.
+
+32. eight
+    clip: `cole/audio/n8.m4a`
+    Say the number name only.
+
+33. nine
+    clip: `cole/audio/n9.m4a`
+    Say the number name only.
+
+34. ten
+    clip: `cole/audio/n10.m4a`
+    Say the number name only.

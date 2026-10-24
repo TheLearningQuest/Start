@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cole">
+<title>Cole's Quest</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<style>
+  :root { --ink: #1e293b; --tap: 76px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    min-height: 100vh; min-height: 100dvh;
+    font-family: system-ui, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: linear-gradient(#7dd3fc, #fef9c3 55%, #bbf7d0);
+    touch-action: manipulation;
+    -webkit-user-select: none; user-select: none;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  button { font: inherit; border: 0; background: none; color: inherit; padding: 0; -webkit-tap-highlight-color: transparent; }
+  button:focus-visible { outline: 4px solid #0f172a; outline-offset: 3px; }
+  [hidden] { display: none !important; }
+  .screen { display: none; min-height: 100vh; min-height: 100dvh; padding: 12px; }
+  .screen.on { display: block; }
+  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .back, .mute {
+    width: 72px; height: 72px; border-radius: 50%; background: #fff;
+    box-shadow: 0 6px 0 #94a3b8; display: grid; place-items: center; flex: 0 0 auto;
+  }
+  .back svg, .mute svg { width: 40px; height: 40px; }
+  .mute { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 5; }
+  .home { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
+  .avatar-btn {
+    background: rgba(255,255,255,.72); border-radius: 32px; padding: 8px 8px 12px;
+    box-shadow: 0 8px 0 #38bdf8; display: flex; flex-direction: column; align-items: center;
+  }
+  .avatar { width: min(280px, 70vw); height: auto; }
+  .stars { display: flex; gap: 4px; min-height: 28px; justify-content: center; }
+  .stars svg { width: 28px; height: 28px; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tile {
+    min-height: 148px; border-radius: 28px; background: #fff;
+    box-shadow: 0 8px 0 #94a3b8; display: grid; place-items: center; padding: 10px;
+  }
+  .tile svg { width: 108px; height: 108px; }
+  .tile.trace { box-shadow: 0 8px 0 #0284c7; }
+  .tile.explore { box-shadow: 0 8px 0 #15803d; }
+  .tile.color { box-shadow: 0 8px 0 #c2410c; }
+  .tile.soon { background: #e2e8f0; box-shadow: 0 8px 0 #64748b; }
+  .tile:active, .swatch:active, .choice:active, .gear-btn:active { transform: translateY(3px); }
+  .pips { display: flex; gap: 8px; margin-left: auto; }
+  .pip { width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 3px #64748b; }
+  .pip.on { background: #f59e0b; box-shadow: none; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .swatch {
+    width: 92px; height: 92px; border-radius: 50%; box-shadow: 0 6px 0 rgba(15,23,42,.25);
+    border: 6px solid #fff;
+  }
+  .swatch.on { outline: 6px solid #0f172a; }
+  .swatches.huge .swatch { width: 112px; height: 112px; }
+  #color-step { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  #preview svg { width: min(420px, 86vw); height: auto; }
+  #board, #paper {
+    width: 100%; height: min(68vh, 640px); height: min(68dvh, 640px);
+    touch-action: none; background: transparent; display: block;
+  }
+  .paper { fill: #fff; stroke: #cbd5e1; stroke-width: 2; }
+  .guide { fill: none; stroke: #64748b; stroke-width: 3.2; stroke-dasharray: 1.8 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .guide.later { opacity: .28; }
+  .guide.done { opacity: .15; }
+  .fade .guide { opacity: .3; }
+  .paint, .ink { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .under { fill: none; stroke: rgba(15,23,42,.3); stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+  .paint { stroke-width: 7.2; }
+  .arrow { fill: #f97316; stroke: #9a3412; stroke-width: .8; }
+  .startdot { fill: #f97316; stroke: #fff; stroke-width: 1.4; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 10px; padding-bottom: 24px; }
+  .glyph {
+    aspect-ratio: 1; border-radius: 18px; background: #fff; box-shadow: 0 5px 0 #cbd5e1;
+    display: grid; place-items: center; position: relative;
+  }
+  .glyph.lower { background: #fef9c7; }
+  .glyph.num { background: #e0f2fe; }
+  .glyph svg { width: 78%; height: 78%; }
+  .glyph.next { outline: 5px solid #f97316; }
+  .badge { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .choices.three { grid-template-columns: 1fr 1fr 1fr; }
+  .choice {
+    min-height: 180px; border-radius: 28px; background: #fff; box-shadow: 0 8px 0 #94a3b8;
+    display: grid; place-items: center; padding: 8px;
+  }
+  .choice svg { width: min(180px, 34vw); height: auto; }
+  .pattern { display: flex; gap: 10px; justify-content: center; margin: 8px 0 16px; }
+  .pattern svg { width: 72px; height: 72px; background: #fff; border-radius: 16px; }
+  .gear { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px; }
+  .gear-btn {
+    min-height: 124px; border-radius: 22px; background: #fff; box-shadow: 0 6px 0 #cbd5e1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;
+  }
+  .gear-btn.on { outline: 5px solid #16a34a; }
+  .gear-btn.locked { opacity: .55; }
+  .gear-btn svg.icon { width: 72px; height: 72px; }
+  .cost { display: flex; gap: 1px; }
+  .cost svg { width: 12px; height: 12px; }
+  .lockbit { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; }
+  .lockbit svg { width: 22px; height: 22px; }
+  .tools { display: flex; gap: 10px; justify-content: center; margin: 8px 0; }
+  .tool {
+    width: 72px; height: 72px; border-radius: 20px; background: #fff; box-shadow: 0 5px 0 #cbd5e1;
+    display: grid; place-items: center;
+  }
+  .tool.on { outline: 5px solid #0f172a; }
+  .tool svg { width: 42px; height: 42px; }
+  .pages { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+  .pages button, .gallery button {
+    flex: 0 0 auto; width: 74px; height: 74px; border-radius: 16px; background: #fff; box-shadow: 0 4px 0 #cbd5e1;
+    display: grid; place-items: center;
+  }
+  .pages svg, .gallery svg { width: 60px; height: 60px; }
+  .pages button.on { outline: 4px solid #f97316; }
+  #yay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: rgba(255,255,255,.35); z-index: 6;
+  }
+  #yay svg { width: 96px; height: 96px; }
+  .no { animation: wobble .28s linear; }
+  @keyframes wobble { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+  @media (orientation: landscape) and (min-width: 800px) {
+    .home { display: grid; grid-template-columns: minmax(260px, 36%) 1fr; align-items: center; gap: 18px; min-height: calc(100vh - 24px); min-height: calc(100dvh - 24px); }
+    .trace-main { display: grid; grid-template-columns: 112px 1fr; gap: 8px; align-items: center; }
+    .trace-main .swatches { flex-direction: column; }
+    #board { height: calc(100vh - 108px); height: calc(100dvh - 108px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .no { animation: none; } }
+</style>
+</head>
+<body>
+<button class="mute" id="mute" data-act="mute" aria-label="Sound"></button>
+<section class="screen on" id="s-home"></section>
+<section class="screen" id="s-closet"></section>
+<section class="screen" id="s-pick"></section>
+<section class="screen" id="s-trace">
+  <div class="top">
+    <button class="back" data-act="pick" aria-label="All letters"></button>
+    <div class="pips" id="pips"></div>
+  </div>
+  <div id="color-step"></div>
+  <div id="trace-play" hidden>
+    <div class="trace-main">
+      <div class="swatches" id="swatches"></div>
+      <svg id="board" viewBox="0 0 100 120"></svg>
+    </div>
+  </div>
+</section>
+<section class="screen" id="s-explore"></section>
+<section class="screen" id="s-color"></section>
+<div id="yay" hidden></div>
+
+<script>
+/* COLE_SAVE_MODULE_START
+   Cole's save. Own localStorage key, separate from Naomi's game. No DOM.
+   Browser: window.ColeSave. Tests load this block. */
+(function (root) {
+  'use strict';
+  var KEY = 'coleQuest.v1';
+  var SCHEMA = 1;
+  var SWATCH_IDS = ['red', 'orange', 'yellow', 'green', 'blue'];
+  var PICTURES = ['excavator', 'truck', 'tree', 'sun', 'dog', 'rocket', 'hero'];
+  var GEAR = [
+    { id: 'hat', slot: 'head', cost: 2 },
+    { id: 'boots', slot: 'feet', cost: 3 },
+    { id: 'backpack', slot: 'back', cost: 4 },
+    { id: 'hardhat', slot: 'head', cost: 5 },
+    { id: 'vest', slot: 'body', cost: 6 },
+    { id: 'excavator', slot: 'hand', cost: 8 },
+    { id: 'cape', slot: 'back', cost: 6 },
+    { id: 'mask', slot: 'face', cost: 5 },
+    { id: 'sword', slot: 'hand', cost: 7 },
+    { id: 'shield', slot: 'off', cost: 7 }
+  ];
+  var SLOTS = ['head', 'feet', 'back', 'body', 'face', 'hand', 'off'];
+
+  function num(v, fallback, min, max) {
+    var n = typeof v === 'number' ? v : (typeof v === 'string' && String(v).trim() !== '' ? Number(v) : NaN);
+    if (!isFinite(n)) n = fallback;
+    if (n < min) n = min;
+    if (n > max) n = max;
+    return n;
+  }
+  function gearById(id) {
+    for (var i = 0; i < GEAR.length; i++) if (GEAR[i].id === id) return GEAR[i];
+    return null;
+  }
+  function unlocked(stars, id) {
+    var g = gearById(id);
+    return !!(g && stars >= g.cost);
+  }
+  function toV1(raw) {
+    raw.v = 1;
+    if (typeof raw.stars !== 'number' || !isFinite(raw.stars)) raw.stars = 0;
+    if (typeof raw.sound !== 'boolean') raw.sound = true;
+    if (typeof raw.swatch !== 'string') raw.swatch = 'red';
+    if (!raw.avatar || typeof raw.avatar !== 'object' || Array.isArray(raw.avatar)) raw.avatar = {};
+    if (!raw.trace || typeof raw.trace !== 'object' || Array.isArray(raw.trace)) raw.trace = {};
+    if (!raw.explorer || typeof raw.explorer !== 'object' || Array.isArray(raw.explorer)) raw.explorer = {};
+    if (!Array.isArray(raw.gallery)) raw.gallery = [];
+  }
+  var MIGRATIONS = [toV1];
+  function migrate(raw) {
+    if (!raw || typeof raw !== 'object') return raw;
+    var v = raw.v;
+    if (typeof v !== 'number' || !isFinite(v) || v < 0) v = 0;
+    v = Math.floor(v);
+    var guard = 0;
+    while (v < SCHEMA && guard < 8) {
+      var step = MIGRATIONS[v];
+      if (typeof step === 'function') step(raw);
+      if (typeof raw.v !== 'number' || !(raw.v > v)) raw.v = v + 1;
+      v = Math.floor(raw.v);
+      guard++;
+    }
+    if (!(v >= 1 && v <= SCHEMA)) raw.v = SCHEMA;
+    else raw.v = v;
+    return raw;
+  }
+  function defaults() {
+    return {
+      v: SCHEMA, stars: 0, sound: true, swatch: 'red',
+      avatar: { head: '', feet: '', back: '', body: '', face: '', hand: '', off: '' },
+      trace: {}, explorer: {}, gallery: []
+    };
+  }
+  function glyphIdOk(id) {
+    return id === '10' || /^[A-Za-z0-9]$/.test(id);
+  }
+  function sanitizeTrace(src) {
+    var out = {};
+    if (!src || typeof src !== 'object' || Array.isArray(src)) return out;
+    var n = 0;
+    for (var id in src) {
+      if (!Object.prototype.hasOwnProperty.call(src, id)) continue;
+      if (n >= 80 || !glyphIdOk(id)) continue;
+      var c = src[id];
+      if (!c || typeof c !== 'object' || Array.isArray(c)) continue;
+      out[id] = {
+        stage: Math.round(num(c.stage, 0, 0, 3)),
+        wins: Math.round(num(c.wins, 0, 0, 99)),
+        mastered: c.mastered === true
+      };
+      n++;
+    }
+    return out;
+  }
+  function sanitizeAvatar(src, stars) {
+    var out = { head: '', feet: '', back: '', body: '', face: '', hand: '', off: '' };
+    var a = (src && typeof src === 'object' && !Array.isArray(src)) ? src : {};
+    for (var i = 0; i < SLOTS.length; i++) {
+      var slot = SLOTS[i];
+      var id = typeof a[slot] === 'string' ? a[slot] : '';
+      var g = gearById(id);
+      out[slot] = (g && g.slot === slot && stars >= g.cost) ? id : '';
+    }
+    return out;
+  }
+  function sanitizeExplorer(src) {
+    var out = {};
+    if (!src || typeof src !== 'object' || Array.isArray(src)) return out;
+    var n = 0;
+    for (var id in src) {
+      if (!Object.prototype.hasOwnProperty.call(src, id)) continue;
+      if (n >= 40 || !/^[a-z]{1,16}$/.test(id)) continue;
+      if (src[id] === true) { out[id] = true; n++; }
+    }
+    return out;
+  }
+  function sanitizeInk(ink) {
+    var out = [];
+    if (!Array.isArray(ink)) return out;
+    for (var i = 0; i < ink.length && out.length < 8; i++) {
+      var s = ink[i];
+      if (!s || SWATCH_IDS.indexOf(s.color) < 0 || !Array.isArray(s.pts)) continue;
+      var pts = [];
+      for (var j = 0; j < s.pts.length && pts.length < 24; j++) {
+        var p = s.pts[j];
+        if (!p || p.length < 2) continue;
+        pts.push([Math.round(num(p[0], 0, 0, 100)), Math.round(num(p[1], 0, 0, 100))]);
+      }
+      if (pts.length >= 2) out.push({ color: s.color, pts: pts });
+    }
+    return out;
+  }
+  function sanitizeGallery(list) {
+    var out = [];
+    if (!Array.isArray(list)) return out;
+    for (var i = 0; i < list.length && out.length < 6; i++) {
+      var item = list[i];
+      if (!item || PICTURES.indexOf(item.id) < 0) continue;
+      var fills = {};
+      var src = (item.fills && typeof item.fills === 'object' && !Array.isArray(item.fills)) ? item.fills : {};
+      var n = 0;
+      for (var k in src) {
+        if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+        if (n >= 12 || !/^[a-z]{1,12}$/.test(k)) continue;
+        if (SWATCH_IDS.indexOf(src[k]) < 0) continue;
+        fills[k] = src[k];
+        n++;
+      }
+      out.push({ id: item.id, fills: fills, ink: sanitizeInk(item.ink) });
+    }
+    return out;
+  }
+  function sanitize(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, save: defaults() };
+    migrate(raw);
+    var stars = Math.round(num(raw.stars, 0, 0, 999));
+    var swatch = SWATCH_IDS.indexOf(raw.swatch) >= 0 ? raw.swatch : 'red';
+    return {
+      ok: true,
+      save: {
+        v: SCHEMA,
+        stars: stars,
+        sound: raw.sound !== false,
+        swatch: swatch,
+        avatar: sanitizeAvatar(raw.avatar, stars),
+        trace: sanitizeTrace(raw.trace),
+        explorer: sanitizeExplorer(raw.explorer),
+        gallery: sanitizeGallery(raw.gallery)
+      }
+    };
+  }
+  function load() {
+    var raw = null;
+    try { raw = JSON.parse(root.localStorage.getItem(KEY) || 'null'); } catch (e) { raw = null; }
+    if (!raw) return defaults();
+    var out = sanitize(raw);
+    return out.ok ? out.save : defaults();
+  }
+  function persist(state) {
+    var clean = sanitize(state).save;
+    root.localStorage.setItem(KEY, JSON.stringify(clean));
+    return clean;
+  }
+  var api = {
+    KEY: KEY, SCHEMA: SCHEMA, SWATCH_IDS: SWATCH_IDS, PICTURES: PICTURES, GEAR: GEAR, SLOTS: SLOTS,
+    MIGRATIONS: MIGRATIONS, gearById: gearById, unlocked: unlocked, migrate: migrate, defaults: defaults,
+    sanitize: sanitize, load: load, persist: persist
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.ColeSave = api;
+})(typeof window !== 'undefined' ? window : this);
+/* COLE_SAVE_MODULE_END */
+</script>
+<script>
+/* COLE_TRACE_MODULE_START
+   Letter and number strokes, swatches, and tracing scores. No DOM.
+   Browser: window.ColeTrace. Tests load this block.
+   Shared letter names: ../audio/letters/<a-z>.m4a
+   Cole prompts and numbers: audio/n0.m4a through audio/n10.m4a */
+(function (root) {
+  'use strict';
+  var SWATCHES = [
+    { id: 'red', hex: '#ef4444' },
+    { id: 'orange', hex: '#f97316' },
+    { id: 'yellow', hex: '#facc15' },
+    { id: 'green', hex: '#22c55e' },
+    { id: 'blue', hex: '#3b82f6' }
+  ];
+  var STAGE_NAMES = ['guide', 'fade', 'dot', 'free'];
+  var NUMBER_WORDS = { '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four', '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine', '10': 'ten' };
+  var TAILS = [
+    'Trace on the dots. Start at the dot and follow the arrow.',
+    'The dots are light. Trace it.',
+    'Start at the dot and write it.',
+    'Write it in the box.'
+  ];
+
+  function dist(a, b) {
+    var dx = a[0] - b[0], dy = a[1] - b[1];
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function line(x1, y1, x2, y2, n) {
+    n = n || 5;
+    var pts = [];
+    for (var i = 0; i <= n; i++) {
+      var t = i / n;
+      pts.push([Math.round(x1 + (x2 - x1) * t), Math.round(y1 + (y2 - y1) * t)]);
+    }
+    return pts;
+  }
+  function oval(cx, cy, rx, ry) {
+    var pts = [], n = 18;
+    for (var i = 0; i <= n; i++) {
+      var a = -Math.PI / 2 + (Math.PI * 2) * (i / n);
+      pts.push([Math.round(cx + Math.cos(a) * rx), Math.round(cy + Math.sin(a) * ry)]);
+    }
+    return pts;
+  }
+  function catmull(p0, p1, p2, p3, t) {
+    var t2 = t * t, t3 = t2 * t;
+    var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+    var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+    return [Math.max(2, Math.min(98, Math.round(x))), Math.max(2, Math.min(118, Math.round(y)))];
+  }
+  function smooth(raw) {
+    if (raw.length < 3) return raw.slice();
+    var out = [];
+    for (var i = 0; i < raw.length - 1; i++) {
+      var p0 = raw[Math.max(0, i - 1)], p1 = raw[i], p2 = raw[i + 1], p3 = raw[Math.min(raw.length - 1, i + 2)];
+      for (var s = 0; s < 4; s++) out.push(catmull(p0, p1, p2, p3, s / 4));
+    }
+    out.push(raw[raw.length - 1]);
+    return out;
+  }
+  function strokeOf(spec) {
+    var kind = spec[0];
+    if (kind === 'L') return line(spec[1], spec[2], spec[3], spec[4]);
+    if (kind === 'O') return oval(spec[1], spec[2], spec[3], spec[4]);
+    var pts = [];
+    for (var i = 1; i < spec.length; i += 2) pts.push([spec[i], spec[i + 1]]);
+    return smooth(pts);
+  }
+  var SPEC = {
+    A: [['L', 50, 18, 18, 88], ['L', 50, 18, 82, 88], ['L', 32, 58, 68, 58]],
+    B: [['L', 28, 18, 28, 88], ['P', 28, 18, 58, 16, 72, 30, 60, 46, 28, 50], ['P', 28, 50, 66, 50, 78, 66, 62, 88, 28, 88]],
+    C: [['P', 72, 26, 46, 16, 22, 32, 16, 54, 24, 78, 50, 90, 74, 76]],
+    D: [['L', 28, 18, 28, 88], ['P', 28, 18, 62, 18, 82, 42, 78, 70, 58, 88, 28, 88]],
+    E: [['L', 26, 18, 26, 88], ['L', 26, 18, 74, 18], ['L', 26, 50, 64, 50], ['L', 26, 88, 74, 88]],
+    F: [['L', 28, 18, 28, 88], ['L', 28, 18, 76, 18], ['L', 28, 50, 66, 50]],
+    G: [['P', 74, 28, 48, 16, 22, 32, 16, 56, 26, 82, 52, 90, 74, 78], ['L', 50, 60, 78, 60]],
+    H: [['L', 22, 18, 22, 88], ['L', 78, 18, 78, 88], ['L', 22, 52, 78, 52]],
+    I: [['L', 50, 24, 50, 84], ['L', 32, 24, 68, 24], ['L', 32, 84, 68, 84]],
+    J: [['P', 62, 18, 62, 62, 48, 88, 28, 82, 24, 64]],
+    K: [['L', 26, 18, 26, 88], ['L', 72, 18, 26, 52], ['L', 26, 52, 76, 88]],
+    L: [['L', 28, 18, 28, 88], ['L', 28, 88, 78, 88]],
+    M: [['L', 16, 88, 16, 20], ['L', 16, 20, 50, 64], ['L', 50, 64, 84, 20], ['L', 84, 20, 84, 88]],
+    N: [['L', 20, 88, 20, 18], ['L', 20, 18, 80, 88], ['L', 80, 88, 80, 18]],
+    O: [['O', 50, 53, 30, 35]],
+    P: [['L', 28, 18, 28, 88], ['P', 28, 18, 64, 16, 78, 32, 62, 50, 28, 50]],
+    Q: [['O', 46, 50, 26, 32], ['L', 58, 68, 82, 92]],
+    R: [['L', 28, 18, 28, 88], ['P', 28, 18, 66, 16, 78, 32, 60, 50, 28, 50], ['L', 44, 50, 78, 88]],
+    S: [['P', 70, 30, 42, 16, 20, 32, 32, 50, 62, 60, 76, 76, 48, 94, 24, 80]],
+    T: [['L', 50, 18, 50, 88], ['L', 22, 18, 78, 18]],
+    U: [['P', 22, 18, 22, 64, 40, 90, 60, 90, 78, 64, 78, 18]],
+    V: [['L', 18, 18, 50, 88], ['L', 50, 88, 82, 18]],
+    W: [['L', 12, 18, 30, 88], ['L', 30, 88, 50, 42], ['L', 50, 42, 70, 88], ['L', 70, 88, 88, 18]],
+    X: [['L', 20, 18, 80, 88], ['L', 80, 18, 20, 88]],
+    Y: [['L', 18, 18, 50, 52], ['L', 82, 18, 50, 52], ['L', 50, 52, 50, 88]],
+    Z: [['L', 20, 18, 80, 18], ['L', 80, 18, 20, 88], ['L', 20, 88, 80, 88]],
+    a: [['O', 42, 72, 18, 16], ['L', 60, 54, 60, 90]],
+    b: [['L', 30, 16, 30, 90], ['O', 50, 72, 20, 16]],
+    c: [['P', 66, 58, 46, 50, 26, 60, 24, 78, 42, 92, 64, 84]],
+    d: [['O', 42, 72, 18, 16], ['L', 60, 16, 60, 90]],
+    e: [['L', 28, 72, 64, 72], ['P', 64, 72, 64, 56, 40, 50, 24, 64, 26, 82, 46, 92, 68, 84]],
+    f: [['P', 64, 30, 46, 16, 34, 30], ['L', 36, 28, 36, 92], ['L', 22, 54, 56, 54]],
+    g: [['O', 42, 70, 18, 16], ['P', 60, 56, 60, 96, 46, 112, 28, 102]],
+    h: [['L', 28, 16, 28, 90], ['P', 28, 62, 28, 50, 48, 50, 58, 66, 58, 90]],
+    i: [['L', 44, 58, 44, 90], ['L', 44, 42, 44, 48]],
+    j: [['L', 52, 42, 52, 48], ['P', 52, 58, 52, 96, 38, 112, 24, 100]],
+    k: [['L', 30, 16, 30, 90], ['L', 58, 56, 30, 74], ['L', 30, 74, 62, 90]],
+    l: [['L', 48, 16, 48, 90]],
+    m: [['L', 16, 90, 16, 54], ['P', 16, 66, 16, 52, 32, 52, 40, 68, 40, 90], ['P', 40, 66, 40, 52, 56, 52, 66, 68, 66, 90]],
+    n: [['L', 28, 90, 28, 54], ['P', 28, 66, 28, 52, 48, 52, 60, 66, 60, 90]],
+    o: [['O', 50, 72, 22, 18]],
+    p: [['L', 30, 52, 30, 112], ['O', 52, 72, 20, 16]],
+    q: [['O', 42, 72, 18, 16], ['L', 60, 52, 60, 112]],
+    r: [['L', 32, 90, 32, 54], ['P', 32, 70, 32, 54, 52, 54, 62, 68]],
+    s: [['P', 62, 56, 40, 50, 26, 62, 38, 74, 58, 80, 46, 94, 26, 86]],
+    t: [['L', 42, 36, 42, 86], ['L', 26, 56, 60, 56], ['P', 42, 84, 50, 96, 64, 88]],
+    u: [['P', 28, 54, 28, 78, 42, 92, 58, 80, 58, 54], ['L', 58, 70, 58, 90]],
+    v: [['L', 24, 54, 50, 92], ['L', 50, 92, 76, 54]],
+    w: [['L', 14, 54, 30, 92], ['L', 30, 92, 50, 66], ['L', 50, 66, 70, 92], ['L', 70, 92, 86, 54]],
+    x: [['L', 26, 54, 74, 92], ['L', 74, 54, 26, 92]],
+    y: [['L', 24, 54, 48, 84], ['P', 76, 54, 52, 80, 40, 100, 28, 112]],
+    z: [['L', 26, 54, 74, 54], ['L', 74, 54, 26, 92], ['L', 26, 92, 74, 92]],
+    '0': [['O', 50, 54, 26, 32]],
+    '1': [['L', 34, 34, 50, 18], ['L', 50, 18, 50, 90]],
+    '2': [['P', 28, 38, 30, 20, 52, 16, 74, 32, 64, 52, 28, 90], ['L', 28, 90, 76, 90]],
+    '3': [['P', 26, 28, 50, 16, 74, 28, 58, 46, 40, 50], ['P', 48, 50, 74, 54, 76, 72, 56, 90, 28, 82]],
+    '4': [['L', 64, 18, 64, 90], ['P', 64, 22, 24, 64, 82, 64]],
+    '5': [['P', 72, 20, 30, 20, 30, 50], ['P', 30, 48, 58, 44, 78, 60, 68, 90, 30, 86]],
+    '6': [['P', 68, 30, 44, 16, 22, 40, 22, 72, 38, 92, 64, 86, 70, 66, 48, 58, 28, 68]],
+    '7': [['L', 24, 22, 76, 22], ['L', 76, 22, 34, 90]],
+    '8': [['O', 50, 36, 20, 16], ['O', 50, 72, 24, 18]],
+    '9': [['O', 48, 38, 20, 16], ['P', 66, 28, 70, 52, 60, 90, 38, 88]],
+    '10': [['L', 20, 28, 20, 90], ['O', 66, 58, 18, 28]]
+  };
+
+  var ORDER = [];
+  function addRange(from, to) {
+    for (var c = from.charCodeAt(0); c <= to.charCodeAt(0); c++) ORDER.push(String.fromCharCode(c));
+  }
+  addRange('A', 'Z');
+  addRange('a', 'z');
+  for (var n = 0; n <= 9; n++) ORDER.push(String(n));
+  ORDER.push('10');
+
+  var GLYPHS = {};
+  for (var gi = 0; gi < ORDER.length; gi++) {
+    var id = ORDER[gi];
+    var parts = SPEC[id];
+    var strokes = [];
+    for (var si = 0; si < parts.length; si++) strokes.push(strokeOf(parts[si]));
+    GLYPHS[id] = { id: id, strokes: strokes };
+  }
+
+  function glyph(id) { return GLYPHS[id] || null; }
+  function selectSwatch(id) {
+    for (var i = 0; i < SWATCHES.length; i++) if (SWATCHES[i].id === id) return SWATCHES[i];
+    return SWATCHES[0];
+  }
+  function spokenName(id) {
+    if (NUMBER_WORDS[id]) return NUMBER_WORDS[id];
+    return String(id || '').toUpperCase();
+  }
+  function stageName(stage) {
+    var n = typeof stage === 'number' ? stage : 0;
+    if (n < 0 || n > 3) n = 0;
+    return STAGE_NAMES[n];
+  }
+  function stageLine(id, stage) {
+    var n = typeof stage === 'number' ? stage : 0;
+    if (n < 0 || n > 3) n = 0;
+    return spokenName(id) + '. ' + TAILS[n];
+  }
+  function nameClip(id) {
+    if (/^[A-Za-z]$/.test(id)) return '../audio/letters/' + id.toLowerCase() + '.m4a';
+    return 'audio/n' + id + '.m4a';
+  }
+  function resample(stroke, step) {
+    if (!stroke || !stroke.length) return [];
+    var out = [stroke[0]];
+    var acc = 0;
+    var prev = stroke[0];
+    for (var i = 1; i < stroke.length; i++) {
+      var cur = stroke[i];
+      var d = dist(prev, cur);
+      if (d < 0.001) { prev = cur; continue; }
+      while (acc + d >= step) {
+        var need = step - acc;
+        var t = need / d;
+        var p = [prev[0] + (cur[0] - prev[0]) * t, prev[1] + (cur[1] - prev[1]) * t];
+        out.push(p);
+        prev = p;
+        d = dist(prev, cur);
+        acc = 0;
+      }
+      acc += d;
+      prev = cur;
+    }
+    var last = stroke[stroke.length - 1];
+    if (dist(out[out.length - 1], last) > step * 0.45) out.push(last);
+    return out;
+  }
+  function coverage(guide, user, tol) {
+    var pts = resample(guide, 8);
+    if (!pts.length) return 0;
+    var j = 0;
+    for (var i = 0; i < user.length; i++) {
+      while (j < pts.length && dist(user[i], pts[j]) <= tol) j++;
+    }
+    return j / pts.length;
+  }
+  function scoreStroke(guide, user, tol, need) {
+    if (tol == null) tol = 16;
+    if (need == null) need = 0.7;
+    if (!guide || !user || user.length < 2) return { ok: false, reason: 'short', coverage: 0 };
+    var start = dist(user[0], guide[0]);
+    if (start > tol * 1.65) return { ok: false, reason: 'start', coverage: 0 };
+    var cov = coverage(guide, user, tol);
+    if (cov < need) return { ok: false, reason: 'shape', coverage: cov };
+    return { ok: true, reason: 'done', coverage: cov };
+  }
+  function scoreAttempt(g, userStrokes, opts) {
+    opts = opts || {};
+    var tol = opts.tolerance != null ? opts.tolerance : (opts.stage === 3 || opts.stage === 'free' ? 22 : 16);
+    var need = opts.need != null ? opts.need : 0.7;
+    if (!g || !userStrokes || userStrokes.length < g.strokes.length) return { ok: false, reason: 'short', coverage: 0 };
+    var cov = 0;
+    for (var i = 0; i < g.strokes.length; i++) {
+      var res = scoreStroke(g.strokes[i], userStrokes[i], tol, need);
+      cov = res.coverage;
+      if (!res.ok) return { ok: false, reason: res.reason, coverage: cov, stroke: i };
+    }
+    return { ok: true, reason: 'done', coverage: cov };
+  }
+  function cardOf(card) {
+    var c = card || {};
+    var stage = Math.round(c.stage || 0);
+    if (stage < 0) stage = 0;
+    if (stage > 3) stage = 3;
+    return { stage: stage, wins: Math.max(0, Math.round(c.wins || 0)), mastered: !!c.mastered };
+  }
+  function progressAfter(card, ok) {
+    var c = cardOf(card);
+    if (!ok) return { card: c, earned: 0 };
+    if (c.mastered) return { card: c, earned: 0 };
+    c.wins += 1;
+    if (c.stage < 3) c.stage += 1;
+    else c.mastered = true;
+    return { card: c, earned: 1 };
+  }
+  function nextGlyph(id) {
+    var i = ORDER.indexOf(id);
+    if (i < 0 || i + 1 >= ORDER.length) return ORDER[0];
+    return ORDER[i + 1];
+  }
+  function suggested(cards) {
+    cards = cards || {};
+    for (var i = 0; i < ORDER.length; i++) {
+      var c = cards[ORDER[i]];
+      if (!c || !c.mastered) return ORDER[i];
+    }
+    return ORDER[0];
+  }
+  function pointAlong(stroke, need) {
+    var left = need;
+    for (var i = 1; i < stroke.length; i++) {
+      var d = dist(stroke[i - 1], stroke[i]);
+      if (d >= left && d > 0) {
+        var t = left / d;
+        return [stroke[i - 1][0] + (stroke[i][0] - stroke[i - 1][0]) * t, stroke[i - 1][1] + (stroke[i][1] - stroke[i - 1][1]) * t];
+      }
+      left -= d;
+    }
+    return stroke[stroke.length - 1];
+  }
+
+  var api = {
+    SWATCHES: SWATCHES, ORDER: ORDER, STAGE_NAMES: STAGE_NAMES, TAILS: TAILS,
+    glyph: glyph, selectSwatch: selectSwatch, spokenName: spokenName, stageName: stageName,
+    stageLine: stageLine, nameClip: nameClip, scoreStroke: scoreStroke, scoreAttempt: scoreAttempt,
+    progressAfter: progressAfter, nextGlyph: nextGlyph, suggested: suggested, pointAlong: pointAlong, dist: dist
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.ColeTrace = api;
+})(typeof window !== 'undefined' ? window : this);
+/* COLE_TRACE_MODULE_END */
+</script>
+<script>
+/* COLE_EXPLORE_MODULE_START
+   Picture questions. The words are spoken. No DOM.
+   Browser: window.ColeExplore. Tests load this block. */
+(function (root) {
+  'use strict';
+  var QUESTIONS = [
+    { id: 'float', say: 'Which one floats?', clip: 'audio/q-float.m4a', choices: [
+      { id: 'boat', ok: true }, { id: 'rock', ok: false }
+    ]},
+    { id: 'seed', say: 'What grows from a seed?', clip: 'audio/q-seed.m4a', choices: [
+      { id: 'flower', ok: true }, { id: 'ball', ok: false }
+    ]},
+    { id: 'water', say: 'Which animal lives in water?', clip: 'audio/q-water.m4a', choices: [
+      { id: 'fish', ok: true }, { id: 'dog', ok: false }
+    ]},
+    { id: 'next', say: 'What comes next?', clip: 'audio/q-next.m4a', pattern: ['circle', 'square', 'circle', 'square'], choices: [
+      { id: 'circle', ok: true }, { id: 'triangle', ok: false }, { id: 'square', ok: false }
+    ]},
+    { id: 'bigger', say: 'Which is bigger?', clip: 'audio/q-bigger.m4a', choices: [
+      { id: 'elephant', ok: true }, { id: 'mouse', ok: false }
+    ]},
+    { id: 'sort', say: 'Which one is a fruit?', clip: 'audio/q-sort.m4a', choices: [
+      { id: 'apple', ok: true }, { id: 'shoe', ok: false }
+    ]}
+  ];
+  function byId(id) {
+    for (var i = 0; i < QUESTIONS.length; i++) if (QUESTIONS[i].id === id) return QUESTIONS[i];
+    return null;
+  }
+  function correct(qid, choiceId) {
+    var q = byId(qid);
+    if (!q) return false;
+    for (var i = 0; i < q.choices.length; i++) {
+      if (q.choices[i].id === choiceId) return q.choices[i].ok === true;
+    }
+    return false;
+  }
+  var api = { QUESTIONS: QUESTIONS, byId: byId, correct: correct };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.ColeExplore = api;
+})(typeof window !== 'undefined' ? window : this);
+/* COLE_EXPLORE_MODULE_END */
+</script>
+<script>
+(function () {
+  'use strict';
+  var Save = window.ColeSave;
+  var Trace = window.ColeTrace;
+  var Ex = window.ColeExplore;
+  var state = Save.load();
+  var glyphId = 'A';
+  var strokeI = 0;
+  var paints = [];
+  var live = null;
+  var colorStep = true;
+  var busy = false;
+  var playToken = 0;
+  var qIndex = 0;
+  var colorId = 'excavator';
+  var fills = {};
+  var ink = [];
+  var brush = false;
+  var audioNow = null;
+  var primed = false;
+
+  function $(id) { return document.getElementById(id); }
+  function hex(id) { return Trace.selectSwatch(id).hex; }
+  function save() { state = Save.persist(state); }
+  function starSvg(fill) {
+    var c = fill || '#f59e0b';
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" fill="' + c + '"/></svg>';
+  }
+  function backBtn(act, label) {
+    return '<button class="back" data-act="' + act + '" aria-label="' + label + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 L7 12 L15 19" fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+  }
+  function lockSvg() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="#64748b"/><path d="M8 10 V7 a4 4 0 0 1 8 0 V10" fill="none" stroke="#334155" stroke-width="2"/></svg>';
+  }
+  function speak(text) {
+    if (!state.sound || !text) return;
+    var s = window.speechSynthesis;
+    if (!s || !window.SpeechSynthesisUtterance) return;
+    try {
+      try { if (s.paused && s.resume) s.resume(); } catch (e1) { /* ignore */ }
+      if (s.speaking || s.pending) s.cancel();
+      var u = new window.SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      u.rate = 0.92;
+      u.pitch = 1.12;
+      s.speak(u);
+      try { if (s.paused && s.resume) s.resume(); } catch (e2) { /* ignore */ }
+    } catch (e) { /* speech is optional */ }
+  }
+  function playClip(src, spoken, then) {
+    if (!state.sound) return;
+    if (audioNow) { try { audioNow.pause(); } catch (e0) { /* ignore */ } audioNow = null; }
+    var failed = false;
+    function fallback() {
+      if (failed) return;
+      failed = true;
+      speak(spoken);
+    }
+    try {
+      var a = new Audio();
+      audioNow = a;
+      a.preload = 'auto';
+      a.src = src;
+      a.addEventListener('error', fallback);
+      a.addEventListener('ended', function () { if (!failed && then) then(); });
+      var p = a.play();
+      if (p && p.catch) p.catch(fallback);
+    } catch (e) { fallback(); }
+  }
+  function prime() {
+    if (primed) return;
+    var s = window.speechSynthesis;
+    if (!s || !window.SpeechSynthesisUtterance) return;
+    try {
+      var u = new window.SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      s.speak(u);
+      try { if (s.paused && s.resume) s.resume(); } catch (e2) { /* ignore */ }
+      primed = true;
+    } catch (e) { /* a later tap still speaks */ }
+  }
+  function sayKey(clip, text, then) { playClip('audio/' + clip + '.m4a', text, then); }
+
+  function poly(pts, cls, color) {
+    var d = [];
+    for (var i = 0; i < pts.length; i++) d.push(pts[i][0] + ',' + pts[i][1]);
+    var extra = color ? ' stroke="' + color + '"' : '';
+    return '<polyline class="' + cls + '" points="' + d.join(' ') + '"' + extra + '/>';
+  }
+  function arrowMarkup(stroke) {
+    var origin = Trace.pointAlong(stroke, 9);
+    var tip = Trace.pointAlong(stroke, 16);
+    var ang = Math.atan2(tip[1] - origin[1], tip[0] - origin[0]);
+    function rot(x, y) {
+      var c = Math.cos(ang), s = Math.sin(ang);
+      return (origin[0] + x * c - y * s).toFixed(1) + ',' + (origin[1] + x * s + y * c).toFixed(1);
+    }
+    var a = stroke[0];
+    return '<circle class="startdot" cx="' + a[0] + '" cy="' + a[1] + '" r="4.2"/>' +
+      '<polygon class="arrow" points="' + rot(8, 0) + ' ' + rot(-3, 4.2) + ' ' + rot(-3, -4.2) + '"/>';
+  }
+  function solidGlyph(id) {
+    var g = Trace.glyph(id);
+    var h = '<svg viewBox="0 0 100 120" aria-hidden="true">';
+    for (var i = 0; i < g.strokes.length; i++) h += poly(g.strokes[i], 'paint', '#334155');
+    return h + '</svg>';
+  }
+  function swatchButtons(huge) {
+    var h = '<div class="swatches' + (huge ? ' huge' : '') + '">';
+    for (var i = 0; i < Trace.SWATCHES.length; i++) {
+      var s = Trace.SWATCHES[i];
+      h += '<button class="swatch' + (s.id === state.swatch ? ' on' : '') + '" data-act="swatch" data-v="' + s.id + '" style="background:' + s.hex + '" aria-label="' + s.id + '"></button>';
+    }
+    return h + '</div>';
+  }
+  function starsHtml() {
+    var n = Math.min(6, state.stars);
+    if (!n) return '<span class="stars">' + starSvg('#e2e8f0') + '</span>';
+    var h = '<span class="stars">';
+    for (var i = 0; i < n; i++) h += starSvg('#f59e0b');
+    return h + '</span>';
+  }
+  function muteHtml() {
+    var slash = state.sound ? '' : '<path d="M6 6 L34 34" stroke="#b91c1c" stroke-width="4" stroke-linecap="round"/>';
+    $('mute').innerHTML = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 16 h6 l10 -8 v24 l-10 -8 h-6 z" fill="#0f172a"/>' + slash + '</svg>';
+    $('mute').setAttribute('aria-label', state.sound ? 'Sound on' : 'Sound off');
+  }
+
+  function avatarSvg(av) {
+    av = av || {};
+    var h = '<svg class="avatar" viewBox="0 0 200 250" aria-hidden="true">';
+    h += '<ellipse cx="100" cy="232" rx="54" ry="10" fill="#0f172a" opacity=".12"/>';
+    if (av.back === 'cape') h += '<path d="M76 108 L38 210 Q100 176 124 210 L120 108 Z" fill="#dc2626"/>';
+    if (av.back === 'backpack') {
+      h += '<rect x="122" y="112" width="34" height="42" rx="8" fill="#ea580c"/>';
+      h += '<rect x="128" y="104" width="22" height="12" rx="4" fill="#c2410c"/>';
+    }
+    h += '<rect x="78" y="168" width="16" height="40" rx="8" fill="#1e3a8a"/>';
+    h += '<rect x="106" y="168" width="16" height="40" rx="8" fill="#1e3a8a"/>';
+    if (av.feet === 'boots') {
+      h += '<path d="M70 196 h28 v18 h-36 z" fill="#78350f"/>';
+      h += '<path d="M102 196 h28 v18 h-36 z" fill="#78350f"/>';
+    } else {
+      h += '<ellipse cx="86" cy="210" rx="14" ry="8" fill="#334155"/>';
+      h += '<ellipse cx="114" cy="210" rx="14" ry="8" fill="#334155"/>';
+    }
+    h += '<rect x="70" y="114" width="60" height="60" rx="18" fill="#3b82f6"/>';
+    if (av.body === 'vest') {
+      h += '<path d="M78 118 h44 v36 h-44 z" fill="#f97316"/>';
+      h += '<rect x="78" y="132" width="44" height="8" fill="#fde68a"/>';
+    }
+    h += '<rect x="48" y="120" width="20" height="46" rx="10" fill="#f6c7a1"/>';
+    h += '<rect x="132" y="120" width="20" height="46" rx="10" fill="#f6c7a1"/>';
+    if (av.off === 'shield') {
+      h += '<ellipse cx="44" cy="154" rx="22" ry="26" fill="#d97706" stroke="#92400e" stroke-width="3"/>';
+      h += '<polygon points="44,140 50,154 44,168 38,154" fill="#facc15"/>';
+    }
+    if (av.hand === 'sword') {
+      h += '<rect x="150" y="86" width="14" height="52" rx="7" fill="#93c5fd" stroke="#1d4ed8" stroke-width="2"/>';
+      h += '<rect x="144" y="132" width="26" height="8" rx="3" fill="#fbbf24"/>';
+      h += '<rect x="153" y="140" width="8" height="14" rx="3" fill="#92400e"/>';
+    } else if (av.hand === 'excavator') {
+      h += '<rect x="148" y="156" width="40" height="12" rx="4" fill="#111827"/>';
+      h += '<rect x="152" y="138" width="26" height="16" rx="3" fill="#facc15" stroke="#a16207" stroke-width="2"/>';
+      h += '<polygon points="176,142 198,132 198,146" fill="#eab308" stroke="#a16207" stroke-width="2"/>';
+    }
+    h += '<rect x="90" y="102" width="20" height="16" fill="#f6c7a1"/>';
+    h += '<circle cx="100" cy="78" r="32" fill="#f6c7a1"/>';
+    h += '<circle cx="68" cy="80" r="7" fill="#f6c7a1"/>';
+    h += '<circle cx="132" cy="80" r="7" fill="#f6c7a1"/>';
+    h += '<path d="M70 72 Q100 42 130 72 Q122 54 100 50 Q78 54 70 72" fill="#6b3e26"/>';
+    if (av.face === 'mask') {
+      h += '<path d="M72 74 h24 l-4 14 h-16 z" fill="#2563eb"/>';
+      h += '<path d="M104 74 h24 l-4 14 h-16 z" fill="#2563eb"/>';
+      h += '<rect x="96" y="78" width="8" height="5" rx="2" fill="#1e3a8a"/>';
+    }
+    h += '<circle cx="88" cy="80" r="3.4" fill="#1e293b"/>';
+    h += '<circle cx="112" cy="80" r="3.4" fill="#1e293b"/>';
+    h += '<path d="M88 94 Q100 104 112 94" fill="none" stroke="#9a3412" stroke-width="3" stroke-linecap="round"/>';
+    if (av.head === 'hat') {
+      h += '<ellipse cx="100" cy="58" rx="42" ry="8" fill="#166534"/>';
+      h += '<rect x="76" y="34" width="48" height="24" rx="10" fill="#15803d"/>';
+    } else if (av.head === 'hardhat') {
+      h += '<path d="M66 62 h68 c-4 -28 -64 -28 -68 0 z" fill="#facc15" stroke="#a16207" stroke-width="3"/>';
+      h += '<rect x="60" y="58" width="80" height="10" rx="4" fill="#eab308" stroke="#a16207" stroke-width="2"/>';
+    }
+    return h + '</svg>';
+  }
+
+  function show(id) {
+    var nodes = document.querySelectorAll('.screen');
+    for (var i = 0; i < nodes.length; i++) nodes[i].classList.toggle('on', nodes[i].id === id);
+    muteHtml();
+    if (id === 's-home') renderHome();
+    else if (id === 's-closet') renderCloset();
+    else if (id === 's-pick') renderPick();
+    else if (id === 's-explore') renderExplore();
+    else if (id === 's-color') renderColor();
+  }
+  function renderHome() {
+    var tiles = '';
+    tiles += '<button class="tile trace" data-act="pick" aria-label="Tracing"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M30 78 L50 22 L70 78" fill="none" stroke="#0284c7" stroke-width="8" stroke-linecap="round"/><path d="M38 58 H62" stroke="#0284c7" stroke-width="8" stroke-linecap="round"/><path d="M62 70 l16 6 l-4 10 z" fill="#f59e0b"/></svg></button>';
+    tiles += '<button class="tile explore" data-act="explore" aria-label="Explorer"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="30" fill="#dcfce7" stroke="#15803d" stroke-width="6"/><polygon points="50,24 56,50 50,76 44,50" fill="#f97316"/><circle cx="50" cy="50" r="5" fill="#14532d"/></svg></button>';
+    tiles += '<button class="tile color" data-act="color" aria-label="Coloring"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="34" cy="40" r="16" fill="#ef4444"/><circle cx="58" cy="36" r="16" fill="#3b82f6"/><circle cx="48" cy="58" r="16" fill="#facc15"/><rect x="60" y="48" width="10" height="36" rx="4" fill="#7c3aed" transform="rotate(-30 65 66)"/></svg></button>';
+    tiles += '<button class="tile soon" data-act="soon" aria-label="Red words, coming soon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="28" width="56" height="48" rx="6" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/><path d="M50 28 V76" stroke="#64748b" stroke-width="4"/>' + '<g transform="translate(30,18) scale(1.6)">' + lockSvg() + '</g></svg></button>';
+    $('s-home').innerHTML = '<div class="home"><button class="avatar-btn" data-act="closet" aria-label="Dress up">' + avatarSvg(state.avatar) + starsHtml() + '</button><div class="tiles">' + tiles + '</div></div>';
+    sayKey('hi', 'Hi Cole! Pick a picture.');
+  }
+  function gearIcon(id) {
+    if (id === 'hat') return '<svg class="icon" viewBox="0 0 80 80"><ellipse cx="40" cy="48" rx="30" ry="8" fill="#166534"/><rect x="22" y="22" width="36" height="24" rx="8" fill="#15803d"/></svg>';
+    if (id === 'boots') return '<svg class="icon" viewBox="0 0 80 80"><path d="M16 20 h18 v28 h-24 z" fill="#78350f"/><path d="M42 20 h18 v28 h-24 z" fill="#78350f"/></svg>';
+    if (id === 'backpack') return '<svg class="icon" viewBox="0 0 80 80"><rect x="22" y="22" width="36" height="40" rx="8" fill="#ea580c"/><rect x="30" y="14" width="20" height="12" rx="4" fill="#c2410c"/></svg>';
+    if (id === 'hardhat') return '<svg class="icon" viewBox="0 0 80 80"><path d="M12 48 h56 c-2 -26 -54 -26 -56 0 z" fill="#facc15" stroke="#a16207" stroke-width="3"/></svg>';
+    if (id === 'vest') return '<svg class="icon" viewBox="0 0 80 80"><path d="M20 16 h40 v44 h-40 z" fill="#f97316"/><rect x="20" y="32" width="40" height="8" fill="#fde68a"/></svg>';
+    if (id === 'excavator') return '<svg class="icon" viewBox="0 0 80 80"><rect x="8" y="48" width="40" height="10" rx="3" fill="#111"/><rect x="14" y="32" width="26" height="16" rx="3" fill="#facc15"/><polygon points="40,36 68,24 68,40" fill="#eab308"/></svg>';
+    if (id === 'cape') return '<svg class="icon" viewBox="0 0 80 80"><path d="M24 16 L12 68 Q40 50 52 68 L48 16 Z" fill="#dc2626"/></svg>';
+    if (id === 'mask') return '<svg class="icon" viewBox="0 0 80 80"><path d="M8 30 h24 l-4 16 h-16 z" fill="#2563eb"/><path d="M40 30 h24 l-4 16 h-16 z" fill="#2563eb"/></svg>';
+    if (id === 'sword') return '<svg class="icon" viewBox="0 0 80 80"><rect x="34" y="8" width="12" height="40" rx="6" fill="#93c5fd" stroke="#1d4ed8" stroke-width="2"/><rect x="26" y="46" width="28" height="8" rx="3" fill="#fbbf24"/></svg>';
+    return '<svg class="icon" viewBox="0 0 80 80"><ellipse cx="40" cy="40" rx="22" ry="26" fill="#d97706" stroke="#92400e" stroke-width="3"/><polygon points="40,24 48,40 40,56 32,40" fill="#facc15"/></svg>';
+  }
+  function renderCloset() {
+    var buttons = '';
+    for (var i = 0; i < Save.GEAR.length; i++) {
+      var g = Save.GEAR[i];
+      var on = state.avatar[g.slot] === g.id;
+      var locked = !Save.unlocked(state.stars, g.id);
+      var cost = '';
+      if (locked) {
+        cost = '<span class="cost">';
+        for (var s = 0; s < g.cost; s++) cost += starSvg('#f59e0b');
+        cost += '</span>';
+      }
+      buttons += '<button class="gear-btn' + (on ? ' on' : '') + (locked ? ' locked' : '') + '" data-act="wear" data-v="' + g.id + '" aria-label="' + g.id + '">' + (locked ? '<span class="lockbit">' + lockSvg() + '</span>' : '') + gearIcon(g.id) + cost + '</button>';
+    }
+    $('s-closet').innerHTML = '<div class="top">' + backBtn('home', 'Home') + starsHtml() + '</div>' + avatarSvg(state.avatar) + '<div class="gear">' + buttons + '</div>';
+  }
+  function renderPick() {
+    var next = Trace.suggested(state.trace);
+    var h = '<div class="top">' + backBtn('home', 'Home') + '</div><div class="grid">';
+    for (var i = 0; i < Trace.ORDER.length; i++) {
+      var id = Trace.ORDER[i];
+      var kind = id === '10' || /^[0-9]$/.test(id) ? 'num' : (id === id.toLowerCase() ? 'lower' : '');
+      var card = state.trace[id];
+      var badge = card && card.mastered ? '<span class="badge">' + starSvg('#f59e0b') + '</span>' : '';
+      h += '<button class="glyph ' + kind + (id === next ? ' next' : '') + '" data-act="glyph" data-v="' + id + '" aria-label="' + Trace.spokenName(id) + '">' + badge + solidGlyph(id) + '</button>';
+    }
+    $('s-pick').innerHTML = h + '</div>';
+  }
+  function stageOf(id) {
+    var c = state.trace[id];
+    return c && c.stage ? c.stage : 0;
+  }
+  function renderPips() {
+    var stage = stageOf(glyphId);
+    var h = '';
+    for (var i = 0; i < 4; i++) h += '<i class="pip' + (i <= stage ? ' on' : '') + '"></i>';
+    $('pips').innerHTML = h;
+  }
+  function renderBoard() {
+    var g = Trace.glyph(glyphId);
+    var stage = stageOf(glyphId);
+    var h = '<rect class="paper" x="5" y="6" width="90" height="108" rx="8"/>';
+    var guideClass = stage === 1 ? ' fade' : '';
+    h += '<g class="' + guideClass + '">';
+    if (stage < 2) {
+      for (var i = 0; i < g.strokes.length; i++) {
+        var cls = i < strokeI ? 'done' : (i === strokeI ? 'now' : 'later');
+        h += poly(g.strokes[i], 'guide ' + cls);
+      }
+    }
+    if (stage < 3 && g.strokes[strokeI]) h += arrowMarkup(g.strokes[strokeI]);
+    h += '</g>';
+    for (var p = 0; p < paints.length; p++) {
+      h += poly(paints[p].pts, 'under');
+      h += poly(paints[p].pts, 'paint', paints[p].color);
+    }
+    if (live && live.length > 1) {
+      h += poly(live, 'under');
+      h += poly(live, 'paint', hex(state.swatch));
+    }
+    $('board').innerHTML = h;
+  }
+  function renderTrace() {
+    renderPips();
+    if (colorStep) {
+      $('color-step').hidden = false;
+      $('trace-play').hidden = true;
+      $('color-step').innerHTML = '<div id="preview">' + solidGlyph(glyphId) + '</div>' + swatchButtons(true);
+    } else {
+      $('color-step').hidden = true;
+      $('trace-play').hidden = false;
+      $('swatches').innerHTML = swatchButtons(false).replace('<div class="swatches">', '').replace('</div>', '');
+      $('swatches').className = 'swatches';
+      renderBoard();
+    }
+  }
+  function openGlyph(id) {
+    playToken++;
+    busy = false;
+    glyphId = id;
+    strokeI = 0;
+    paints = [];
+    live = null;
+    colorStep = true;
+    show('s-trace');
+    renderTrace();
+    sayKey('pick-color', 'Pick a color.');
+  }
+  function sayStage() {
+    var stage = stageOf(glyphId);
+    var clip = 'audio/trace-' + Trace.stageName(stage) + '.m4a';
+    playClip(clip, Trace.stageLine(glyphId, stage), function () {
+      playClip(Trace.nameClip(glyphId), Trace.spokenName(glyphId));
+    });
+  }
+  function startBoard() {
+    colorStep = false;
+    strokeI = 0;
+    paints = [];
+    renderTrace();
+    sayStage();
+  }
+  function toPt(ev, svg) {
+    var r = svg.getBoundingClientRect();
+    var vb = svg.viewBox.baseVal;
+    var x = (ev.clientX - r.left) / r.width * vb.width + vb.x;
+    var y = (ev.clientY - r.top) / r.height * vb.height + vb.y;
+    return [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+  }
+  function finishStroke(pts) {
+    var g = Trace.glyph(glyphId);
+    var stage = stageOf(glyphId);
+    var tol = stage === 3 ? 22 : 16;
+    var res = Trace.scoreStroke(g.strokes[strokeI], pts, tol, 0.7);
+    if (!res.ok) {
+      if (pts.length > 3) sayKey('try-again', 'Almost. Try that stroke again.');
+      $('board').classList.remove('no');
+      void $('board').offsetWidth;
+      $('board').classList.add('no');
+      renderBoard();
+      return;
+    }
+    paints.push({ color: hex(state.swatch), pts: pts });
+    strokeI++;
+    if (strokeI < g.strokes.length) { renderBoard(); return; }
+    var before = state.trace[glyphId] || { stage: 0, wins: 0, mastered: false };
+    var was = !!before.mastered;
+    var step = Trace.progressAfter(before, true);
+    state.trace[glyphId] = step.card;
+    if (step.earned) state.stars += 1;
+    save();
+    busy = true;
+    var token = ++playToken;
+    $('yay').hidden = false;
+    $('yay').innerHTML = starSvg('#f59e0b') + starSvg('#facc15') + starSvg('#fb7185');
+    if (step.earned) sayKey('star', 'You did it! You earned a star.');
+    else {
+      var praises = [
+        ['praise-yes', 'Yes!'],
+        ['praise-did', 'You did it!'],
+        ['praise-great', 'Great tracing!']
+      ];
+      var line = praises[(step.card.wins || 0) % praises.length];
+      sayKey(line[0], line[1]);
+    }
+    setTimeout(function () {
+      if (token !== playToken) return;
+      $('yay').hidden = true;
+      busy = false;
+      paints = [];
+      strokeI = 0;
+      if (step.card.mastered && !was) openGlyph(Trace.nextGlyph(glyphId));
+      else { renderTrace(); sayStage(); }
+    }, 1100);
+  }
+
+  function shapeSvg(id, big) {
+    var body = '';
+    if (id === 'boat') body = '<path d="M8 48 H72 L64 68 H16 Z" fill="#f59e0b"/><path d="M40 44 V16" stroke="#92400e" stroke-width="4"/><path d="M40 18 L62 36 H40 Z" fill="#fff"/>';
+    else if (id === 'rock') body = '<polygon points="16,60 28,28 52,22 74,40 68,68 30,72" fill="#64748b"/>';
+    else if (id === 'flower') body = '<rect x="36" y="40" width="8" height="28" fill="#16a34a"/><circle cx="40" cy="28" r="8" fill="#facc15"/><circle cx="28" cy="36" r="8" fill="#f472b6"/><circle cx="52" cy="36" r="8" fill="#f472b6"/><circle cx="40" cy="48" r="8" fill="#fb7185"/>';
+    else if (id === 'ball') body = '<circle cx="40" cy="40" r="22" fill="#fff" stroke="#0f172a" stroke-width="3"/><polygon points="40,24 50,34 46,48 34,48 30,34" fill="none" stroke="#0f172a" stroke-width="2"/>';
+    else if (id === 'fish') body = '<ellipse cx="38" cy="40" rx="22" ry="14" fill="#38bdf8"/><polygon points="58,40 76,24 76,56" fill="#0284c7"/><circle cx="28" cy="36" r="3" fill="#0f172a"/>';
+    else if (id === 'dog') body = '<ellipse cx="40" cy="48" rx="22" ry="14" fill="#d97706"/><circle cx="62" cy="36" r="12" fill="#f59e0b"/><ellipse cx="70" cy="28" rx="6" ry="10" fill="#b45309"/><circle cx="66" cy="34" r="2" fill="#0f172a"/>';
+    else if (id === 'elephant') body = '<ellipse cx="46" cy="46" rx="' + (big ? 28 : 16) + '" ry="' + (big ? 20 : 12) + '" fill="#94a3b8"/><circle cx="' + (big ? 70 : 58) + '" cy="' + (big ? 36 : 40) + '" r="' + (big ? 14 : 8) + '" fill="#64748b"/><path d="M' + (big ? '72 40 Q86 70 64 62' : '60 44 Q68 54 56 52') + '" fill="none" stroke="#64748b" stroke-width="' + (big ? 6 : 3) + '"/>';
+    else if (id === 'mouse') body = '<ellipse cx="40" cy="46" rx="14" ry="10" fill="#cbd5e1"/><circle cx="54" cy="40" r="8" fill="#e2e8f0"/><circle cx="48" cy="32" r="5" fill="#f8fafc"/><path d="M28 48 Q10 60 24 56" fill="none" stroke="#94a3b8" stroke-width="2"/>';
+    else if (id === 'circle') body = '<circle cx="40" cy="40" r="18" fill="#3b82f6"/>';
+    else if (id === 'square') body = '<rect x="18" y="18" width="44" height="44" rx="6" fill="#f97316"/>';
+    else if (id === 'triangle') body = '<polygon points="40,12 70,66 10,66" fill="#22c55e"/>';
+    else if (id === 'apple') body = '<circle cx="40" cy="44" r="20" fill="#ef4444"/><rect x="37" y="18" width="5" height="12" fill="#166534"/><ellipse cx="50" cy="26" rx="8" ry="4" fill="#22c55e"/>';
+    else if (id === 'shoe') body = '<path d="M14 36 H40 L48 28 H66 V44 H18 Z" fill="#92400e"/>';
+    return '<svg viewBox="0 0 80 80" aria-hidden="true">' + body + '</svg>';
+  }
+  function renderExplore() {
+    var q = Ex.QUESTIONS[qIndex];
+    var pattern = '';
+    if (q.pattern) {
+      pattern = '<div class="pattern">';
+      for (var i = 0; i < q.pattern.length; i++) pattern += shapeSvg(q.pattern[i]);
+      pattern += '</div>';
+    }
+    var choices = '<div class="choices' + (q.choices.length > 2 ? ' three' : '') + '">';
+    for (var c = 0; c < q.choices.length; c++) {
+      var ch = q.choices[c];
+      choices += '<button class="choice" data-act="answer" data-v="' + ch.id + '" aria-label="' + ch.id + '">' + shapeSvg(ch.id, ch.id === 'elephant') + '</button>';
+    }
+    choices += '</div>';
+    $('s-explore').innerHTML = '<div class="top">' + backBtn('home', 'Home') + '</div>' + pattern + choices;
+    playClip(q.clip, q.say);
+  }
+  function colorArt(id, map) {
+    function f(part, fallback) {
+      return (map && map[part]) ? hex(map[part]) : (fallback || '#fff');
+    }
+    var h = '';
+    if (id === 'excavator') {
+      h += '<rect data-part="tracks" x="8" y="70" width="62" height="16" rx="6" fill="' + f('tracks') + '"/>';
+      h += '<rect data-part="body" x="18" y="48" width="46" height="22" rx="4" fill="' + f('body') + '"/>';
+      h += '<rect data-part="cab" x="40" y="28" width="26" height="22" rx="3" fill="' + f('cab') + '"/>';
+      h += '<polygon data-part="arm" points="36,52 8,30 16,24 42,46" fill="' + f('arm') + '"/>';
+      h += '<polygon data-part="bucket" points="6,22 20,18 22,34 4,32" fill="' + f('bucket') + '"/>';
+    } else if (id === 'truck') {
+      h += '<rect data-part="bed" x="6" y="36" width="50" height="26" rx="3" fill="' + f('bed') + '"/>';
+      h += '<path data-part="cab" d="M56 42 H82 V62 H56 Z" fill="' + f('cab') + '"/>';
+      h += '<rect data-part="window" x="62" y="46" width="14" height="10" fill="' + f('window', '#e0f2fe') + '"/>';
+      h += '<circle cx="28" cy="70" r="10" fill="#111"/><circle cx="70" cy="70" r="10" fill="#111"/>';
+    } else if (id === 'tree') {
+      h += '<rect data-part="trunk" x="44" y="58" width="14" height="30" fill="' + f('trunk') + '"/>';
+      h += '<circle data-part="crown" cx="51" cy="40" r="26" fill="' + f('crown') + '"/>';
+    } else if (id === 'sun') {
+      h += '<polygon data-part="rays" points="50,4 58,28 84,14 68,36 96,50 68,64 84,86 58,72 50,96 42,72 16,86 32,64 4,50 32,36 16,14 42,28" fill="' + f('rays') + '"/>';
+      h += '<circle data-part="face" cx="50" cy="50" r="18" fill="' + f('face') + '"/>';
+    } else if (id === 'dog') {
+      h += '<ellipse data-part="body" cx="48" cy="62" rx="28" ry="16" fill="' + f('body') + '"/>';
+      h += '<circle data-part="head" cx="74" cy="46" r="14" fill="' + f('head') + '"/>';
+      h += '<ellipse data-part="ear" cx="84" cy="34" rx="7" ry="12" fill="' + f('ear') + '"/>';
+      h += '<path data-part="tail" d="M22 58 Q8 40 20 36" fill="none" stroke="' + f('tail', '#fff') + '" stroke-width="6" stroke-linecap="round"/>';
+    } else if (id === 'rocket') {
+      h += '<polygon data-part="fins" points="34,62 18,84 40,74 62,84 66,62" fill="' + f('fins') + '"/>';
+      h += '<path data-part="body" d="M50 8 C66 28 70 48 66 78 H34 C30 48 34 28 50 8 Z" fill="' + f('body') + '"/>';
+      h += '<circle data-part="window" cx="50" cy="46" r="8" fill="' + f('window', '#e0f2fe') + '"/>';
+      h += '<polygon data-part="flame" points="42,80 50,98 58,80" fill="' + f('flame') + '"/>';
+    } else {
+      h += '<path data-part="cape" d="M30 38 L14 88 H70 L58 38 Z" fill="' + f('cape') + '"/>';
+      h += '<rect data-part="body" x="34" y="40" width="32" height="40" rx="10" fill="' + f('body') + '"/>';
+      h += '<circle cx="50" cy="28" r="12" fill="#f6c7a1"/>';
+      h += '<path data-part="mask" d="M38 26 h10 l-2 6 h-6 z M52 26 h10 l-2 6 h-6 z" fill="' + f('mask') + '"/>';
+      h += '<polygon data-part="star" points="50,48 53,56 62,56 55,61 58,70 50,65 42,70 45,61 38,56 47,56" fill="' + f('star') + '"/>';
+    }
+    return h;
+  }
+  function inkMarkup(list, livePts) {
+    var h = '';
+    function one(s) { h += poly(s.pts, 'ink', hex(s.color)).replace('class="ink"', 'class="ink" stroke-width="4"'); }
+    for (var i = 0; i < list.length; i++) one(list[i]);
+    if (livePts && livePts.length > 1) one({ color: state.swatch, pts: livePts });
+    return h;
+  }
+  function renderColor() {
+    var pages = '';
+    for (var i = 0; i < Save.PICTURES.length; i++) {
+      var id = Save.PICTURES[i];
+      pages += '<button data-act="page" data-v="' + id + '" class="' + (id === colorId ? 'on' : '') + '" aria-label="' + id + '"><svg viewBox="0 0 100 100">' + colorArt(id, id === colorId ? fills : {}) + '</svg></button>';
+    }
+    var tools = '<div class="tools">';
+    tools += '<button class="tool' + (brush ? ' on' : '') + '" data-act="brush" aria-label="Brush"><svg viewBox="0 0 40 40"><rect x="18" y="6" width="8" height="20" rx="2" fill="#7c3aed"/><path d="M16 26 h12 l-2 8 h-8 z" fill="#f59e0b"/></svg></button>';
+    tools += '<button class="tool" data-act="eraser" aria-label="Clear"><svg viewBox="0 0 40 40"><rect x="8" y="16" width="24" height="12" rx="2" fill="#fca5a5" transform="rotate(-20 20 22)"/></svg></button>';
+    tools += '<button class="tool" data-act="keep" aria-label="Save"><svg viewBox="0 0 40 40"><path d="M8 8 H26 L32 14 V32 H8 Z" fill="#fff" stroke="#0f172a" stroke-width="2"/><rect x="14" y="20" width="12" height="8" fill="#38bdf8"/></svg></button>';
+    tools += '</div>';
+    var gals = '<div class="gallery">';
+    for (var g = 0; g < state.gallery.length; g++) {
+      var item = state.gallery[g];
+      gals += '<button data-act="gallery" data-v="' + g + '" aria-label="Saved picture"><svg viewBox="0 0 100 100">' + colorArt(item.id, item.fills) + inkMarkup(item.ink) + '</svg></button>';
+    }
+    gals += '</div>';
+    $('s-color').innerHTML = '<div class="top">' + backBtn('home', 'Home') + '</div><div class="pages">' + pages + '</div>' + swatchButtons(false) + tools +
+      '<svg id="paper" viewBox="0 0 100 100">' + colorArt(colorId, fills) + inkMarkup(ink, null) + '</svg>' + gals;
+    var paper = $('paper');
+    var liveLine = null;
+    paper.addEventListener('pointerdown', function (e) {
+      if (!brush) {
+        var part = e.target && e.target.getAttribute && e.target.getAttribute('data-part');
+        if (part) { fills[part] = state.swatch; renderColor(); }
+        return;
+      }
+      e.preventDefault();
+      try { paper.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      liveLine = [toPt(e, paper)];
+    });
+    paper.addEventListener('pointermove', function (e) {
+      if (!liveLine) return;
+      e.preventDefault();
+      var p = toPt(e, paper);
+      var last = liveLine[liveLine.length - 1];
+      if (Trace.dist(last, p) < 1.2) return;
+      liveLine.push(p);
+      var nodes = paper.querySelectorAll('.liveink');
+      for (var n = 0; n < nodes.length; n++) nodes[n].remove();
+      paper.insertAdjacentHTML('beforeend', poly(liveLine, 'ink liveink', hex(state.swatch)).replace('class="ink liveink"', 'class="ink liveink" stroke-width="4"'));
+    });
+    paper.addEventListener('pointerup', function () {
+      if (!liveLine) return;
+      if (liveLine.length > 1 && ink.length < 8) ink.push({ color: state.swatch, pts: liveLine.slice(0, 24) });
+      liveLine = null;
+      renderColor();
+    });
+  }
+
+  function onClick(e) {
+    var b = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!b || b.id === 'mute' && e.target.closest('#paper')) return;
+    var act = b.getAttribute('data-act');
+    var v = b.getAttribute('data-v');
+    if (act === 'mute') {
+      state.sound = !state.sound;
+      save();
+      muteHtml();
+      return;
+    }
+    if (act === 'home') { playToken++; busy = false; show('s-home'); return; }
+    if (act === 'closet') { show('s-closet'); return; }
+    if (act === 'pick') { playToken++; busy = false; show('s-pick'); return; }
+    if (act === 'explore') { qIndex = 0; show('s-explore'); return; }
+    if (act === 'color') {
+      fills = {}; ink = []; brush = false;
+      show('s-color');
+      sayKey('color', 'Tap a color, then tap the picture.');
+      return;
+    }
+    if (act === 'soon') { sayKey('soon', 'Red words are coming soon.'); return; }
+    if (act === 'glyph') { openGlyph(v); return; }
+    if (act === 'swatch') {
+      state.swatch = Trace.selectSwatch(v).id;
+      save();
+      if (colorStep && $('s-trace').classList.contains('on')) startBoard();
+      else if ($('s-color').classList.contains('on')) renderColor();
+      else renderTrace();
+      return;
+    }
+    if (act === 'wear') {
+      var g = Save.gearById(v);
+      if (!g) return;
+      if (!Save.unlocked(state.stars, g.id)) { sayKey('locked', 'Keep playing to earn stars.'); return; }
+      state.avatar[g.slot] = state.avatar[g.slot] === g.id ? '' : g.id;
+      save();
+      renderCloset();
+      return;
+    }
+    if (act === 'answer') {
+      var q = Ex.QUESTIONS[qIndex];
+      if (!Ex.correct(q.id, v)) {
+        b.classList.remove('no');
+        void b.offsetWidth;
+        b.classList.add('no');
+        sayKey('q-no', 'Try another picture.');
+        return;
+      }
+      var earned = !state.explorer[q.id];
+      state.explorer[q.id] = true;
+      if (earned) state.stars += 1;
+      save();
+      sayKey(earned ? 'star' : 'q-yes', earned ? 'That\'s the one! You earned a star.' : 'That\'s the one!');
+      var token = ++playToken;
+      setTimeout(function () {
+        if (token !== playToken) return;
+        if (!$('s-explore').classList.contains('on')) return;
+        qIndex = (qIndex + 1) % Ex.QUESTIONS.length;
+        renderExplore();
+      }, 900);
+      return;
+    }
+    if (act === 'page') { colorId = v; fills = {}; ink = []; renderColor(); return; }
+    if (act === 'brush') { brush = !brush; renderColor(); return; }
+    if (act === 'eraser') { fills = {}; ink = []; renderColor(); return; }
+    if (act === 'keep') {
+      var next = [];
+      for (var i = 0; i < state.gallery.length; i++) if (state.gallery[i].id !== colorId) next.push(state.gallery[i]);
+      next.push({ id: colorId, fills: fills, ink: ink });
+      state.gallery = next.slice(-6);
+      save();
+      renderColor();
+      sayKey('saved', 'Saved.');
+      return;
+    }
+    if (act === 'gallery') {
+      var item = state.gallery[+v];
+      if (!item) return;
+      colorId = item.id;
+      fills = {};
+      for (var k in item.fills) if (Object.prototype.hasOwnProperty.call(item.fills, k)) fills[k] = item.fills[k];
+      ink = [];
+      for (var n = 0; n < item.ink.length; n++) ink.push({ color: item.ink[n].color, pts: item.ink[n].pts.slice() });
+      renderColor();
+    }
+  }
+
+  var board = $('board');
+  board.addEventListener('pointerdown', function (e) {
+    if (colorStep || busy || !$('s-trace').classList.contains('on')) return;
+    e.preventDefault();
+    try { board.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    live = [toPt(e, board)];
+    renderBoard();
+  });
+  board.addEventListener('pointermove', function (e) {
+    if (!live) return;
+    e.preventDefault();
+    var p = toPt(e, board);
+    var last = live[live.length - 1];
+    if (Trace.dist(last, p) < 1.2) return;
+    live.push(p);
+    if (live.length > 500) live.shift();
+    renderBoard();
+  });
+  function endLive() {
+    if (!live) return;
+    var pts = live;
+    live = null;
+    finishStroke(pts);
+  }
+  board.addEventListener('pointerup', endLive);
+  board.addEventListener('pointercancel', endLive);
+
+  document.addEventListener('pointerdown', prime, true);
+  document.addEventListener('touchend', prime, { capture: true, passive: true });
+  document.body.addEventListener('click', onClick);
+  muteHtml();
+  renderHome();
+})();
+</script>
+</body>
+</html>
