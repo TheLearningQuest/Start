@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="600" height="600">
-<path fill-rule="evenodd" d="M70 150 A90 90 0 1 0 250 150 A90 90 0 1 0 70 150 Z M130 150 A62 62 0 1 1 214 150 A62 62 0 1 1 130 150 Z" fill="#e6194b" stroke="#1a1a1a" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 160 132 A 8 8 0 1 1 176 132 A 8 8 0 1 1 160 132" fill="none" stroke="#1a1a1a" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="168" cy="132" r="4.5" fill="#1a1a1a"/>
-<path d="M156 176 Q176 192 198 170" fill="none" stroke="#1a1a1a" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
-</svg>

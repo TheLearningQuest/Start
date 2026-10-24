@@ -356,22 +356,24 @@ test('color by name and letter pictures have spoken targets', function () {
 test('coloring assets are local line art with credits', function () {
   const dir = path.join(__dirname, '..', 'cole', 'assets', 'coloring');
   const credits = fs.readFileSync(path.join(__dirname, '..', 'cole', 'assets', 'CREDITS.md'), 'utf8');
-  const files = fs.readdirSync(dir).filter(function (name) { return name.endsWith('.svg'); });
+  const names = fs.readdirSync(dir);
+  const files = names.filter(function (name) { return name.endsWith('.png'); });
   assert.ok(files.length >= 26);
+  assert.equal(names.some(function (name) { return name.endsWith('.svg'); }), false);
   files.forEach(function (name) {
-    const svg = fs.readFileSync(path.join(dir, name), 'utf8');
-    assert.equal(svg.indexOf('<script'), -1, name);
-    assert.equal(svg.indexOf('javascript:'), -1, name);
-    assert.equal(svg.indexOf('foreignObject'), -1, name);
-    assert.doesNotMatch(svg, /href\s*=\s*["']https?:/i, name);
-    assert.doesNotMatch(svg, /xlink:href\s*=\s*["']https?:/i, name);
+    const buf = fs.readFileSync(path.join(dir, name));
+    assert.ok(buf.length > 1000 && buf.length < 200000, name);
+    assert.equal(buf[0], 0x89, name);
+    assert.equal(buf.toString('ascii', 1, 4), 'PNG', name);
     assert.ok(html.indexOf('assets/coloring/' + name) >= 0, name);
     assert.ok(credits.indexOf(name) >= 0, name);
-    assert.ok(Color.SHEETS[name.replace(/\.svg$/, '')], name);
+    assert.ok(Color.SHEETS[name.replace(/\.png$/, '')], name);
   });
   assert.match(credits, /CC0|public domain/i);
+  assert.match(credits, /generat/i);
   assert.equal(Color.artId('D'), 'truck');
   assert.equal(Color.artId('E'), 'excavator');
-  assert.equal(Color.sheet('truck').regions[0].id, 'bed');
-  assert.equal(Color.sheet('apple').regions[0].color, 'red');
+  assert.equal(Color.sheet('truck').seeds[0].color, 'yellow');
+  assert.equal(Color.sheet('apple').seeds[0].color, 'red');
+  assert.equal(Color.sheet('fish').seeds[0].color, 'blue');
 });
