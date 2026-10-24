@@ -243,6 +243,41 @@ test('a full disk trims old sessions, keeps personal bests, and reports the fail
   assert.equal(Save.isQuotaError({ name: 'SecurityError' }), false);
 });
 
+test('handwriting samples are kept on a version bump and junk drawings are dropped', function () {
+  assert.equal(typeof Save.MIGRATIONS[2], 'function');
+  const old = Save.sanitize({ v: 2, settings: { pin: '1111', voiceURI: 'system', voiceName: 'iPad default voice' }, coins: 4 }).save;
+  assert.equal(old.v, Save.SCHEMA);
+  assert.deepEqual(Array.from(old.settings.hand), []);
+  assert.equal(old.settings.voiceURI, 'system');
+
+  const fresh = { v: 2, settings: { pin: '1111' } };
+  Save.MIGRATIONS[2](fresh);
+  assert.equal(fresh.v, 3);
+  assert.ok(Array.isArray(fresh.settings.hand));
+
+  const keep = [];
+  for (let i = 0; i < 5; i++) keep.push({ d: 9, s: [[[10, 12], [18, 90]], [[40, 10], [36, 100]]] });
+  const out = Save.sanitize({
+    v: 3,
+    settings: {
+      pin: '1111',
+      hand: keep.concat([
+        { d: '9', s: [[[1, 1], [2, 2]]] },
+        { d: 4, s: [[[10, 10], [99999, -99999]]] },
+        { d: 3, s: [] },
+        { d: 8, s: [[{ x: 1 }]] },
+        { d: 1, s: 'nope' }
+      ])
+    }
+  }).save;
+  assert.equal(out.settings.hand.length, 5);
+  assert.equal(out.settings.hand.filter(function (s) { return s.d === 9; }).length, Save.CAPS.handPerDigit);
+  assert.equal(out.settings.hand[4].d, 4);
+  assert.deepEqual(Array.from(out.settings.hand[4].s[0][1]), [8000, -4000]);
+  assert.match(html, /Teach it my handwriting/);
+  assert.match(html, /planInk/);
+});
+
 test('backup share stays on the device and speech is primed from the tap', function () {
   assert.match(html, /navigator\.share/);
   assert.match(html, /navigator\.canShare/);
