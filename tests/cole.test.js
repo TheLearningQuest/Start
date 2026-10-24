@@ -352,3 +352,26 @@ test('color by name and letter pictures have spoken targets', function () {
   assert.ok(doc.indexOf("Let's look again.") >= 0);
   assert.ok(doc.indexOf("That's blue, try yellow.") >= 0);
 });
+
+test('coloring assets are local line art with credits', function () {
+  const dir = path.join(__dirname, '..', 'cole', 'assets', 'coloring');
+  const credits = fs.readFileSync(path.join(__dirname, '..', 'cole', 'assets', 'CREDITS.md'), 'utf8');
+  const files = fs.readdirSync(dir).filter(function (name) { return name.endsWith('.svg'); });
+  assert.ok(files.length >= 26);
+  files.forEach(function (name) {
+    const svg = fs.readFileSync(path.join(dir, name), 'utf8');
+    assert.equal(svg.indexOf('<script'), -1, name);
+    assert.equal(svg.indexOf('javascript:'), -1, name);
+    assert.equal(svg.indexOf('foreignObject'), -1, name);
+    assert.doesNotMatch(svg, /href\s*=\s*["']https?:/i, name);
+    assert.doesNotMatch(svg, /xlink:href\s*=\s*["']https?:/i, name);
+    assert.ok(html.indexOf('assets/coloring/' + name) >= 0, name);
+    assert.ok(credits.indexOf(name) >= 0, name);
+    assert.ok(Color.SHEETS[name.replace(/\.svg$/, '')], name);
+  });
+  assert.match(credits, /CC0|public domain/i);
+  assert.equal(Color.artId('D'), 'truck');
+  assert.equal(Color.artId('E'), 'excavator');
+  assert.equal(Color.sheet('truck').regions[0].id, 'bed');
+  assert.equal(Color.sheet('apple').regions[0].color, 'red');
+});
