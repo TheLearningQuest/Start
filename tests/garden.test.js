@@ -92,14 +92,17 @@ test('mastery takes three first-try days and a miss steps back once', function (
   assert.equal(due.some(function (w) { return w.grade === '2'; }), false);
 });
 
-test('the weekly block is empty and only accepts the documented shape', function () {
+test('the weekly block lists the October weeks and only accepts the documented shape', function () {
   const start = html.indexOf('/* WEEKLY_RED_WORDS_START */');
   const end = html.indexOf('/* WEEKLY_RED_WORDS_END */');
   assert.ok(start !== -1 && end > start);
   const context = {};
   vm.createContext(context);
   vm.runInContext(html.slice(start, end), context, { filename: 'weekly.js' });
-  assert.deepEqual(Array.from(context.WEEKLY_RED_WORDS), []);
+  assert.deepEqual(Array.from(context.WEEKLY_RED_WORDS), [
+    { weekOf: '2026-10-19', words: ['far', 'goes'] },
+    { weekOf: '2026-10-26', words: ['because', 'very'] }
+  ]);
   assert.equal(Garden.validateWeekly(context.WEEKLY_RED_WORDS).ok, true);
   assert.equal(Garden.validateWeekly([{ weekOf: '2026-10-30', words: ['world', 'I'] }]).ok, true);
   const weekly = Garden.weeklyWords([{ weekOf: '2026-10-30', words: ['world'] }]);
