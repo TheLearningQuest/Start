@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Brain Quest">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="theme-color" content="#5b3df5">
 <title>Naomi's Brain Quest</title>
 <style>
@@ -723,6 +723,11 @@ body.shake-screen #app{animation:shake .3s linear 2}
 .gw-known button.on{background:#bbf7d0}
 .pet{width:64px;height:64px;filter:drop-shadow(0 4px 0 rgba(0,0,0,.12))}
 
+
+.rw-stage{flex:1;min-height:0;position:relative;border-radius:28px;overflow:hidden;touch-action:none;background:#7ec8f8}
+.rw-stage canvas{width:100%;height:100%;display:block;touch-action:none}
+.rw-mirror{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0}
+#s-red.active,#s-redplay.active,#s-redlearn.active,#s-redmenu.active,#s-redresults.active{overflow:hidden}
 </style>
 </head>
 <body>
@@ -3571,6 +3576,9 @@ body.shake-screen #app{animation:shake .3s linear 2}
 /* NMQ_SPEECH_MODULE_END */
 </script>
 
+<script src="red-words/draw.js"></script>
+<script src="red-words/strokes.js"></script>
+<script src="red-words/world.js"></script>
 <script>
 /* Naomi's Brain Quest - Red Words garden (claw, nursery, flowers).
    Recorded clips, when a grown-up adds them later, live at audio/words/<id>.m4a,
@@ -3752,218 +3760,267 @@ body.shake-screen #app{animation:shake .3s linear 2}
     else sayWord(les.word);
   }
 
-  function wordHtml(w) {
-    var h = '<span class="gw-word">';
-    for (var i = 0; i < w.w.length; i++) {
-      var hot = (w.tricky || []).indexOf(i) >= 0;
-      h += '<span class="gw-ch' + (hot ? ' hot' : '') + '">' + esc(w.w.charAt(i)) + (hot ? '<i>♥</i>' : '') + '</span>';
-    }
-    return h + '</span>';
+var LES = null, lastPlay = null, world = null;
+
+  function motionOff() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
-  function flowerSvg(name, level) {
-    var n = Math.max(1, Math.min(6, level || 1));
-    var petal = name === 'tulip' ? '#f43f5e' : name === 'poppy' ? '#ef4444' : name === 'bluebell' ? '#6366f1' : name === 'orchid' ? '#d946ef' : name === 'lantern' ? '#f59e0b' : name === 'rainbow-rose' ? '#fb7185' : name === 'crystal-lotus' ? '#22d3ee' : '#facc15';
-    var glow = name === 'lantern' || name === 'rainbow-rose' || name === 'crystal-lotus' ? '<circle cx="40" cy="36" r="' + (18 + n) + '" fill="' + petal + '" opacity=".25"/>' : '';
-    var blooms = '';
-    for (var i = 0; i < n; i++) {
-      var a = -Math.PI / 2 + i * (Math.PI * 1.4 / Math.max(1, n - 1 || 1));
-      var cx = 40 + Math.cos(a) * 10, cy = 34 + Math.sin(a) * 8;
-      blooms += '<ellipse cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" rx="9" ry="12" fill="' + petal + '" transform="rotate(' + (i * 25) + ' ' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ')"/>';
-    }
-    return '<svg class="flower" viewBox="0 0 80 80" aria-hidden="true">' + glow + '<rect x="37" y="40" width="6" height="28" rx="3" fill="#16a34a"/>' + blooms + '<circle cx="40" cy="34" r="6" fill="#fde68a"/></svg>';
+  function stopClaw() { if (world && world.stop) world.stop(); }
+  function syncCoins() {
+    var b = document.getElementById('coin-count');
+    if (b) b.textContent = String(S().coins);
   }
-  function petSvg(id) {
-    var body = '<circle cx="30" cy="34" r="16" fill="#fde68a"/>';
-    if (id === 'bunny') body = '<ellipse cx="18" cy="16" rx="6" ry="14" fill="#fff"/><ellipse cx="42" cy="16" rx="6" ry="14" fill="#fff"/><circle cx="30" cy="36" r="16" fill="#fff"/>';
-    else if (id === 'kitty') body = '<polygon points="14,28 18,12 26,26" fill="#fb923c"/><polygon points="46,28 42,12 34,26" fill="#fb923c"/><circle cx="30" cy="36" r="16" fill="#fb923c"/>';
-    else if (id === 'butterfly') body = '<ellipse cx="16" cy="30" rx="12" ry="16" fill="#c4b5fd"/><ellipse cx="44" cy="30" rx="12" ry="16" fill="#f9a8d4"/><rect x="27" y="18" width="6" height="28" rx="3" fill="#7c3aed"/>';
-    else if (id === 'can') body = '<rect x="22" y="16" width="18" height="28" rx="4" fill="#38bdf8"/><rect x="18" y="12" width="8" height="6" rx="2" fill="#0ea5e9"/>';
-    else if (id === 'fence') body = '<rect x="8" y="16" width="8" height="32" rx="2" fill="#d97706"/><rect x="26" y="16" width="8" height="32" rx="2" fill="#d97706"/><rect x="44" y="16" width="8" height="32" rx="2" fill="#d97706"/><rect x="6" y="24" width="48" height="6" rx="2" fill="#b45309"/>';
-    else if (id === 'hat') body = '<ellipse cx="30" cy="36" rx="22" ry="8" fill="#f472b6"/><rect x="16" y="16" width="28" height="20" rx="10" fill="#ec4899"/>';
-    else body += '<polygon points="44,34 54,38 44,42" fill="#f97316"/><circle cx="24" cy="30" r="2" fill="#1e1b4b"/>';
-    return '<svg class="pet" viewBox="0 0 60 60" aria-hidden="true">' + body + '</svg>';
+  function awardInfo() {
+    var a = P().award;
+    if (!a || !a.id) return null;
+    var word = findWord(a.id);
+    var card = P().cards[a.id];
+    if (!word || !card) { P().award = null; C.save(); return null; }
+    return { award: a, word: word, card: card };
+  }
+  function makeTiles() {
+    if (!LES) return [];
+    var letters = LES.word.w.split('');
+    var extra = 'abcdefghijklmnopqrstuvwxyz'.split('').filter(function (ch) { return letters.indexOf(ch) < 0; });
+    var list = letters.slice();
+    if (extra.length) list.push(extra[LES.word.id.length % extra.length]);
+    if (extra.length > 2) list.push(extra[(LES.word.id.length * 3) % extra.length]);
+    for (var i = list.length - 1; i > 0; i--) {
+      var j = (i * 5 + LES.word.w.length) % (i + 1);
+      var t = list[i]; list[i] = list[j]; list[j] = t;
+    }
+    return list;
+  }
+  function view() {
+    var plot = P(), day = today(), cards = plot.cards || {};
+    var due = G.dueWords(words(), cards, day, plot.explore).map(function (w) { return { id: w.id, w: w.w }; });
+    var nursery = [], bed = [];
+    Object.keys(cards).forEach(function (id) {
+      var c = cards[id];
+      if (!c) return;
+      var w = findWord(id);
+      if (!c.planted && c.step > 0) {
+        nursery.push({
+          id: id, w: w ? w.w : '', step: c.step, stage: G.stageName(c.step),
+          shiny: !!c.shiny, flower: c.flower || '', days: Math.max(0, (c.due || 0) - day), rarity: c.rarity || ''
+        });
+      }
+      if (c.planted) {
+        bed.push({
+          id: id, w: w ? w.w : '', level: c.level || 1, rarity: c.rarity || '',
+          flower: c.flower || 'daisy', shiny: !!c.shiny, thirsty: G.isThirsty(c, day)
+        });
+      }
+    });
+    var owned = (plot.owned || []).slice();
+    var shop = G.SHOP.map(function (it) {
+      return { id: it.id, name: it.name, cost: it.cost, kind: it.kind, owned: owned.indexOf(it.id) >= 0 };
+    });
+    var lesson = null;
+    if (LES) {
+      lesson = {
+        id: LES.word.id, w: LES.word.w, tricky: (LES.word.tricky || []).slice(),
+        step: LES.step, built: LES.built || '', missed: !!LES.missed, mode: LES.mode || 'learn',
+        shiny: !!LES.shiny, letterStar: !!LES.letterStar, traceStar: !!LES.traceStar
+      };
+    }
+    var info = awardInfo();
+    var award = null;
+    if (info) {
+      award = {
+        id: info.award.id, phase: info.award.phase || 'wheel', rarity: info.award.rarity || info.card.rarity || '',
+        kind: info.award.kind || 'seed', flower: info.card.flower || '', level: info.card.level || info.card.step || 1,
+        shiny: !!info.card.shiny, w: info.word.w, tricky: (info.word.tricky || []).slice(), misses: info.card.misses || 0
+      };
+    }
+    var count = plot.todayDay === day ? (plot.todayCount || 0) : 0;
+    return {
+      coins: S().coins, explore: !!plot.explore, placed: !!plot.placed, fertilizer: plot.fertilizer || 0,
+      goal: goal(), todayCount: count, canSpin: count >= goal() && plot.spun !== day,
+      due: due, nursery: nursery, garden: bed, shop: shop, owned: owned,
+      lesson: lesson, award: award, lastPlay: lastPlay, wheel: G.WHEEL_SLOTS.slice(),
+      rate: G.coinRate(cards)
+    };
   }
 
-  var LES = null, CLAW = null, clawTimer = null, spinRAF = 0, awardTimer = 0;
-  function stopMotion() {
-    if (clawTimer) { clearInterval(clawTimer); clawTimer = null; }
-    if (spinRAF) { cancelAnimationFrame(spinRAF); spinRAF = 0; }
-    if (awardTimer) { clearTimeout(awardTimer); awardTimer = 0; }
-  }
-  function stopClaw() { stopMotion(); }
+  var host = {
+    reduced: motionOff,
+    sfx: function () { return C.SFX; },
+    confetti: function (n) { if (C.confetti) C.confetti(n || 12); },
+    speak: function (t) { TTS.say(t); },
+    speakWord: function (word) { sayWord(word); },
+    speakLetter: function (ch) {
+      var names = (W && W.LETTER_NAMES) || {};
+      var key = String(ch || '').toLowerCase();
+      playClip(window.NMQSpeech.clipPath('letter', key), names[key] || key);
+    },
+    speakCue: function (t) { TTS.say(t); },
+    view: view,
+    word: function (id) { return findWord(id); },
+    go: function (name) {
+      var map = { hub: 'red', claw: 'redplay', lesson: 'redlearn', ceremony: 'redlearn', nursery: 'redmenu', garden: 'redresults', home: 'home' };
+      C.show(map[name] || name);
+    },
+    toggleExplore: function () { P().explore = !P().explore; C.save(); },
+    beginPlace: function () {
+      if (P().award && P().award.id) { C.show('redlearn'); return; }
+      var queue = G.KINDERGARTEN.filter(function (w) { var c = P().cards[w.id]; return !(c && c.planted); }).slice(0, 8);
+      if (!queue.length) { P().placed = true; C.save(); C.show('red'); return; }
+      startLesson(queue[0], { mode: 'place', queue: queue, qi: 0 });
+    },
+    beginReview: function (id) {
+      if (P().award && P().award.id) return false;
+      var card = P().cards[id], word = findWord(id);
+      if (!card || !word || !G.isThirsty(card, today())) return false;
+      startLesson(word, { mode: 'review' });
+      return true;
+    },
+    beginLesson: function (id, clean) {
+      var word = findWord(id);
+      if (!word) return;
+      startLesson(word, { shiny: !!clean, mode: 'learn', quiet: true });
+    },
+    markStar: function (which) { if (LES) LES[which] = true; },
+    setStep: function (n, speak) {
+      if (!LES) return;
+      LES.step = n;
+      if (speak && n === 3) TTS.say('Spell ' + LES.word.w);
+    },
+    typeLetter: function (ch) {
+      if (!LES || LES.step !== 3 || LES.built.length >= LES.word.w.length) return { accepted: false, built: LES ? LES.built : '' };
+      LES.built += ch;
+      if (LES.built.length < LES.word.w.length) return { accepted: true, done: false, built: LES.built };
+      if (LES.built === LES.word.w) {
+        finishLesson(true);
+        return { accepted: true, done: true, ok: true, built: '' };
+      }
+      LES.missed = true;
+      C.SFX.wrong();
+      C.splash('Try the letters again', 'soft', 0);
+      sayWord(LES.word);
+      LES.built = '';
+      return { accepted: true, done: true, ok: false, built: '' };
+    },
+    undoLetter: function () {
+      if (!LES || !LES.built) return { built: '' };
+      LES.built = LES.built.slice(0, -1);
+      return { built: LES.built };
+    },
+    tiles: makeTiles,
+    pickPacket: function () {
+      var info = awardInfo();
+      if (!info) return 'common';
+      if (info.card.flower) return info.card.rarity || 'common';
+      return G.pickPacket(info.word, info.card.misses || 0, Math.random());
+    },
+    landWheel: function (rarity) { landWheel(rarity); },
+    plantSeed: function () {
+      var plot = P();
+      if (!plot.award || plot.award.phase !== 'packet') return;
+      plot.award.phase = 'water';
+      C.save();
+    },
+    finishWater: function () {
+      var plot = P();
+      var kind = plot.award && plot.award.kind;
+      plot.award = null;
+      C.save();
+      syncCoins();
+      return kind === 'thirst' ? 'garden' : 'nursery';
+    },
+    buy: function (id) {
+      var item = null;
+      G.SHOP.forEach(function (it) { if (it.id === id) item = it; });
+      if (!item || (P().owned || []).indexOf(item.id) >= 0) return { ok: false, reason: 'owned' };
+      if (S().coins < item.cost) return { ok: false, reason: 'coins' };
+      S().coins -= item.cost;
+      P().owned.push(item.id);
+      C.save();
+      syncCoins();
+      return { ok: true };
+    },
+    dailySpin: function () {
+      var plot = P(), day = today();
+      if (plot.spun === day) return null;
+      if (!(plot.todayDay === day && (plot.todayCount || 0) >= goal())) return null;
+      var prize = ['coins', 'fertilizer', 'seed'][Math.floor(Math.random() * 3)];
+      plot.spun = day;
+      var label = '+8 coins';
+      if (prize === 'coins') { S().coins += 8; S().totals.coinsEarned = (S().totals.coinsEarned || 0) + 8; label = '+8 coins'; }
+      else if (prize === 'fertilizer') { plot.fertilizer = (plot.fertilizer || 0) + 1; label = 'Plant food!'; }
+      else { plot.rareSeeds = (plot.rareSeeds || 0) + 1; label = 'Rare seed!'; }
+      C.save();
+      syncCoins();
+      C.splash(label, 'l2', 0);
+      return { prize: prize, label: label };
+    },
+    slotUnder: function (angle, n) { return G.slotUnder(angle, n); },
+    stopAngle: function (from, dist, rarity) { return G.stopAngle(from, dist, rarity, G.WHEEL_SLOTS); }
+  };
 
-  function renderWorld() {
-    collect();
-    var due = G.dueWords(words(), P().cards, today(), P().explore);
-    var thirsty = 0, cards = P().cards;
-    for (var id in cards) if (G.isThirsty(cards[id], today())) thirsty++;
-    var spin = P().todayCount >= goal() && P().todayDay === today() && P().spun !== today();
-    var h = C.topbar('<button class="back" data-act="home">◀ Home</button><div class="logo">🌷 Word Garden<small>RED WORDS</small></div><button class="iconbtn" data-act="mute">' + (S().settings.sound ? '🔊' : '🔇') + '</button>');
-    h += '<div class="gw-world"><div class="gw-coins">🪙 ' + S().coins + '</div><div class="gw-spots">';
-    h += '<button class="gw-spot claw" data-act="gw-claw"><b>🕹️ Claw</b><small>' + due.length + ' capsules</small></button>';
-    h += '<button class="gw-spot nursery" data-act="gw-nursery"><b>🪴 Nursery</b><small>seeds and sprouts</small></button>';
-    h += '<button class="gw-spot garden" data-act="gw-garden"><b>🌼 Garden</b><small>' + plantedCount() + ' planted' + (thirsty ? ' · ' + thirsty + ' thirsty' : '') + '</small></button>';
-    h += '<button class="gw-spot explore" data-act="gw-explore"><b>' + (P().explore ? '⭐ Explore on' : '🔎 Explore') + '</b><small>2nd grade words</small></button>';
-    if (P().award && P().award.id) h += '<button class="gw-spot spin" data-act="gw-award"><b>🌱 Your seed</b><small>finish planting</small></button>';
-    if (spin) h += '<button class="gw-spot spin" data-act="gw-spin-open"><b>🎡 Spin!</b><small>You finished today\'s words</small></button>';
-    h += '</div>';
-    if (!P().placed) h += '<button class="btn pink" data-act="gw-place">✨ Words I already know</button>';
-    h += '<p class="p-note">K and 1st grade are the path. A clean claw grab makes a shiny seed.</p></div>';
-    $('#s-red').innerHTML = h;
-  }
-  function renderClaw() {
-    var due = G.dueWords(words(), P().cards, today(), P().explore).slice(0, 5);
-    if (!CLAW || CLAW.ids.join() !== due.map(function (w) { return w.id; }).join()) {
-      CLAW = { x: 50, vx: 0, drop: false, ids: due.map(function (w) { return w.id; }), words: due, last: 50 };
-    }
-    var h = C.topbar('<button class="back" data-act="red">◀ Garden</button><div class="logo">🕹️ Claw<small>DRAG, THEN DROP</small></div>');
-    if (!due.length) {
-      h += '<div class="card" style="text-align:center"><h2>All empty!</h2><p>No words are waiting. Thirsty flowers are in the garden.</p><button class="btn pink" data-act="gw-garden">🌼 Garden</button></div>';
-      $('#s-redplay').innerHTML = h;
+  function mount(screenId, scene) {
+    var el = document.getElementById(screenId);
+    if (!el) return;
+    var titles = {
+      hub: ['🌷 Word Garden', 'RED WORDS', 'home', '◀ Home'],
+      claw: ['🕹️ Claw', 'AIM AND DROP', 'red', '◀ Garden'],
+      lesson: ['💗 Heart word', 'SEE · TRACE · SPELL', 'red', '◀ Garden'],
+      ceremony: ['🌱 Prize', 'YOU DID IT', 'red', '◀ Garden'],
+      nursery: ['🪴 Nursery', 'SEED · SPROUT · BUD', 'red', '◀ Garden'],
+      garden: ['🌼 My Garden', 'FLOWERS', 'red', '◀ Garden']
+    };
+    var t = titles[scene] || titles.hub;
+    el.innerHTML = C.topbar('<button class="back" data-act="' + t[2] + '">' + t[3] + '</button><div class="logo">' + t[0] + '<small>' + t[1] + '</small></div>');
+    if (!window.NMQWorld || !window.NMQDraw || !window.NMQStrokes) {
+      var note = document.createElement('div');
+      note.className = 'card';
+      note.textContent = 'The garden game did not load on this iPad.';
+      el.appendChild(note);
       return;
     }
-    h += '<div class="claw-cab"><div class="claw-glass" id="claw-glass"><div class="claw-rail"></div>';
-    h += '<div class="claw-arm" id="claw-arm" style="left:' + CLAW.x + '%"><div class="rope"></div><div class="claw-grip"><i></i><i></i></div></div>';
-    due.forEach(function (w, i) {
-      var x = 16 + i * (68 / Math.max(1, due.length - 1));
-      h += '<button class="capsule ' + 'abc'[i % 3] + '" data-x="' + x.toFixed(1) + '" style="left:' + x.toFixed(1) + '%">?</button>';
-    });
-    h += '</div><div class="ink-btns" style="margin-top:10px"><button class="btn pink" data-act="claw-drop">⬇ DROP</button></div>';
-    h += '<p class="p-note">Hold and drag the claw. A steady drop on a capsule grabs it. A fast or off-center drop can slip.</p></div>';
-    $('#s-redplay').innerHTML = h;
-    bindClaw();
+    var stage = document.createElement('div');
+    stage.className = 'rw-stage';
+    var canvas = document.createElement('canvas');
+    canvas.setAttribute('data-rw', scene);
+    canvas.setAttribute('aria-label', 'Word garden');
+    stage.appendChild(canvas);
+    el.appendChild(stage);
+    if (world && world.stop) world.stop();
+    world = window.NMQWorld.attach(canvas, scene, host);
   }
-  function bindClaw() {
-    var glass = $('#claw-glass'); if (!glass) return;
-    function setX(clientX) {
-      var r = glass.getBoundingClientRect();
-      var prev = CLAW.x;
-      CLAW.x = Math.max(10, Math.min(90, (clientX - r.left) / r.width * 100));
-      CLAW.vx = CLAW.x - prev;
-      var arm = $('#claw-arm'); if (arm) arm.style.left = CLAW.x + '%';
-    }
-    glass.addEventListener('pointerdown', function (e) { e.preventDefault(); CLAW.drag = true; try { glass.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } setX(e.clientX); });
-    glass.addEventListener('pointermove', function (e) { if (!CLAW || !CLAW.drag) return; e.preventDefault(); setX(e.clientX); });
-    glass.addEventListener('pointerup', function () { if (CLAW) CLAW.drag = false; });
+  function renderWorld() { collect(); mount('s-red', 'hub'); }
+  function renderClaw() { mount('s-redplay', 'claw'); }
+  function renderLesson() {
+    if (P().award && P().award.id) mount('s-redlearn', 'ceremony');
+    else if (LES) mount('s-redlearn', 'lesson');
+    else mount('s-redlearn', 'ceremony');
   }
-  function swayX() { return CLAW.x + Math.sin(Date.now() / 280) * 4; }
-  function dropClaw() {
-    if (!CLAW || CLAW.drop) return;
-    CLAW.drop = true;
-    var arm = $('#claw-arm'); if (arm) arm.classList.add('drop');
-    var aim = swayX(), best = null, bestDx = 99;
-    document.querySelectorAll('.capsule').forEach(function (el) {
-      var dx = Math.abs(aim - parseFloat(el.getAttribute('data-x')));
-      if (dx < bestDx) { bestDx = dx; best = el; }
-    });
-    var speed = Math.abs(CLAW.vx);
-    var slip = !best || bestDx > 14 || (bestDx > 8 && speed > 1.8);
-    var grabbed = null, clean = false;
-    if (!slip) {
-      var idxNow = Array.prototype.indexOf.call(document.querySelectorAll('.capsule'), best);
-      grabbed = CLAW.words[idxNow];
-      clean = bestDx < 5 && speed < 0.8;
-      sayWord(grabbed);
-    }
-    setTimeout(function () {
-      if (slip) {
-        C.SFX.wrong();
-        C.splash('Slipped! Try again', 'soft', 0);
-        CLAW.drop = false; CLAW.vx = 0;
-        if (arm) arm.classList.remove('drop');
-        return;
-      }
-      best.classList.add('pop');
-      C.SFX.reward();
-      setTimeout(function () { startLesson(grabbed, { shiny: clean, mode: 'learn', quiet: true }); }, 280);
-    }, 380);
-  }
+  function renderNursery() { collect(); mount('s-redmenu', 'nursery'); }
+  function renderGarden() { collect(); mount('s-redresults', 'garden'); }
 
   function startLesson(word, opts) {
     opts = opts || {};
     stopClaw();
-    LES = { word: word, step: opts.mode === 'place' || opts.mode === 'review' ? 3 : 0, missed: false, traceAt: 0, built: '', shiny: !!opts.shiny, mode: opts.mode || 'learn', queue: opts.queue || null, qi: opts.qi || 0 };
+    LES = {
+      word: word, step: opts.mode === 'place' || opts.mode === 'review' ? 3 : 0,
+      missed: false, built: '', shiny: !!opts.shiny, mode: opts.mode || 'learn',
+      queue: opts.queue || null, qi: opts.qi || 0, letterStar: false, traceStar: false
+    };
     C.show('redlearn');
     if (!opts.quiet) speakStep(LES);
   }
-  function renderLesson() {
-    if (P().award && P().award.id) { renderAward(); return; }
-    if (!LES) { $('#s-redlearn').innerHTML = ''; return; }
-    var w = LES.word;
-    var h = C.topbar('<button class="back" data-act="red">◀ Stop</button><div class="logo">💗 ' + esc(w.w) + '</div><button class="iconbtn" data-act="mute">' + (S().settings.sound ? '🔊' : '🔇') + '</button>');
-    h += '<div class="card" style="text-align:center">';
-    if (LES.step === 0) {
-      h += '<p class="p-note">See it. Hearts mark the tricky part.</p>' + wordHtml(w);
-      h += '<div class="btn-row"><button class="btn blue" data-act="gw-hear">🔊 Hear it</button><button class="btn green" data-act="gw-next">Next ▶</button></div>';
-    } else if (LES.step === 1) {
-      h += '<p class="p-note">Say each letter name with me.</p>' + wordHtml(w);
-      h += '<div class="btn-row"><button class="btn blue" data-act="gw-letters">🔤 Letter names</button><button class="btn green" data-act="gw-next">Next ▶</button></div>';
-    } else if (LES.step === 2) {
-      h += '<p class="p-note">Trace each letter with your finger.</p>';
-      h += '<div class="gw-trace" id="gw-trace">' + wordHtml(w) + '</div>';
-      h += '<div class="btn-row"><button class="btn green" data-act="gw-next" id="gw-trace-next" disabled>Next ▶</button></div>';
-    } else {
-      h += '<p class="p-note">' + (LES.mode === 'review' ? 'This flower is thirsty. Spell it.' : 'Hide it. Spell it from memory.') + '</p>';
-      h += '<div class="gw-slots" id="gw-slots">' + slotsHtml() + '</div><div class="gw-tiles">' + tilesHtml() + '</div>';
-      h += '<div class="btn-row"><button class="btn white" data-act="gw-backspace">⌫</button></div>';
-    }
-    h += '</div>';
-    $('#s-redlearn').innerHTML = h;
-    if (LES.step === 2) bindTrace();
-  }
-  function slotsHtml() {
-    var w = LES.word.w, h = '';
-    for (var i = 0; i < w.length; i++) h += '<span>' + esc(LES.built.charAt(i) || '') + '</span>';
-    return h;
-  }
-  function tilesHtml() {
-    var letters = LES.word.w.split('');
-    var extra = 'abcdefghijklmnopqrstuvwxyz'.split('').filter(function (ch) { return letters.indexOf(ch) < 0; });
-    var tiles = letters.slice();
-    if (extra.length) tiles.push(extra[LES.word.id.length % extra.length]);
-    if (extra.length > 2) tiles.push(extra[(LES.word.id.length * 3) % extra.length]);
-    for (var i = tiles.length - 1; i > 0; i--) { var j = (i * 5 + LES.word.w.length) % (i + 1); var t = tiles[i]; tiles[i] = tiles[j]; tiles[j] = t; }
-    return tiles.map(function (ch, i) { return '<button class="btn white" data-act="gw-tile" data-v="' + esc(ch) + '">' + esc(ch) + '</button>'; }).join('');
-  }
-  function bindTrace() {
-    var box = $('#gw-trace'); if (!box) return;
-    function hit(x, y) {
-      var letters = box.querySelectorAll('.gw-ch');
-      var i = LES.traceAt || 0;
-      var el = letters[i]; if (!el) return;
-      var r = el.getBoundingClientRect();
-      if (x >= r.left - 12 && x <= r.right + 12 && y >= r.top - 20 && y <= r.bottom + 20) {
-        LES.traceAt = i + 1;
-        el.style.opacity = '1';
-        el.style.background = '#bbf7d0';
-        if (LES.traceAt >= letters.length) { var b = $('#gw-trace-next'); if (b) b.disabled = false; }
-      }
-    }
-    box.addEventListener('pointerdown', function (e) { e.preventDefault(); LES.tracing = true; try { box.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } hit(e.clientX, e.clientY); });
-    box.addEventListener('pointermove', function (e) { if (!LES || !LES.tracing) return; hit(e.clientX, e.clientY); });
-    box.addEventListener('pointerup', function () { if (LES) LES.tracing = false; });
-  }
-  function typeLetter(ch) {
-    if (!LES || LES.step !== 3 || LES.built.length >= LES.word.w.length) return;
-    LES.built += ch;
-    var slots = $('#gw-slots'); if (slots) slots.innerHTML = slotsHtml();
-    if (LES.built.length < LES.word.w.length) return;
-    if (LES.built === LES.word.w) finishLesson(true);
-    else {
-      LES.missed = true;
-      C.SFX.wrong();
-      C.splash('Try the letters again', 'soft', 0);
-      LES.built = '';
-      setTimeout(function () { if (LES) { var slots2 = $('#gw-slots'); if (slots2) slots2.innerHTML = slotsHtml(); } }, 400);
-    }
-  }
   function finishLesson(correct) {
+    if (!LES) return;
     var plot = P(), id = LES.word.id, mode = LES.mode, word = LES.word, first = correct && !LES.missed;
+    lastPlay = { clean: !!LES.shiny, first: !!first, letters: !!LES.letterStar, trace: !!LES.traceStar, word: word.w };
     var card = plot.cards[id];
     if (mode === 'place' && first) card = G.plantKnown(card, today());
     else card = G.sessionResult(card, first, today());
     if (LES.shiny) card.shiny = true;
-    if (plot.fertilizer > 0 && card.step > 0 && card.step < 3) { card.due = Math.max(today(), card.due - 1); }
+    if (plot.fertilizer > 0 && card.step > 0 && card.step < 3) {
+      card.due = Math.max(today(), card.due - 1);
+      plot.fertilizer -= 1;
+    }
     var ceremony = mode === 'learn' && !card.planted;
     var thirst = mode === 'review' && card.planted;
     if (!ceremony) {
@@ -4004,112 +4061,6 @@ body.shake-screen #app{animation:shake .3s linear 2}
     LES = null;
     C.show(card.planted || mode === 'review' ? 'redresults' : 'redmenu');
   }
-
-  function nurseryCards() {
-    var out = [], cards = P().cards;
-    for (var id in cards) {
-      var c = cards[id];
-      if (c && !c.planted && c.step > 0) out.push({ id: id, card: c, word: findWord(id) });
-    }
-    return out;
-  }
-  function renderNursery() {
-    collect();
-    var pots = nurseryCards();
-    var h = C.topbar('<button class="back" data-act="red">◀ Garden</button><div class="logo">🪴 Nursery<small>SEED · SPROUT · BUD</small></div>');
-    h += '<div class="gw-pots">';
-    if (!pots.length) h += '<p class="p-note">Grab a capsule in the claw. A new word sleeps here as a seed, then a sprout, then a bud.</p>';
-    pots.forEach(function (p) {
-      var name = p.card.flower || 'daisy';
-      h += '<div class="pot"><b>' + esc(p.word ? p.word.w : '') + '</b>' + flowerSvg(name, p.card.step) + '<div>' + esc(G.stageName(p.card.step)) + (p.card.shiny ? ' ✨' : '') + '</div><div class="soil"></div></div>';
-    });
-    h += '</div>';
-    if (P().fertilizer) h += '<p class="p-note">Fertilizer is ready. It shortens the wait on the next word you practice. You have ' + P().fertilizer + '.</p>';
-    $('#s-redmenu').innerHTML = h;
-  }
-  function renderGarden() {
-    var got = collect();
-    var cards = P().cards, bed = [], thirsty = 0;
-    for (var id in cards) if (cards[id] && cards[id].planted) {
-      bed.push({ id: id, card: cards[id], word: findWord(id) });
-      if (G.isThirsty(cards[id], today())) thirsty++;
-    }
-    var h = C.topbar('<button class="back" data-act="red">◀ Garden</button><div class="logo">🌼 My Garden<small>' + (got ? '+' + got + ' coins while you were away' : '🪙 ' + S().coins) + '</small></div>');
-    h += '<div class="gw-bed">';
-    (P().owned || []).forEach(function (id) { h += petSvg(id); });
-    if (!bed.length) h += '<p class="p-note">Flowers you master get planted here and make coins.</p>';
-    bed.forEach(function (p) {
-      var thirst = G.isThirsty(p.card, today());
-      h += '<button class="pot" data-act="gw-water" data-v="' + esc(p.id) + '">' + (thirst ? '<span class="drop">💧</span>' : '') + flowerSvg(p.card.flower || 'daisy', p.card.level) + '<div>' + esc(p.word ? p.word.w : '') + '</div><small>' + esc(p.card.rarity || '') + (p.card.shiny ? ' ✨' : '') + '</small><div class="soil"></div></button>';
-    });
-    h += '</div><h3>Shop</h3><div class="gw-shop">';
-    G.SHOP.forEach(function (item) {
-      var have = P().owned.indexOf(item.id) >= 0;
-      h += '<button class="btn ' + (have ? 'white' : 'green') + '" data-act="gw-buy" data-v="' + item.id + '"' + (have ? ' disabled' : '') + '>' + petSvg(item.id) + ' ' + esc(item.name) + '<br>' + (have ? 'got it' : item.cost + ' 🪙') + '</button>';
-    });
-    h += '</div>';
-    var spin = P().todayCount >= goal() && P().todayDay === today() && P().spun !== today();
-    if (spin) h += '<button class="btn pink" data-act="gw-spin-open">🎡 Daily spin</button>';
-    $('#s-redresults').innerHTML = h;
-  }
-  function renderSpin() {
-    var h = '<div class="card" style="text-align:center"><h2>Prize wheel</h2><div class="wheel" id="gw-wheel"><b>✦</b></div><button class="btn pink" data-act="gw-spin">Spin!</button><button class="btn white" data-act="red">Back</button></div>';
-    $('#s-red').innerHTML = h;
-  }
-
-  function motionOff() {
-    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
-  function packetMark(tier) {
-    if (tier === 'mythic') return '✨';
-    if (tier === 'epic') return '💜';
-    if (tier === 'rare') return '💙';
-    return '🌱';
-  }
-  function sproutSvg() {
-    return '<svg class="sprout" id="award-sprout" viewBox="0 0 80 90" aria-hidden="true"><rect x="36" y="40" width="8" height="40" rx="4" fill="#16a34a"/><ellipse cx="28" cy="38" rx="16" ry="10" fill="#4ade80" transform="rotate(-30 28 38)"/><ellipse cx="54" cy="34" rx="16" ry="10" fill="#22c55e" transform="rotate(28 54 34)"/><circle cx="40" cy="28" r="8" fill="#fde68a"/></svg>';
-  }
-  function canSvg() {
-    return '<svg viewBox="0 0 160 120" aria-hidden="true"><rect x="38" y="36" width="78" height="52" rx="16" fill="#38bdf8"/><rect x="48" y="28" width="58" height="16" rx="8" fill="#0ea5e9"/><path d="M116 48 h18 a16 16 0 0 1 0 32 h-18" fill="none" stroke="#0284c7" stroke-width="10"/><rect x="18" y="58" width="28" height="12" rx="6" fill="#7dd3fc"/></svg>';
-  }
-  function awardInfo() {
-    var a = P().award;
-    if (!a || !a.id) return null;
-    var word = findWord(a.id);
-    var card = P().cards[a.id];
-    if (!word || !card) { P().award = null; C.save(); return null; }
-    return { award: a, word: word, card: card };
-  }
-  function renderAward() {
-    var info = awardInfo();
-    if (!info) { if (LES) renderLesson(); return; }
-    var a = info.award, w = info.word, card = info.card;
-    var h = C.topbar('<button class="back" data-act="red">◀ Garden</button><div class="logo">🌱 ' + esc(w.w) + '</div>');
-    h += '<div class="award">';
-    if (a.phase === 'packet') {
-      h += '<p class="award-title">Drag the seed into the pot</p>';
-      h += '<div class="award-stage" id="award-stage"><div class="packet ' + esc(a.rarity || 'common') + '" id="award-packet"><b>' + packetMark(a.rarity) + '</b><div class="seed" id="award-seed"><i></i></div></div>';
-      h += '<div class="pot award-pot" id="award-pot"><div class="soil"></div></div></div>';
-    } else if (a.phase === 'water') {
-      h += '<p class="award-title">Drag the can and pour</p>';
-      h += '<div class="award-stage" id="award-stage"><div class="pot award-pot" id="award-pot">';
-      h += (a.kind === 'thirst' ? flowerSvg(card.flower || 'daisy', card.level || card.step) : sproutSvg());
-      h += '<div class="drops" id="award-drops"><i></i><i></i><i></i></div><div class="soil"></div></div>';
-      h += '<div class="can" id="award-can">' + canSvg() + '</div></div>';
-    } else {
-      h += '<p class="award-title">Flick the wheel</p>';
-      h += '<div class="prize-wrap" id="prize-wrap"><div class="prize-pointer"></div><div class="prize-disk" id="prize-disk">';
-      G.WHEEL_SLOTS.forEach(function (tier, i) {
-        h += '<span class="prize-label" style="transform:rotate(' + (i * 45 + 22.5) + 'deg) translateY(-104px)">' + packetMark(tier) + '</span>';
-      });
-      h += '<b>🌱</b></div></div><p class="p-note">Swipe the wheel. It ticks, slows down, and lands on a seed packet.</p>';
-    }
-    h += '</div>';
-    $('#s-redlearn').innerHTML = h;
-    if (a.phase === 'packet') bindSeed();
-    else if (a.phase === 'water') bindWater();
-    else bindWheel(info);
-  }
   function landWheel(rarity) {
     var info = awardInfo();
     if (!info || info.award.phase !== 'wheel') return;
@@ -4125,172 +4076,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
     plot.award.rarity = card.rarity || rarity;
     C.save();
     C.SFX.reward();
-    renderAward();
   }
-  function bindWheel(info) {
-    var disk = $('#prize-disk'), wrap = $('#prize-wrap');
-    if (!disk || !wrap) return;
-    var spin = { angle: 0, vel: 0, lastX: 0, lastT: 0, dragging: false, lastSlot: 0, running: false };
-    function paint() { disk.style.transform = 'rotate(' + spin.angle.toFixed(2) + 'deg)'; }
-    function tickSlot() {
-      var s = G.slotUnder(spin.angle, G.WHEEL_SLOTS.length);
-      if (s !== spin.lastSlot) { spin.lastSlot = s; C.SFX.tick(); }
-    }
-    wrap.addEventListener('pointerdown', function (e) {
-      if (spin.running) return;
-      e.preventDefault();
-      spin.dragging = true;
-      spin.lastX = e.clientX;
-      spin.lastT = performance.now();
-      spin.vel = 0;
-      try { wrap.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    });
-    wrap.addEventListener('pointermove', function (e) {
-      if (!spin.dragging) return;
-      e.preventDefault();
-      var now = performance.now();
-      var dt = Math.max(8, now - spin.lastT);
-      var delta = (e.clientX - spin.lastX) * 0.55;
-      spin.angle += delta;
-      spin.vel = delta / dt;
-      spin.lastX = e.clientX;
-      spin.lastT = now;
-      tickSlot();
-      paint();
-    });
-    function endFlick() {
-      if (!spin.dragging) return;
-      spin.dragging = false;
-      var reduced = motionOff();
-      if (Math.abs(spin.vel) < 0.08 && !reduced) return;
-      if (spin.vel > 0.9) spin.vel = 0.9;
-      else if (spin.vel < -0.9) spin.vel = -0.9;
-      var rarity = info.card.flower ? (info.card.rarity || 'common') : G.pickPacket(info.word, info.card.misses || 0, Math.random());
-      var dist = spin.vel * 900;
-      if (Math.abs(dist) < 420) dist = (spin.vel < 0 ? -1 : 1) * (reduced ? 40 : 520);
-      var dest = G.stopAngle(spin.angle, dist, rarity, G.WHEEL_SLOTS);
-      if (reduced) { spin.angle = dest; paint(); landWheel(rarity); return; }
-      spin.running = true;
-      function frame() {
-        var left = dest - spin.angle;
-        var speed = Math.min(7.5, Math.max(0.55, Math.abs(spin.vel) * 14));
-        speed = Math.min(speed, Math.max(0.45, Math.abs(left) * 0.035));
-        var step = (left < 0 ? -1 : 1) * speed;
-        if (Math.abs(step) > Math.abs(left)) step = left;
-        spin.vel *= 0.985;
-        if (Math.abs(left) < 0.6) {
-          spin.angle = dest;
-          paint();
-          spin.running = false;
-          landWheel(rarity);
-          return;
-        }
-        spin.angle += step;
-        tickSlot();
-        paint();
-        spinRAF = requestAnimationFrame(frame);
-      }
-      spinRAF = requestAnimationFrame(frame);
-    }
-    wrap.addEventListener('pointerup', endFlick);
-    wrap.addEventListener('pointercancel', function () { spin.dragging = false; });
-  }
-  function bindSeed() {
-    var seed = $('#award-seed'), pot = $('#award-pot');
-    if (!seed || !pot) return;
-    var drag = null;
-    seed.addEventListener('pointerdown', function (e) {
-      e.preventDefault();
-      drag = { x: e.clientX, y: e.clientY, dx: 0, dy: 0 };
-      seed.classList.remove('back', 'snap');
-      try { seed.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    });
-    seed.addEventListener('pointermove', function (e) {
-      if (!drag) return;
-      e.preventDefault();
-      drag.dx = e.clientX - drag.x;
-      drag.dy = e.clientY - drag.y;
-      seed.style.transform = 'translate(' + drag.dx + 'px,' + drag.dy + 'px)';
-    });
-    function endSeed() {
-      if (!drag) return;
-      var potR = pot.getBoundingClientRect();
-      var sR = seed.getBoundingClientRect();
-      var cx = sR.left + sR.width / 2, cy = sR.top + sR.height / 2;
-      var inside = cx >= potR.left && cx <= potR.right && cy >= potR.top && cy <= potR.bottom;
-      if (inside) {
-        var pcx = potR.left + potR.width / 2, pcy = potR.top + potR.height * 0.42;
-        drag.dx += pcx - cx;
-        drag.dy += pcy - cy;
-        seed.style.transform = 'translate(' + drag.dx + 'px,' + drag.dy + 'px)';
-        seed.classList.add('snap');
-        C.SFX.pop();
-        awardTimer = setTimeout(function () {
-          var plot = P();
-          if (!plot.award) return;
-          plot.award.phase = 'water';
-          C.save();
-          renderAward();
-        }, motionOff() ? 40 : 460);
-      } else {
-        seed.classList.add('back');
-        seed.style.transform = 'translate(0px,0px)';
-      }
-      drag = null;
-    }
-    seed.addEventListener('pointerup', endSeed);
-    seed.addEventListener('pointercancel', function () { if (!drag) return; seed.classList.add('back'); seed.style.transform = 'translate(0px,0px)'; drag = null; });
-  }
-  function bindWater() {
-    var can = $('#award-can'), pot = $('#award-pot'), sprout = $('#award-sprout');
-    if (!can || !pot) return;
-    var drag = null, pourSince = 0;
-    function place(dx, dy, tilt) {
-      can.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + (tilt ? -38 : 0) + 'deg)';
-      pot.classList.toggle('pour', !!tilt);
-    }
-    function finishPour() {
-      if (sprout) sprout.classList.add('pop');
-      else pot.classList.add('perk');
-      C.SFX.reward();
-      awardTimer = setTimeout(function () {
-        var plot = P();
-        var kind = plot.award && plot.award.kind;
-        plot.award = null;
-        C.save();
-        C.show(kind === 'thirst' ? 'redresults' : 'redmenu');
-      }, motionOff() ? 40 : 700);
-    }
-    can.addEventListener('pointerdown', function (e) {
-      e.preventDefault();
-      drag = { x: e.clientX, y: e.clientY, dx: 0, dy: 0 };
-      try { can.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    });
-    can.addEventListener('pointermove', function (e) {
-      if (!drag) return;
-      e.preventDefault();
-      drag.dx = e.clientX - drag.x;
-      drag.dy = e.clientY - drag.y;
-      place(drag.dx, drag.dy, false);
-      var cR = can.getBoundingClientRect();
-      var potR = pot.getBoundingClientRect();
-      var pad = 36;
-      var over = cR.right > potR.left - pad && cR.left < potR.right + pad && cR.bottom > potR.top - pad && cR.top < potR.bottom + pad;
-      place(drag.dx, drag.dy, over);
-      if (over) {
-        if (!pourSince) pourSince = performance.now();
-        if (performance.now() - pourSince > (motionOff() ? 0 : 650)) { drag = null; finishPour(); }
-      } else pourSince = 0;
-    });
-    can.addEventListener('pointerup', function () {
-      if (!drag) return;
-      if (pot.classList.contains('pour') && motionOff()) { drag = null; finishPour(); return; }
-      place(0, 0, false);
-      pourSince = 0;
-      drag = null;
-    });
-    can.addEventListener('pointercancel', function () { place(0, 0, false); pourSince = 0; drag = null; });
-  }
+
 
   var PV = { showAllVoices: false, draft: null };
   function voiceChoices() { return window.NMQVoice.visibleVoices(TTS.rawVoices(), PV.showAllVoices, voiceSettings()); }
@@ -4362,64 +4149,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
   }
   function rerenderParent() { if (C.rerenderParent) C.rerenderParent(); }
 
+
   function act(name, v) {
-    if (name === 'gw-claw') { CLAW = null; C.show('redplay'); return; }
-    if (name === 'gw-nursery') { C.show('redmenu'); return; }
-    if (name === 'gw-garden') { C.show('redresults'); return; }
-    if (name === 'gw-explore') { P().explore = !P().explore; C.save(); C.show('red'); return; }
-    if (name === 'claw-drop') { dropClaw(); return; }
-    if (name === 'gw-hear' && LES) { sayWord(LES.word); return; }
-    if (name === 'gw-letters' && LES) { speakLetters(); return; }
-    if (name === 'gw-award') { C.show('redlearn'); return; }
-    if (name === 'gw-next' && LES) {
-      if (LES.step === 2 && LES.traceAt < LES.word.w.length) return;
-      LES.step++;
-      renderLesson();
-      speakStep(LES);
-      return;
-    }
-    if (name === 'gw-tile') { typeLetter(String(v || '')); return; }
-    if (name === 'gw-backspace' && LES) { LES.built = LES.built.slice(0, -1); var slots = $('#gw-slots'); if (slots) slots.innerHTML = slotsHtml(); return; }
-    if (name === 'gw-water') {
-      var card = P().cards[v];
-      var word = findWord(v);
-      if (!card || !word) return;
-      if (!G.isThirsty(card, today())) { C.splash(word.w, 'soft', 0); return; }
-      startLesson(word, { mode: 'review' });
-      return;
-    }
-    if (name === 'gw-buy') {
-      var item = null;
-      G.SHOP.forEach(function (it) { if (it.id === v) item = it; });
-      if (!item || P().owned.indexOf(item.id) >= 0) return;
-      if (S().coins < item.cost) { C.splash('Need more coins', 'soft', 0); return; }
-      S().coins -= item.cost;
-      P().owned.push(item.id);
-      C.save(); C.SFX.reward();
-      renderGarden();
-      return;
-    }
-    if (name === 'gw-spin-open') { renderSpin(); return; }
-    if (name === 'gw-spin') {
-      if (P().spun === today()) return;
-      var wheel = $('#gw-wheel'); if (wheel) wheel.classList.add('spinning');
-      var prize = ['coins', 'fertilizer', 'seed'][Math.floor(Math.random() * 3)];
-      P().spun = today();
-      setTimeout(function () {
-        if (prize === 'coins') { S().coins += 8; S().totals.coinsEarned = (S().totals.coinsEarned || 0) + 8; C.splash('+8 coins', 'reward', 0); }
-        else if (prize === 'fertilizer') { P().fertilizer++; C.splash('Fertilizer!', 'l2', 0); }
-        else { P().rareSeeds++; C.splash('Rare seed!', 'l2', 0); }
-        C.save(); C.SFX.reward();
-        C.show('red');
-      }, 1100);
-      return;
-    }
-    if (name === 'gw-place') {
-      var queue = G.KINDERGARTEN.filter(function (w) { var c = P().cards[w.id]; return !(c && c.planted); }).slice(0, 8);
-      if (!queue.length) { P().placed = true; C.save(); C.show('red'); return; }
-      startLesson(queue[0], { mode: 'place', queue: queue, qi: 0 });
-      return;
-    }
     if (name === 'gw-known') {
       var known = findWord(v); if (!known) return;
       var cur = P().cards[v];
@@ -4500,12 +4231,17 @@ body.shake-screen #app{animation:shake .3s linear 2}
         stars: plantedCount, maxStars: G.KINDERGARTEN.length + G.FIRST.length,
         tileText: function () { return plantedCount() + ' flowers planted'; },
         unlockSpeech: unlockSpeech, parentHtml: parentHtml, rerenderParent: rerenderParent,
-        debug: function () { return { lesson: LES ? { id: LES.word.id, step: LES.step, missed: LES.missed, built: LES.built } : null, claw: CLAW, plot: P() }; }
+        debug: function () {
+          return {
+            lesson: LES ? { id: LES.word.id, step: LES.step, missed: LES.missed, built: LES.built } : null,
+            claw: world && world.clawState ? world.clawState() : null,
+            plot: P()
+          };
+        }
       };
     }
   };
 })();
-
 </script>
 
 <script>
