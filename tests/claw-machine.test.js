@@ -209,16 +209,18 @@ test('a calm claw drops straight, and a knock stays inside the cabinet', functio
   }
 });
 
-test('easing onto a toy, waiting, and delivering it to the chute scores', function () {
+test('easing onto a toy and waiting scores, and the claw drops the prize at home by itself', function () {
   const s = P.createState();
   const target = s.prizes.find(function (p) { return Math.abs(p.x) < 0.001 && Math.abs(p.z + 0.02) < 0.001; });
   assert.ok(target);
   let input = { ax: 0, az: 0, drop: false };
   let grabbed = false;
+  let homed = false;
   let won = false;
-  for (let i = 0; i < 60 * 16 && !won; i++) {
+  for (let i = 0; i < 60 * 18 && !won; i++) {
     P.step(s, 1 / 60, input);
     if (s.heldId === target.id) grabbed = true;
+    if (s.phase === 'home') homed = true;
     if (s.wins > 0) won = true;
     if (s.phase === 'idle' && !grabbed) {
       const dx = target.x - s.trolley.x;
@@ -229,45 +231,58 @@ test('easing onto a toy, waiting, and delivering it to the chute scores', functi
         az: dist > 0.025 ? Math.max(-0.55, Math.min(0.55, dz * 2.8)) : 0,
         drop: s.aim === 'ready'
       };
-    } else if (s.phase === 'hold') {
-      const dx = P.WORLD.chute.x - s.trolley.x;
-      const dz = P.WORLD.chute.z - s.trolley.z;
-      const dist = Math.hypot(dx, dz);
-      input = {
-        ax: dist > 0.03 ? Math.max(-0.5, Math.min(0.5, dx * 2.6)) : 0,
-        az: dist > 0.03 ? Math.max(-0.5, Math.min(0.5, dz * 2.6)) : 0,
-        drop: s.aim === 'ready'
-      };
     } else {
-      input = { ax: 0, az: 0, drop: false };
+      input = { ax: 1, az: -1, drop: true };
     }
   }
   assert.equal(grabbed, true, JSON.stringify({ phase: s.phase, aim: s.aim, hint: s.hint, last: s.lastResult, trolley: s.trolley, pend: s.pend }));
-  assert.equal(won, true, JSON.stringify({ phase: s.phase, aim: s.aim, hint: s.hint, wins: s.wins, trolley: s.trolley }));
+  assert.equal(homed, true, 'a clean grab should ride home without another button press');
+  assert.equal(won, true, JSON.stringify({ phase: s.phase, aim: s.aim, hint: s.hint, wins: s.wins, trolley: s.trolley, homeT: s.homeT }));
   for (let i = 0; i < 100; i++) P.step(s, 1 / 60, {});
   assert.ok(s.prizes.some(function (p) { return p.alive && p.id > 8; }), 'a replacement toy drops in');
 });
 
-test('letting go while the prize is still swinging does not score', function () {
+test('homing ignores the stick, and a swing over the hole does not drop early', function () {
+  const early = P.createState();
+  const swinging = early.prizes[0];
+  early.prizes.forEach(function (p) { if (p !== swinging) p.alive = false; });
+  swinging.held = true;
+  early.heldId = swinging.id;
+  early.phase = 'home';
+  early.homeT = 0;
+  early.trolley.x = P.WORLD.home.x;
+  early.trolley.z = P.WORLD.home.z;
+  early.trolley.vx = early.trolley.vz = 0;
+  early.cable = P.WORLD.idleCable;
+  early.pend.x = 0;
+  early.pend.z = 0;
+  early.pend.wx = 2.2;
+  early.pend.wz = 0;
+  P.step(early, 1 / 60, { drop: true, ax: 1, az: 1 });
+  assert.equal(early.wins, 0);
+  assert.equal(early.phase, 'home');
+
   const s = P.createState();
   const prize = s.prizes[0];
   s.prizes.forEach(function (p) { if (p !== prize) p.alive = false; });
   prize.held = true;
-  prize.alive = true;
   s.heldId = prize.id;
-  s.phase = 'hold';
-  s.trolley.x = P.WORLD.chute.x;
-  s.trolley.z = P.WORLD.chute.z;
+  s.phase = 'home';
+  s.homeT = 0;
+  s.trolley.x = 0.42;
+  s.trolley.z = -0.3;
   s.trolley.vx = s.trolley.vz = 0;
   s.cable = P.WORLD.idleCable;
-  s.pend.x = 0;
-  s.pend.z = 0;
-  s.pend.wx = 2.2;
-  s.pend.wz = 0;
-  P.step(s, 1 / 60, { drop: true });
+  s.pend.x = s.pend.z = s.pend.wx = s.pend.wz = 0;
+  const x0 = s.trolley.x;
+  for (let i = 0; i < 25; i++) P.step(s, 1 / 60, { ax: 1, az: -1, drop: true });
+  assert.ok(s.trolley.x < x0 - 0.02, s.trolley.x);
   assert.equal(s.wins, 0);
-  assert.equal(s.phase, 'hold');
-  assert.match(s.hint, /rest|glow|still/i);
+  assert.equal(s.phase, 'home');
+  for (let i = 0; i < 60 * 8 && s.wins === 0; i++) P.step(s, 1 / 60, { ax: 1, az: -1, drop: true });
+  assert.equal(s.wins, 1);
+  assert.equal(prize.won, true);
+  assert.ok(Math.hypot(prize.x - P.WORLD.chute.x, prize.z - P.WORLD.chute.z) < 0.02);
 });
 
 test('toys rest in the box, and the prototype stays offline', function () {

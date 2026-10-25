@@ -2,7 +2,7 @@
    The claw is a pendulum hung from a trolley. A grab is clean only when
    the swing has died and the bite sits in the middle of one resting toy.
    An off-center bite slips and kicks the toy. A fast swing knocks it aside.
-   After a grab, the prize has to be carried, calm, over the front hole. */
+   A clean grab lifts, glides home over the chute, and drops itself. */
 (function (root) {
   'use strict';
 
@@ -34,6 +34,8 @@
       [-0.4, 0.4], [0.4, 0.4]
     ],
     chute: { x: 0, z: 0.6, r: 0.155 },
+    /* Payout rest spot. The trolley can reach the chute, so home is the hole. */
+    home: { x: 0, z: 0.6 },
     bounds: { x0: -0.74, x1: 0.74, z0: -0.66, z1: 0.82 },
     trolleyLim: { x0: -0.58, x1: 0.58, z0: -0.52, z1: 0.66 },
     catalog: [
@@ -111,7 +113,8 @@
       events: [],
       lastResult: null,
       knocked: false,
-      swingFault: false
+      swingFault: false,
+      homeT: 0
     };
     for (var i = 0; i < WORLD.slots.length; i++) {
       state.prizes.push(makePrize(state, WORLD.slots[i][0], WORLD.prizeR, WORLD.slots[i][1], i));
@@ -254,7 +257,7 @@
       p.held = true;
       p.sleep = false;
       state.heldId = p.id;
-      state.hint = 'Got it! Steer to the glowing hole.';
+      state.hint = 'Got it!';
       emit(state, 'grab', { id: p.id });
     } else if (verdict.result === 'slip' && p) {
       if (!state.knocked) {
@@ -279,35 +282,37 @@
     state.hintLock = 2.1;
   }
 
-  function tryRelease(state) {
+  /* Gentle stick toward the chute. Player input is ignored while this runs. */
+  function homeSteer(state) {
+    var dx = WORLD.home.x - state.trolley.x;
+    var dz = WORLD.home.z - state.trolley.z;
+    var dist = Math.hypot(dx, dz);
+    if (dist < 0.028) return { ax: 0, az: 0 };
+    var scale = dist < 0.14 ? 1.5 : 2.1;
+    return {
+      ax: clamp(dx * scale, -0.58, 0.58),
+      az: clamp(dz * scale, -0.58, 0.58)
+    };
+  }
+
+  function tryAutoDrop(state, dt) {
     var p = prizeById(state, state.heldId);
     if (!p) { state.phase = 'idle'; state.heldId = null; return; }
+    state.homeT += dt;
     var b = bitePoint(state);
     var c = WORLD.chute;
     var d = Math.hypot(b.x - c.x, b.z - c.z);
     var st = stability(state);
-    if (d <= c.r * 0.82 && st.still) {
+    var parked = Math.hypot(state.trolley.x - WORLD.home.x, state.trolley.z - WORLD.home.z) < 0.05
+      && Math.hypot(state.trolley.vx, state.trolley.vz) < 0.06;
+    var calm = d <= c.r * 0.82 && st.still;
+    var waited = parked && state.homeT > 2.6 && d <= c.r * 1.15;
+    if (calm || waited) {
       p.x = c.x;
       p.z = c.z;
       p.y = 0.18;
       award(state, p);
-      return;
     }
-    if (d <= c.r * 1.2 && !st.still) {
-      state.hint = 'Let it rest over the glow';
-      state.hintLock = 0.7;
-      return;
-    }
-    p.held = false;
-    p.sleep = false;
-    state.heldId = null;
-    p.vy = -0.35;
-    p.vx += state.pend.wx * state.cable * 0.35;
-    p.vz += state.pend.wz * state.cable * 0.35;
-    state.phase = 'idle';
-    state.hint = 'Back in the pile — aim for the hole';
-    state.hintLock = 1.6;
-    emit(state, 'release', { id: p.id });
   }
 
   function setCable(state, next) {
@@ -336,7 +341,7 @@
     }
     var L = Math.max(0.25, state.cable);
     var g = 9.81;
-    var damp = reduced ? 8.2 : 2.45;
+    var damp = reduced ? 8.2 : (state.phase === 'home' ? 3.35 : 2.45);
     var alphax = -(g / L) * Math.sin(state.pend.x) - (ax / L) * Math.cos(state.pend.x) - damp * state.pend.wx;
     var alphaz = -(g / L) * Math.sin(state.pend.z) - (az / L) * Math.cos(state.pend.z) - damp * state.pend.wz;
     state.pend.wx = clamp(state.pend.wx + alphax * dt, -6, 6);
@@ -502,22 +507,14 @@
 
   function jawGoal(state) {
     if (state.phase === 'celebrate' && state.phaseT > 0.22) return 1;
-    if (state.phase === 'close' || state.phase === 'rise' || state.phase === 'hold' || state.phase === 'celebrate') return 0;
+    if (state.phase === 'close' || state.phase === 'rise' || state.phase === 'home' || state.phase === 'celebrate') return 0;
     return 1;
   }
 
   function updateAim(state) {
-    if (state.phase === 'hold') {
-      var b = bitePoint(state);
-      var c = WORLD.chute;
-      var d = Math.hypot(b.x - c.x, b.z - c.z);
-      var st = stability(state);
-      if (d <= c.r * 0.82 && st.still) state.aim = 'ready';
-      else if (d <= c.r * 1.25) state.aim = 'close';
-      else state.aim = 'off';
-      if (state.hintLock <= 0) {
-        state.hint = state.aim === 'ready' ? 'Let go!' : 'Carry it to the glowing hole';
-      }
+    if (state.phase === 'home') {
+      state.aim = 'off';
+      if (state.hintLock <= 0) state.hint = 'Bringing it home…';
       return;
     }
     if (state.phase === 'idle' || state.phase === 'drop' || state.phase === 'close') {
@@ -533,9 +530,11 @@
 
   function stepOnce(state, dt, input, dropEdge) {
     var reduced = !!(input && input.reduced);
+    var homing = state.phase === 'home';
     var locked = state.phase === 'drop' || state.phase === 'close' || state.phase === 'rise' || state.phase === 'celebrate';
-    var axIn = locked ? 0 : clamp(num(input && input.ax), -1, 1);
-    var azIn = locked ? 0 : clamp(num(input && input.az), -1, 1);
+    var steer = homing ? homeSteer(state) : null;
+    var axIn = homing ? steer.ax : (locked ? 0 : clamp(num(input && input.ax), -1, 1));
+    var azIn = homing ? steer.az : (locked ? 0 : clamp(num(input && input.az), -1, 1));
     state.hintLock = Math.max(0, state.hintLock - dt);
 
     if (state.phase === 'idle' && dropEdge) {
@@ -543,8 +542,6 @@
       state.judged = false;
       state.swingFault = false;
       emit(state, 'down');
-    } else if (state.phase === 'hold' && dropEdge) {
-      tryRelease(state);
     }
 
     var prevVx = state.trolley.vx;
@@ -595,9 +592,18 @@
       }
     }
     if (state.phase === 'rise' && atTop) {
-      state.phase = state.heldId ? 'hold' : 'idle';
       state.judged = false;
+      if (state.heldId) {
+        state.phase = 'home';
+        state.homeT = 0;
+        state.hint = 'Bringing it home…';
+        state.hintLock = 0.5;
+        emit(state, 'home');
+      } else {
+        state.phase = 'idle';
+      }
     }
+    if (state.phase === 'home') tryAutoDrop(state, dt);
     if (state.phase === 'celebrate') {
       state.phaseT += dt;
       if (!state.spawned && state.phaseT > 0.42 && state.pendingSpawns > 0) {
