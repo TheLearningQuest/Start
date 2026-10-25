@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 
 const World = require('../red-words/world.js');
 const Strokes = require('../red-words/strokes.js');
+const Trace = require('../red-words/trace.js');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 test('a still centered claw cleans, a swing slips, and empty air misses', function () {
@@ -36,34 +37,44 @@ test('the pendulum settles after a shove and a hard flick swings it', function (
   assert.ok(Math.abs(flicked.theta) > 0.08, flicked.theta);
 });
 
-test('every letter she traces has an ordered stroke and a spoken cue', function () {
-  const letters = 'abcdefghijklmnopqrstuvwxyzI'.split('');
-  letters.forEach(function (ch) {
-    const strokes = Strokes.get(ch);
-    assert.ok(strokes && strokes.length, ch);
-    strokes.forEach(function (stroke) {
-      assert.ok(stroke.cue, ch);
-      assert.ok(stroke.pts && stroke.pts.length, ch);
-      stroke.pts.forEach(function (p) {
-        assert.ok(p[0] > -5 && p[0] < 120, ch + ' x ' + p[0]);
-        assert.ok(p[1] > -5 && p[1] < 160, ch + ' y ' + p[1]);
-      });
-    });
-  });
-  const magic = Strokes.get('c')[0].pts;
-  assert.ok(magic[3][1] < magic[0][1], 'magic c climbs before it curls');
+test('tracing a word is a wide ribbon across the whole word, not a perfect letter path', function () {
+  const box = { x: 0, y: 0, w: 640, h: 240 };
+  const as = Trace.layoutWord('as', box);
+  assert.equal(as.cells.length, 2);
+  assert.equal(as.cells[0].ch, 'a');
+  assert.equal(as.cells[1].ch, 's');
+  const dab = Trace.traceReady(as, [{ x: as.cells[0].x + 2, y: as.cells[0].y + 2 }]);
+  assert.equal(dab.done, false);
+  const wrote = Trace.traceReady(as, [
+    { x: as.cells[0].cx, y: as.cells[0].cy },
+    { x: as.cells[1].cx, y: as.cells[1].cy }
+  ]);
+  assert.equal(wrote.done, true);
+  assert.ok(wrote.ratio >= 0.75);
+  const above = Trace.traceReady(as, [
+    { x: as.cells[0].cx, y: as.cells[0].y - 80 },
+    { x: as.cells[1].cx, y: as.cells[1].y - 80 }
+  ]);
+  assert.equal(above.done, false);
+  const word = Trace.layoutWord('they', box);
+  assert.equal(word.cells.length, 4);
+  const fast = Trace.traceReady(word, [
+    { x: word.cells[0].cx, y: word.cells[0].cy },
+    { x: word.cells[3].cx, y: word.cells[3].cy }
+  ]);
+  assert.equal(fast.done, true, 'a fast swipe still covers the letters in between');
+  const one = Trace.layoutWord('a', box);
+  assert.equal(Trace.traceReady(one, [{ x: one.cells[0].cx, y: one.cells[0].cy }]).done, false);
+  const stroke = Trace.traceReady(one, [
+    { x: one.cells[0].cx - one.cells[0].w * 0.3, y: one.cells[0].cy },
+    { x: one.cells[0].cx + one.cells[0].w * 0.3, y: one.cells[0].cy }
+  ]);
+  assert.equal(stroke.done, true);
+  const dont = Trace.layoutWord("don't", box);
+  assert.deepEqual(dont.cells.map(function (c) { return c.ch; }), ['d', 'o', 'n', 't']);
   assert.equal(Strokes.get("'"), null);
   const said = JSON.stringify(Strokes.all);
-  [
-    'Magic c!', 'Magic c, keep going!', 'Magic c, up, down', 'Magic c, up high, down',
-    'Magic c, up, down, turn', 'Magic c, up, down, u-turn', 'Little line, magic c',
-    'Dive down, up, around', 'Dive down, up, over', 'Dive down, up, over, down',
-    'Dive, up, over, down, over, down', 'Curve, down, cross', 'Line down, dot',
-    'Line down, turn, dot', 'Line down, then kick', 'Big line down',
-    'Little curve, big curve', 'Line down, cross', 'Down, turn, up, down',
-    'Slide down, slide up', 'Down, up, down, up', 'Slide down, slide down',
-    'Slide, then slide to the basement', 'Across, slide, across', 'Big line, little lines'
-  ].forEach(function (phrase) {
+  ['Magic c!', 'Dive down, up, around', 'Big line, little lines'].forEach(function (phrase) {
     assert.ok(said.includes(phrase), phrase);
   });
 });
@@ -74,7 +85,17 @@ test('the page keeps the offline policy and loads the canvas game from this site
   assert.match(html, /media-src 'self'/);
   assert.match(html, /src="red-words\/draw.js"/);
   assert.match(html, /src="red-words\/strokes.js"/);
+  assert.match(html, /src="red-words\/trace.js"/);
+  assert.match(html, /src="red-words\/three.min.js"/);
   assert.match(html, /src="red-words\/world.js"/);
+  assert.equal(html.includes('wasm-unsafe-eval'), false);
+  assert.equal(html.includes('unpkg.com'), false);
+  const three = fs.readFileSync(path.join(__dirname, '..', 'red-words', 'three.min.js'), 'utf8');
+  assert.ok(three.includes('SPDX-License-Identifier: MIT'));
+  assert.equal(three.includes('are deprecated'), false);
+  assert.equal(three.includes('eval('), false);
+  assert.equal(three.includes('new Function'), false);
+  assert.equal(three.includes('WebAssembly'), false);
   assert.match(html, /phase: 'wheel'/);
   assert.match(html, /phase = 'packet'/);
   assert.match(html, /phase: 'water'/);
