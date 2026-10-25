@@ -8,12 +8,11 @@ A standalone 3D claw machine. No word lists, no garden, no accounts. Open it on 
 2. The claw **swings**. Ease the stick back to the middle and wait. Flicking it and letting go makes it swing harder.
 3. A ring on the floor shows where the jaws will land. **Green** means the claw is calm and in the middle of one toy. Press **DROP**.
 4. The cable lowers and the jaws close.
-   - Calm and centered: the toy comes up with you.
-   - Close but not centered: the jaws slip and kick the toy. The hint says which way to nudge.
+   - Calm and centered: the toy is yours. The claw lifts, glides home over the glowing hole, and drops it into the drawer.
+   - Close but not centered: the jaws slip and kick the toy. The hint says which way to nudge. You stay in control.
    - Still swinging: the claw knocks toys aside.
    - Two toys in the jaws at once: too crowded, it slips.
-5. Steer the prize to the **glowing hole** at the front. Wait until **LET GO** turns green, then press it. Letting go anywhere else drops the toy back in the pile.
-6. The drawer pops open. A new toy drops in so you can play again. **Refill** resets the pile and keeps your prize count.
+5. The drawer pops open. A new toy drops in so you can play again. **Refill** resets the pile and keeps your prize count.
 
 Keyboard, for a laptop: arrow keys or WASD, Space or Enter to drop.
 
@@ -37,12 +36,12 @@ Do not open the file directly from the Files app. The page’s content security 
 
 ## Why the grab is fussy on purpose
 
-The trolley has weight, and the claw is a pendulum. The ring turns green only when three things are true at once: the trolley has nearly stopped, the swing angle and speed are tiny, and the bite is in the inner part of a single resting toy. A green drop falls straight down from that ring. Anything else keeps swinging while the cable pays out, so the jaws miss or slip. Carrying the prize is a second beat: the hole only accepts a calm release.
+The trolley has weight, and the claw is a pendulum. The ring turns green only when three things are true at once: the trolley has nearly stopped, the swing angle and speed are tiny, and the bite is in the inner part of a single resting toy. A green drop falls straight down from that ring. Anything else keeps swinging while the cable pays out, so the jaws miss or slip, and she tries again. A clean grab is the win: the machine carries that toy home and drops it in the drawer.
 
 Near misses are told in one line (`A little to the right`, `Let the claw hang still`, `Too crowded`). The slip is a nudge you can see, not a hidden coin-flip.
 
 ## Notes
 
 - Three.js **r160** (MIT) is vendored at `vendor/three.min.js`. It is the same file as `red-words/three.min.js`, copied so this folder stands alone. No CDN and no `connect-src`.
-- Physics is `js/physics.js` (no WebGL). `node --test tests/claw-machine.test.js` drives a grab, a slip, a swing, and a delivery to the chute.
+- Physics is `js/physics.js` (no WebGL). `node --test tests/claw-machine.test.js` drives a grab, a slip, a swing, and the automatic ride home to the chute.
 - This page does not change the main app’s content security policy. Its own policy is stricter: `script-src 'self'`, `style-src 'self'`, `connect-src 'none'`.

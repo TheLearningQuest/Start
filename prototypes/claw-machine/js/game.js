@@ -1131,6 +1131,9 @@
     if (ev.type === 'down') {
       tone(520, 0.22, 'sine', 0.28, 170);
       if (!reduced) shake = Math.max(shake, 0.025);
+    } else if (ev.type === 'home') {
+      tone(392, 0.1, 'sine', 0.22);
+      setTimeout(function () { tone(523, 0.16, 'sine', 0.2); }, 110);
     } else if (ev.type === 'grab') {
       tone(523, 0.12, 'triangle', 0.4);
       setTimeout(function () { tone(659, 0.12, 'triangle', 0.35); }, 90);
@@ -1293,11 +1296,10 @@
     hintEl.textContent = state.hint;
     winsEl.textContent = 'Prizes ' + state.wins;
     var label = 'DROP';
-    if (state.phase === 'hold') label = 'LET GO';
-    else if (state.phase === 'celebrate') label = 'YAY';
+    if (state.phase === 'celebrate') label = 'YAY';
     else if (state.phase !== 'idle') label = '···';
     dropBtn.textContent = label;
-    var busy = state.phase === 'drop' || state.phase === 'close' || state.phase === 'rise' || state.phase === 'celebrate';
+    var busy = state.phase === 'drop' || state.phase === 'close' || state.phase === 'rise' || state.phase === 'home' || state.phase === 'celebrate';
     dropBtn.disabled = busy;
     dropBtn.classList.toggle('ready', state.aim === 'ready' && !busy);
   }
@@ -1397,7 +1399,7 @@
     drawerShown += (drawerTarget - drawerShown) * (1 - Math.exp(-7 * dt));
     drawer.position.z = drawerHomeZ + drawerShown * 0.52;
     var glow = 0.7 + (reduced ? 0 : Math.sin(time * 3) * 0.25);
-    if (state.phase === 'hold' && state.aim === 'ready') glow = 1.3;
+    if (state.phase === 'home') glow = 1.2 + (reduced ? 0 : Math.sin(time * 6) * 0.28);
     chuteRing.material.emissiveIntensity = glow;
     holeStar.rotation.z += reduced ? 0 : dt * 0.8;
     var b;
