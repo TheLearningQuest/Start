@@ -53,6 +53,19 @@ test('every letter she traces has an ordered stroke and a spoken cue', function 
   const magic = Strokes.get('c')[0].pts;
   assert.ok(magic[3][1] < magic[0][1], 'magic c climbs before it curls');
   assert.equal(Strokes.get("'"), null);
+  const said = JSON.stringify(Strokes.all);
+  [
+    'Magic c!', 'Magic c, keep going!', 'Magic c, up, down', 'Magic c, up high, down',
+    'Magic c, up, down, turn', 'Magic c, up, down, u-turn', 'Little line, magic c',
+    'Dive down, up, around', 'Dive down, up, over', 'Dive down, up, over, down',
+    'Dive, up, over, down, over, down', 'Curve, down, cross', 'Line down, dot',
+    'Line down, turn, dot', 'Line down, then kick', 'Big line down',
+    'Little curve, big curve', 'Line down, cross', 'Down, turn, up, down',
+    'Slide down, slide up', 'Down, up, down, up', 'Slide down, slide down',
+    'Slide, then slide to the basement', 'Across, slide, across', 'Big line, little lines'
+  ].forEach(function (phrase) {
+    assert.ok(said.includes(phrase), phrase);
+  });
 });
 
 test('the page keeps the offline policy and loads the canvas game from this site', function () {

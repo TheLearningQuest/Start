@@ -92,58 +92,59 @@
 
   var S = {};
 
+  /* Spoken lines match the Handwriting Without Tears cues from the DOM redesign. */
   S.a = [magicThenDown(XTOP, BASE, 'Magic c, up, down')];
-  S.b = [stroke('Dive down, up, over', (function () {
+  S.b = [stroke('Dive down, up, around', (function () {
     var down = join([line(34, ASC, 34, BASE, 8), line(34, BASE, 34, 58, 6)]);
     var bowl = magicC(52, 84, 22);
     return join([down, bowl]);
   })())];
-  S.c = [stroke('Magic c', magicC(50, 78, 30))];
-  S.d = [magicThenDown(ASC, BASE, 'Magic c, up, down')];
+  S.c = [stroke('Magic c!', magicC(50, 78, 30))];
+  S.d = [magicThenDown(ASC, BASE, 'Magic c, up high, down')];
   S.e = [
-    stroke('Little line', line(38, 78, 78, 78, 5)),
+    stroke('Little line, magic c', line(38, 78, 78, 78, 5)),
     stroke('Magic c', magicC(50, 80, 28))
   ];
   S.f = [
-    stroke('Tall line', join([
+    stroke('Curve, down, cross', join([
       arc(58, 36, 18, Math.PI, Math.PI * 1.7, 6),
       line(42, 28, 42, BASE, 10)
     ])),
-    stroke('Little line', line(24, 62, 64, 62, 5))
+    stroke('Cross', line(24, 62, 64, 62, 5))
   ];
-  S.g = [stroke('Magic c, up, down', (function () {
+  S.g = [stroke('Magic c, up, down, turn', (function () {
     var base = magicThenDown(XTOP, DESC, '');
     var hook = arc(RIGHT - 8, DESC - 6, 14, 0, Math.PI * 0.8, 6);
     return join([base.pts, hook]);
   })())];
-  S.h = [stroke('Dive down, up, over', dive(ASC, BASE, 1))];
+  S.h = [stroke('Dive down, up, over, down', dive(ASC, BASE, 1))];
   S.i = [
-    stroke('Little line', line(50, XTOP, 50, BASE, 8)),
+    stroke('Line down, dot', line(50, XTOP, 50, BASE, 8)),
     stroke('Dot', [[50, 26]], true)
   ];
   S.j = [
-    stroke('Dive down', join([
+    stroke('Line down, turn, dot', join([
       line(58, XTOP, 58, DESC - 8, 10),
       arc(44, DESC - 8, 14, 0, Math.PI * 0.85, 6)
     ])),
     stroke('Dot', [[58, 26]], true)
   ];
   S.k = [
-    stroke('Tall line', line(36, ASC, 36, BASE, 10)),
+    stroke('Line down, then kick', line(36, ASC, 36, BASE, 10)),
     stroke('Kick', join([
       line(70, 48, 36, 78, 6),
       line(36, 78, 74, BASE, 6)
     ]))
   ];
-  S.l = [stroke('Tall line', line(50, ASC, 50, BASE, 10))];
-  S.m = [stroke('Dive down, up, over, over', dive(XTOP, BASE, 2))];
-  S.n = [stroke('Dive down, up, over', dive(XTOP, BASE, 1))];
-  S.o = [stroke('Magic c', magicO(50, 80, 30))];
-  S.p = [stroke('Dive down, up, over', (function () {
+  S.l = [stroke('Big line down', line(50, ASC, 50, BASE, 10))];
+  S.m = [stroke('Dive, up, over, down, over, down', dive(XTOP, BASE, 2))];
+  S.n = [stroke('Dive down, up, over, down', dive(XTOP, BASE, 1))];
+  S.o = [stroke('Magic c, keep going!', magicO(50, 80, 30))];
+  S.p = [stroke('Dive down, up, around', (function () {
     var down = join([line(34, XTOP, 34, DESC, 10), line(34, DESC, 34, 64, 8)]);
     return join([down, magicC(54, 82, 22)]);
   })())];
-  S.q = [stroke('Magic c, up, down', (function () {
+  S.q = [stroke('Magic c, up, down, u-turn', (function () {
     var base = magicThenDown(XTOP, DESC, '');
     return join([base.pts, line(RIGHT, DESC, RIGHT + 16, DESC + 4, 3)]);
   })())];
@@ -152,20 +153,20 @@
     line(36, BASE, 36, XTOP, 8),
     arc(52, 62, 18, Math.PI * 0.85, Math.PI * 1.7, 8)
   ]))];
-  S.s = [stroke('Little curve', join([
+  S.s = [stroke('Little curve, big curve', join([
     arc(58, 62, 20, Math.PI * 0.15, Math.PI * 1.15, 10),
     arc(42, 98, 20, Math.PI * 1.15, Math.PI * 2.05, 10)
   ]))];
   S.t = [
-    stroke('Tall line', line(48, 22, 48, BASE, 10)),
-    stroke('Little line', line(26, 58, 72, 58, 5))
+    stroke('Line down, cross', line(48, 22, 48, BASE, 10)),
+    stroke('Cross', line(26, 58, 72, 58, 5))
   ];
-  S.u = [stroke('Down, up, over', join([
+  S.u = [stroke('Down, turn, up, down', join([
     line(30, XTOP, 30, 100, 6),
     arc(50, 100, 20, Math.PI, Math.PI * 2, 10),
     line(70, 100, 70, XTOP, 6)
   ]))];
-  S.v = [stroke('Slide down, up', join([
+  S.v = [stroke('Slide down, slide up', join([
     line(22, XTOP, 50, BASE, 8),
     line(50, BASE, 78, XTOP, 8)
   ]))];
@@ -176,12 +177,12 @@
     line(68, BASE, 86, XTOP, 6)
   ]))];
   S.x = [
-    stroke('Slide down', line(24, XTOP, 76, BASE, 8)),
-    stroke('Slide across', line(76, XTOP, 24, BASE, 8))
+    stroke('Slide down, slide down', line(24, XTOP, 76, BASE, 8)),
+    stroke('Slide down', line(76, XTOP, 24, BASE, 8))
   ];
   S.y = [
-    stroke('Slide down', line(28, XTOP, 50, 88, 6)),
-    stroke('Slide down', join([
+    stroke('Slide, then slide to the basement', line(28, XTOP, 50, 88, 6)),
+    stroke('Slide to the basement', join([
       line(74, XTOP, 42, DESC, 8),
       arc(30, DESC - 4, 12, 0.2, Math.PI * 0.9, 5)
     ]))
@@ -194,7 +195,7 @@
     ]))
   ];
   S.I = [
-    stroke('Big line', line(50, 18, 50, 124, 10)),
+    stroke('Big line, little lines', line(50, 18, 50, 124, 10)),
     stroke('Little line', line(26, 18, 74, 18, 5)),
     stroke('Little line', line(26, 124, 74, 124, 5))
   ];
