@@ -724,8 +724,9 @@ body.shake-screen #app{animation:shake .3s linear 2}
 .pet{width:64px;height:64px;filter:drop-shadow(0 4px 0 rgba(0,0,0,.12))}
 
 
-.rw-stage{flex:1;min-height:0;position:relative;border-radius:28px;overflow:hidden;touch-action:none;background:#7ec8f8}
-.rw-stage canvas{width:100%;height:100%;display:block;touch-action:none}
+.rw-stage{flex:1;min-height:0;position:relative;border-radius:28px;overflow:hidden;touch-action:none;background:#8fd4ff}
+.rw-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.rw-stage canvas.rw-hud{pointer-events:none;z-index:2}
 .rw-mirror{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0}
 #s-red.active,#s-redplay.active,#s-redlearn.active,#s-redmenu.active,#s-redresults.active{overflow:hidden}
 </style>
@@ -3576,8 +3577,13 @@ body.shake-screen #app{animation:shake .3s linear 2}
 /* NMQ_SPEECH_MODULE_END */
 </script>
 
+<!-- three.min.js is Three.js r160.1 (MIT), vendored in this repo.
+     It is a classic script: no eval, no WebAssembly, no runtime network.
+     script-src 'self' loads it. connect-src stays 'none'. No CDN. -->
 <script src="red-words/draw.js"></script>
 <script src="red-words/strokes.js"></script>
+<script src="red-words/trace.js"></script>
+<script src="red-words/three.min.js"></script>
 <script src="red-words/world.js"></script>
 <script>
 /* Naomi's Brain Quest - Red Words garden (claw, nursery, flowers).
@@ -3964,14 +3970,14 @@ var LES = null, lastPlay = null, world = null;
     var titles = {
       hub: ['🌷 Word Garden', 'RED WORDS', 'home', '◀ Home'],
       claw: ['🕹️ Claw', 'AIM AND DROP', 'red', '◀ Garden'],
-      lesson: ['💗 Heart word', 'SEE · TRACE · SPELL', 'red', '◀ Garden'],
+      lesson: ['💗 Heart word', 'SEE · WRITE · SPELL', 'red', '◀ Garden'],
       ceremony: ['🌱 Prize', 'YOU DID IT', 'red', '◀ Garden'],
       nursery: ['🪴 Nursery', 'SEED · SPROUT · BUD', 'red', '◀ Garden'],
       garden: ['🌼 My Garden', 'FLOWERS', 'red', '◀ Garden']
     };
     var t = titles[scene] || titles.hub;
     el.innerHTML = C.topbar('<button class="back" data-act="' + t[2] + '">' + t[3] + '</button><div class="logo">' + t[0] + '<small>' + t[1] + '</small></div>');
-    if (!window.NMQWorld || !window.NMQDraw || !window.NMQStrokes) {
+    if (!window.NMQWorld || !window.NMQDraw || !window.NMQStrokes || !window.NMQTrace || !window.THREE) {
       var note = document.createElement('div');
       note.className = 'card';
       note.textContent = 'The garden game did not load on this iPad.';
