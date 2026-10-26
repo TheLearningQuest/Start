@@ -1,0 +1,142 @@
+/* Clip map and speech plan. No DOM and no network.
+
+   CLIPS stays empty until a grown-up lists recorded files.
+   playClip asks plan() before it builds an audio element.
+   A missing clip speaks in that same turn and does not fetch.
+   Zoe or Zoey is used when that voice is installed.
+   Otherwise the utterance leaves voice unset (the iPad default) and sets lang to en-US. */
+(function (root) {
+  'use strict';
+
+  var CLIPS = [];
+
+  function clipPath(id) {
+    return 'audio/words/' + String(id || '').toLowerCase() + '.m4a';
+  }
+
+  function hasClip(src, clips) {
+    var list = clips || CLIPS;
+    if (!src) return false;
+    var i;
+    for (i = 0; i < list.length; i++) if (list[i] === src) return true;
+    return false;
+  }
+
+  /* 'speech' = speak in this turn. 'clip' = try the file, and speak if play() rejects. */
+  function plan(src, clips) {
+    if (hasClip(src, clips)) return { mode: 'clip', src: src };
+    return { mode: 'speech', src: '' };
+  }
+
+  function baseName(name) {
+    var s = String(name || '').toLowerCase();
+    s = s.replace(/\((?:enhanced|premium)\)/g, ' ');
+    s = s.replace(/\b(?:enhanced|premium)\b/g, ' ');
+    s = s.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+    s = s.replace(/\bzoey\b/g, 'zoe');
+    return s;
+  }
+
+  function qualityRank(voice) {
+    var blob = String((voice && voice.name) || '') + ' ' + String((voice && voice.voiceURI) || '');
+    if (/enhanced/i.test(blob)) return 2;
+    if (/premium/i.test(blob)) return 1;
+    return 0;
+  }
+
+  function langGroup(voice) {
+    var lang = String((voice && voice.lang) || '').replace(/_/g, '-').toLowerCase();
+    if (lang === 'en-us') return 0;
+    if (lang.indexOf('en') === 0) return 1;
+    return 2;
+  }
+
+  /* null means "do not set utterance.voice". */
+  function pickReader(voices) {
+    var hits = [];
+    var i;
+    for (i = 0; i < (voices ? voices.length : 0); i++) {
+      var v = voices[i];
+      if (v && baseName(v.name) === 'zoe') hits.push(v);
+    }
+    if (!hits.length) return null;
+    hits.sort(function (a, b) {
+      var g = langGroup(a) - langGroup(b);
+      if (g) return g;
+      return qualityRank(b) - qualityRank(a);
+    });
+    return hits[0];
+  }
+
+  function speak(text, io) {
+    io = io || {};
+    var synth = io.synth;
+    if (!synth || !text || !io.Utterance) return false;
+    var voice = pickReader(io.voices || []);
+    try {
+      if (synth.cancel) synth.cancel();
+      var u = new io.Utterance(text);
+      if (voice) {
+        u.voice = voice;
+        u.lang = voice.lang || 'en-US';
+      } else {
+        u.lang = 'en-US';
+      }
+      u.rate = io.rate || 0.85;
+      u.pitch = io.pitch == null ? 1.08 : io.pitch;
+      synth.speak(u);
+      if (synth.paused && synth.resume) {
+        try { synth.resume(); } catch (e) { /* iOS sometimes starts paused */ }
+      }
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function playClip(src, spoken, io) {
+    io = io || {};
+    var choice = plan(src, io.clips);
+    if (choice.mode !== 'clip') {
+      speak(spoken, io);
+      return { mode: 'speech', src: '' };
+    }
+    var said = false;
+    function fallback() {
+      if (said) return;
+      said = true;
+      speak(spoken, io);
+    }
+    var AudioCtor = io.Audio;
+    if (!AudioCtor) {
+      fallback();
+      return { mode: 'speech', src: choice.src, fallback: true };
+    }
+    try {
+      var a = new AudioCtor();
+      a.preload = 'auto';
+      a.src = choice.src;
+      if (a.addEventListener) a.addEventListener('error', fallback);
+      var p = a.play ? a.play() : null;
+      if (p && p.catch) p.catch(fallback);
+      else if (!p) fallback();
+    } catch (err) {
+      fallback();
+    }
+    return { mode: 'clip', src: choice.src };
+  }
+
+  var api = {
+    CLIPS: CLIPS,
+    clipPath: clipPath,
+    hasClip: hasClip,
+    plan: plan,
+    baseName: baseName,
+    pickReader: pickReader,
+    speak: speak,
+    playClip: playClip
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  root.PrizeSpeech = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
