@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Letter Play">
+<meta name="theme-color" content="#ffb7d8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'none'; media-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Letter Play</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-phase="pick">
+<div id="stage">
+  <header id="top">
+    <button id="words" type="button" hidden>Words</button>
+    <p id="hint">Pick a heart word.</p>
+    <div id="tools">
+      <button id="calm" type="button" aria-pressed="false">Calm</button>
+      <button id="sound" type="button" aria-pressed="true">Sound</button>
+    </div>
+  </header>
+
+  <section id="pick" class="screen">
+    <h1>Letter play</h1>
+    <p class="lead">Tap a word. We say it, then you paint.</p>
+    <div id="word-grid"></div>
+  </section>
+
+  <section id="look" class="screen" hidden>
+    <p id="kicker">Red word</p>
+    <h1 id="look-word"></h1>
+    <p id="sentence"></p>
+    <div class="actions">
+      <button id="hear-look" type="button">Hear it</button>
+      <button id="paint-letters" type="button">Paint the letters</button>
+      <button id="paint-word" type="button">Paint the whole word</button>
+      <button id="another" type="button">Another word</button>
+    </div>
+  </section>
+
+  <section id="paint" class="screen" hidden>
+    <div id="banner" aria-hidden="true"></div>
+    <div id="paper">
+      <canvas id="slate" aria-label="Paint on the letter"></canvas>
+    </div>
+    <div class="actions paint-actions">
+      <button id="hear" type="button">Hear it</button>
+      <button id="back" type="button">See the word</button>
+      <button id="next" type="button">Next letter</button>
+    </div>
+    <div class="seg" role="group" aria-label="What to paint">
+      <button id="mode-letter" type="button" aria-pressed="true">Letters</button>
+      <button id="mode-word" type="button" aria-pressed="false">Whole word</button>
+    </div>
+  </section>
+
+  <p id="live" class="sr" aria-live="polite"></p>
+  <div id="burst" aria-hidden="true"></div>
+  <svg id="heart-shape" viewBox="0 0 24 22" hidden>
+    <path fill="#ff3d84" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round" d="M12 20.4C8.4 17.2 2.2 13.1 2.2 8.2 2.2 5.1 4.5 3.1 7 3.5c1.7.2 2.9 1.3 3.6 2.5.6-1.5 2-2.6 3.8-2.6 2.7 0 5 1.9 5 5.1 0 4.9-5.4 8.8-7.4 11.9z"/>
+    <ellipse cx="7.4" cy="6.5" rx="1.5" ry="1" fill="#ffffff" opacity="0.85"/>
+  </svg>
+</div>
+<script src="js/words.js"></script>
+<script src="js/letters.js"></script>
+<script src="js/ribbon.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
