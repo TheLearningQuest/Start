@@ -6,24 +6,27 @@ This folder does not open the word garden, the offline write box, or the other p
 
 ## Try it on the iPad
 
-The keys stay in `config.local.js`, which is gitignored. GitHub Pages does not have that file, so the public page can open and will say **Add MyScript keys to config.local.js**. Recognition needs a computer on the same Wi-Fi that has the keys file.
+After merge, open this on the iPad in Safari:
 
-1. Get the free keys (below) and copy `config.example.js` to `config.local.js` in this folder. Paste the two strings. Do not commit that file.
-2. From the repo root:
+`https://thelearningquest.github.io/Start/prototypes/write-box-myscript/`
+
+The page has no keys yet. Open **Add MyScript keys**, paste the application key and the HMAC key, and tap **Save**. Check works right away. There is no rebuild and nothing to commit. The keys stay in this iPad’s localStorage under `write-box-myscript.keys`. They are not sent to GitHub. After Save the fields are cleared and the page shows only a mask (the last four characters, once the key is long enough).
+
+Ink still leaves the device only when she taps **Check**.
+
+**Clear keys** sits inside **Keys saved**. It wipes that iPad storage. Add the page to the Home Screen if you want it full screen. The Home Screen name is Write Cloud, so it sits apart from the offline write box.
+
+`?word=said` opens that word. The same works for the other heart words (`the`, `because`, `was`, `they`, `friend`, `come`, `one`). `?calm=1` starts in Calm. `?sound=0` starts quiet.
+
+A computer on the same Wi-Fi can still use a gitignored file instead of the form. Copy `config.example.js` to `config.local.js`, paste the two strings, and do not commit that file. From the repo root:
 
 ```
 python3 -m http.server 8765
 ```
 
-3. On the iPad, join the same Wi-Fi and open `http://<this-computer>:8765/prototypes/write-box-myscript/` in Safari. Add it to the Home Screen if you want it full screen. The Home Screen name is Write Cloud, so it sits apart from the offline write box.
+Open `http://<this-computer>:8765/prototypes/write-box-myscript/`. If the iPad also has keys saved in the browser, those saved keys win over `config.local.js`. Clear keys falls back to the file when the file has keys.
 
 Do not open the file from the Files app. The content security policy only loads scripts from this site, and `file://` often treats each file as a different origin.
-
-After merge, the page itself (still waiting for keys) is:
-
-`https://thelearningquest.github.io/Start/prototypes/write-box-myscript/`
-
-`?word=said` opens that word. The same works for the other heart words (`the`, `because`, `was`, `they`, `friend`, `come`, `one`). `?calm=1` starts in Calm. `?sound=0` starts quiet.
 
 ## Keys
 
@@ -39,7 +42,7 @@ window.MyScriptWriteConfig = {
 };
 ```
 
-Leave the example file empty. A page with empty or placeholder keys shows **Add MyScript keys to config.local.js** and does not call MyScript.
+Leave the example file empty. On GitHub Pages, paste the same two strings into **Add MyScript keys** and tap **Save**. Empty or placeholder keys do not call MyScript.
 
 Counters for the account: [cloud.myscript.com/#/counters](https://cloud.myscript.com/#/counters).
 
@@ -74,7 +77,7 @@ A WebSocket session is a different kind of request (everything between socket op
 
 ## Privacy
 
-The strokes — the path of the finger or the pencil, not a photo and not her name — are sent to MyScript Cloud when she taps **Check**. MyScript’s servers do the reading. This toy does not store the ink. The free developer account is yours; keep the keys in `config.local.js` and out of git.
+The strokes — the path of the finger or the pencil, not a photo and not her name — are sent to MyScript Cloud when she taps **Check**. MyScript’s servers do the reading. This toy does not store the ink. Keys saved with **Save** stay in localStorage on that iPad. `config.local.js` stays on the computer you edit, and out of git. The page does not print the full keys after Save.
 
 ## Content security policy
 

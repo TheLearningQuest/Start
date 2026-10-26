@@ -21,7 +21,15 @@
   var burst = document.getElementById('burst');
   var cloud = document.getElementById('cloud');
   var hint = document.getElementById('hint');
-  var needKeys = document.getElementById('need-keys');
+  var keyPanel = document.getElementById('key-panel');
+  var keySummary = document.getElementById('key-summary');
+  var keyForm = document.getElementById('key-form');
+  var keyApp = document.getElementById('key-app');
+  var keyHmac = document.getElementById('key-hmac');
+  var keyError = document.getElementById('key-error');
+  var keySaved = document.getElementById('key-saved');
+  var keyMask = document.getElementById('key-mask');
+  var clearKeysBtn = document.getElementById('clear-keys');
   var wordsBtn = document.getElementById('words');
   var hearBtn = document.getElementById('hear');
   var clearBtn = document.getElementById('clear');
@@ -33,7 +41,8 @@
 
   var WRITE_HINT = 'Write it in the box, then tap Check.';
   var MISSING = check.MISSING_KEYS;
-  var keysOn = check.keysReady(window.MyScriptWriteConfig);
+  var keysOn = false;
+  var canvasGen = 0;
   var current = null;
   var wordIndex = 0;
   var phase = 'pick';
@@ -210,6 +219,39 @@
     return canvas.model.strokes.length;
   }
 
+  function storage() {
+    try { return window.localStorage; }
+    catch (e) { return null; }
+  }
+
+  function currentKeys() {
+    return check.chooseKeys(check.readStored(storage()), window.MyScriptWriteConfig);
+  }
+
+  function refreshKeys() {
+    var chosen = currentKeys();
+    keysOn = !!chosen;
+    if (!chosen) {
+      keyPanel.hidden = false;
+      keyPanel.open = true;
+      keyForm.hidden = false;
+      keySaved.hidden = true;
+      keySummary.textContent = 'Add MyScript keys';
+      keyMask.textContent = '';
+    } else if (chosen.source === 'storage') {
+      keyPanel.hidden = false;
+      keyPanel.open = false;
+      keyForm.hidden = true;
+      keySaved.hidden = false;
+      keySummary.textContent = 'Keys saved';
+      keyMask.textContent = 'Saved on this iPad. ' + check.maskKey(chosen.applicationKey) + ' and ' + check.maskKey(chosen.hmacKey) + '.';
+    } else {
+      keyPanel.hidden = true;
+      keyMask.textContent = '';
+    }
+    syncGhost();
+  }
+
   function syncGhost() {
     if (!keysOn) {
       ghost.hidden = false;
@@ -240,7 +282,7 @@
   }
 
   function canvasOptions() {
-    var cfg = window.MyScriptWriteConfig || {};
+    var cfg = currentKeys() || {};
     return {
       configuration: {
         server: {
@@ -275,6 +317,17 @@
     };
   }
 
+  function dropCanvas() {
+    canvasGen += 1;
+    var dying = canvas;
+    canvas = null;
+    booting = null;
+    if (dying && dying.destroy) {
+      return Promise.resolve(dying.destroy()).catch(function () {});
+    }
+    return Promise.resolve();
+  }
+
   function ensureCanvas() {
     if (!keysOn) return Promise.resolve(null);
     if (canvas) return Promise.resolve(canvas);
@@ -282,14 +335,24 @@
     if (!window.iink || !window.iink.Canvas || !window.iink.Canvas.load) {
       return Promise.reject(new Error('MyScript iink did not load.'));
     }
+    var gen = canvasGen;
     booting = new Promise(function (resolve, reject) {
       whenPaperReady(function () {
+        if (gen !== canvasGen) {
+          resolve(null);
+          return;
+        }
         Promise.resolve(window.iink.Canvas.load(inkEl, 'INK_V2', canvasOptions())).then(function (next) {
+          if (gen !== canvasGen) {
+            if (next && next.destroy) Promise.resolve(next.destroy()).catch(function () {});
+            resolve(null);
+            return;
+          }
           canvas = next;
           booting = null;
           resolve(next);
         }).catch(function (err) {
-          booting = null;
+          if (gen === canvasGen) booting = null;
           reject(err);
         });
       });
@@ -340,8 +403,7 @@
     ensureAudio();
     if (!keysOn) {
       hint.textContent = MISSING;
-      needKeys.hidden = false;
-      syncGhost();
+      refreshKeys();
       return;
     }
     setBusy(true);
@@ -445,7 +507,7 @@
     var q = params();
     var want = q.word || '';
     var word;
-    needKeys.hidden = keysOn;
+    refreshKeys();
     renderGrid();
     syncGhost();
     try {
@@ -515,9 +577,65 @@
   inkEl.addEventListener('pointerup', syncGhost);
   inkEl.addEventListener('pointercancel', syncGhost);
 
+  function blankKeyFields() {
+    keyApp.value = '';
+    keyHmac.value = '';
+  }
+
+  function saveKeys(event) {
+    if (event) event.preventDefault();
+    var app = keyApp.value;
+    var hmac = keyHmac.value;
+    if (!check.keysReady({ applicationKey: app, hmacKey: hmac })) {
+      keyError.hidden = false;
+      keyError.textContent = 'Paste both keys, then tap Save.';
+      return;
+    }
+    try {
+      check.writeStored(storage(), { applicationKey: app, hmacKey: hmac });
+    } catch (err) {
+      keyError.hidden = false;
+      keyError.textContent = 'This iPad could not store the keys.';
+      return;
+    }
+    blankKeyFields();
+    keyError.hidden = true;
+    refreshKeys();
+    dropCanvas().then(function () {
+      if (phase === 'pick') {
+        hint.textContent = 'Keys saved. Pick a heart word.';
+        return;
+      }
+      hint.textContent = WRITE_HINT;
+      return ensureCanvas();
+    }).catch(function (err) {
+      failCloud(err);
+    });
+  }
+
+  function wipeSavedKeys() {
+    try { check.clearStored(storage()); }
+    catch (err) { /* a blocked store is already empty */ }
+    blankKeyFields();
+    keyError.hidden = true;
+    dropCanvas().then(function () {
+      refreshKeys();
+      if (keysOn && phase !== 'pick') {
+        hint.textContent = WRITE_HINT;
+        return ensureCanvas();
+      }
+      if (!keysOn && phase !== 'pick') hint.textContent = MISSING;
+      if (!keysOn && phase === 'pick') hint.textContent = 'Pick a heart word.';
+    });
+  }
+
+  keyForm.addEventListener('submit', saveKeys);
+  clearKeysBtn.addEventListener('click', wipeSavedKeys);
+
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter' || e.repeat || phase === 'pick') return;
-    if (e.target && e.target.tagName === 'BUTTON') return;
+    var tag = e.target && e.target.tagName;
+    if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SUMMARY') return;
     e.preventDefault();
     runCheck();
   });

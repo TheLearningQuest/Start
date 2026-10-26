@@ -14,7 +14,24 @@
 </head>
 <body data-phase="pick">
 <div id="stage">
-  <p id="need-keys" role="status" hidden>Add MyScript keys to config.local.js</p>
+  <details id="key-panel" open>
+    <summary id="key-summary">Add MyScript keys</summary>
+    <form id="key-form" autocomplete="off">
+      <p class="key-note">Paste both keys once. They stay on this iPad. Ink goes to MyScript only when she taps Check.</p>
+      <label for="key-app">Application key
+        <input id="key-app" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next">
+      </label>
+      <label for="key-hmac">HMAC key
+        <input id="key-hmac" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+      </label>
+      <p id="key-error" role="alert" hidden></p>
+      <button id="key-save" type="submit">Save</button>
+    </form>
+    <div id="key-saved" hidden>
+      <p id="key-mask"></p>
+      <button id="clear-keys" type="button">Clear keys</button>
+    </div>
+  </details>
   <header id="top">
     <button id="words" type="button" hidden>Words</button>
     <p id="hint" aria-live="polite">Pick a heart word.</p>
