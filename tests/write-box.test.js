@@ -254,6 +254,57 @@ test('a y with a tail reads as y, and a v or u or m stays itself', function () {
   assert.equal(wide.reading, 'they');
 });
 
+test('screenshot ink for said and they keeps the target, and a readable letter can still be a chip', function () {
+  const saidRead = Ink.read(Samples.careStrokes('said', BOX));
+  const said = Ink.planWrite(saidRead, 'said');
+  assert.equal(saidRead.letters.length, 4);
+  assert.equal(saidRead.text, 'said');
+  assert.equal(saidRead.letters[1].ch, 'a');
+  assert.equal(saidRead.letters[3].ch, 'd');
+  ['q', 'o', 'j'].forEach(function (other) {
+    assert.notEqual(saidRead.letters[1].ranked[0].ch, other);
+    assert.notEqual(saidRead.letters[3].ranked[0].ch, other);
+  });
+  assert.equal(said.action, 'celebrate');
+  assert.equal(said.reason, 'clear');
+  assert.equal(said.miss, false);
+  assert.equal(said.reading, 'said');
+  assert.equal(said.prompt, 'You wrote it!');
+
+  const theyRead = Ink.read(Samples.careStrokes('they', BOX));
+  const they = Ink.planWrite(theyRead, 'they');
+  assert.equal(theyRead.letters.length, 4);
+  assert.equal(theyRead.text, 'they');
+  assert.equal(theyRead.letters[1].ch, 'h');
+  assert.equal(theyRead.letters[2].ch, 'e');
+  assert.equal(theyRead.letters[3].ch, 'y');
+  ['m', 'u', 'b'].forEach(function (other) {
+    assert.notEqual(theyRead.letters[1].ranked[0].ch, other);
+  });
+  ['o', 'c'].forEach(function (other) {
+    assert.notEqual(theyRead.letters[2].ranked[0].ch, other);
+  });
+  ['j', 'i'].forEach(function (other) {
+    assert.notEqual(theyRead.letters[3].ranked[0].ch, other);
+  });
+  assert.equal(they.action, 'celebrate');
+  assert.equal(they.reason, 'clear');
+  assert.equal(they.miss, false);
+  assert.equal(they.reading, 'they');
+
+  const almost = [
+    { ch: 's', dist: 0.05, margin: 0.25, ranked: [{ ch: 's', d: 0.05 }, { ch: 'c', d: 0.30 }] },
+    { ch: 'q', dist: 0.10, margin: 0.04, ranked: [{ ch: 'q', d: 0.10 }, { ch: 'o', d: 0.14 }, { ch: 'a', d: 0.26 }] },
+    { ch: 'i', dist: 0.05, margin: 0.25, ranked: [{ ch: 'i', d: 0.05 }, { ch: 'l', d: 0.30 }] },
+    { ch: 'j', dist: 0.11, margin: 0.04, ranked: [{ ch: 'j', d: 0.11 }, { ch: 'd', d: 0.15 }, { ch: 'q', d: 0.30 }] }
+  ];
+  const chips = Ink.planWrite({ text: 'sqij', letters: almost }, 'said');
+  assert.equal(chips.action, 'ask');
+  assert.equal(chips.miss, false);
+  assert.equal(chips.choices.indexOf('said') !== -1, true);
+  assert.ok(chips.choices.length <= Ink.CHIP_MAX);
+});
+
 test('a soft near-miss can lean toward the word, and a crisp other letter cannot', function () {
   const soft = [
     fake('s', 0.05, 'c', 0.30),

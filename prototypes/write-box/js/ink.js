@@ -9,16 +9,24 @@
    A careful w is often four short strokes whose corners do not quite
    touch. Those ends are joined into one letter before matching.
    A hole wider than the strokes themselves stays a space between letters.
+   Two wide letters with daylight between them also stay apart, even when
+   a descender makes the whole word tall enough that the gap is under
+   GAP_RATIO of that height (an h beside an e).
 
    $P alone ties i with l (the dot is a few points), a with o, d, p, q
    (a bowl plus a stem), w with v, u, and m, and y with v, g, q, and j.
    After the cloud rank, a small geometric pass may overturn a close pair:
    - i vs l: a detached dot or short dash above the stem, or a stick
      that is short next to a taller letter in the same word.
-   - a vs o, d, p, q: a closed or open bowl, a right-side stem, and
-     whether that stem rises above the bowl or drops below it.
+   - a vs o, d, p, q: a closed or open bowl and a right-side stem. A stem
+     that only hangs below its own bowl is still a, unless it drops below
+     the shared baseline of the word (that drop is q or p). A tall right
+     stem in a word of short letters is d, even when the rise is modest.
+   - h vs b, m, u: a tall left stem and an open arch, not a closed bowl.
+   - e vs o: a bar across the middle and an opening on the right.
    - w vs v, u, m: two low feet and a wide zig-zag, not one point or a cup.
-   - y vs v, g, q, j: a fork with a narrow tail, and no bowl or dot.
+   - y vs v, g, q, j: a fork with a tail, even if the vertex gaps or the
+     tail hooks. A j needs a dot.
    The cue has to be clear. A half stem stays a question, not a grade.
 
    Uncertainty, so a close call does not become a miss:
@@ -36,8 +44,10 @@
    Chips are the best spelling, then one chip per unsure letter with that
    letter swapped to its runner-up (left to right). When exactly two letters
    are unsure, one more chip swaps both, if there is room. If the demo word
-   itself is already one of those close readings, it is included too.
-   The target is not pasted in over a crisp other word.
+   itself is already a readable candidate on every letter that differs, it
+   is included too, even when that letter is a bit further than ASK_MARGIN.
+   A crisp other letter still blocks it. The target is not pasted in over
+   a crisp other word, and a full chip row makes room for that one word.
 
    Nothing is saved, and a close call is not graded. miss is true only for a crisp other
    word (every letter under SURE_DIST, no close runner-up), or for a chip
@@ -84,6 +94,9 @@
   var ASCENDER_RATIO = 0.85;
   /* And drop this far below the bowl to count as q or p. */
   var DESCENDER_RATIO = 0.55;
+  /* A descender has to clear the shared baseline by this many x-heights.
+     Hanging below the bowl, but still on the baseline, is not q. */
+  var BASELINE_DROP = 0.22;
   /* A full a-stem covers at least this much of the bowl, top to bottom. */
   var STEM_SPAN = 0.90;
   /* Tallest letter vs the median. Above this, the word has ascenders. */
@@ -391,10 +404,36 @@
     ];
   }
 
-  /* Closest pair of stroke ends. A broken corner of w or y is small.
-     The facing sides of two letters usually are not stroke ends. */
-  function endpointGap(a, b) {
+  function strokeBox(stroke) {
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+    var i;
+    var p;
+    var x;
+    var y;
+    stroke = stroke || [];
+    for (i = 0; i < stroke.length; i++) {
+      p = stroke[i];
+      x = p.x != null ? p.x : p[0];
+      y = p.y != null ? p.y : p[1];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+  }
+
+  /* Closest pair of stroke ends, and the boxes of the strokes that own them.
+     A broken corner of w or y is small. The facing sides of two letters
+     usually are not those ends. Reach is measured on those strokes, so a
+     crossbar that has already joined its stem cannot use the whole letter. */
+  function endpointPair(a, b) {
     var best = Infinity;
+    var boxA = a.b;
+    var boxB = b.b;
     var ae = [];
     var be = [];
     var s;
@@ -403,50 +442,94 @@
     var dx;
     var dy;
     var d;
-    for (s = 0; s < a.strokes.length; s++) ae = ae.concat(strokeEnds(a.strokes[s]));
-    for (s = 0; s < b.strokes.length; s++) be = be.concat(strokeEnds(b.strokes[s]));
+    for (s = 0; s < a.strokes.length; s++) {
+      var ba = strokeBox(a.strokes[s]);
+      var ends = strokeEnds(a.strokes[s]);
+      for (i = 0; i < ends.length; i++) ae.push({ x: ends[i].x, y: ends[i].y, b: ba });
+    }
+    for (s = 0; s < b.strokes.length; s++) {
+      var bb = strokeBox(b.strokes[s]);
+      var endsB = strokeEnds(b.strokes[s]);
+      for (i = 0; i < endsB.length; i++) be.push({ x: endsB[i].x, y: endsB[i].y, b: bb });
+    }
     for (i = 0; i < ae.length; i++) {
       for (j = 0; j < be.length; j++) {
         dx = ae[i].x - be[j].x;
         dy = ae[i].y - be[j].y;
         d = dx * dx + dy * dy;
-        if (d < best) best = d;
+        if (d < best) {
+          best = d;
+          boxA = ae[i].b;
+          boxB = be[j].b;
+        }
       }
     }
-    return Math.sqrt(best);
+    return { dist: Math.sqrt(best), aBox: boxA, bBox: boxB };
+  }
+
+  function boxH(b) { return Math.max(1, b.maxY - b.minY); }
+  function boxW(b) { return Math.max(1, b.maxX - b.minX); }
+
+  /* A finished letter is tall and wide. A leg of w, an arm of y, and a
+     stem are not: those stay free to join a neighbor at a corner. */
+  function isBroad(box, H) {
+    var w = boxW(box);
+    var h = boxH(box);
+    return h >= H * 0.30 && w >= h * 0.85;
+  }
+
+  function isFlat(box) {
+    return boxH(box) < boxW(box) * 0.35;
   }
 
   /* A flat bar (the middle of a 3-stroke w) is wide and has no height.
-     A tall leg is measured by its height, so two skinny l's do not qualify. */
-  function strokeReach(box) {
-    var w = Math.max(1, box.maxX - box.minX);
-    var h = Math.max(1, box.maxY - box.minY);
-    if (h < w * 0.35) return w;
+     Its reach is capped by the neighbor's height, so a long t crossbar
+     cannot grab the next letter. A tall leg is measured by its height. */
+  function strokeReach(box, other) {
+    var w = boxW(box);
+    var h = boxH(box);
+    var oh = other ? boxH(other) : h;
+    if (h < w * 0.35) return Math.min(w, Math.max(h, oh * 0.32));
     return h;
+  }
+
+  /* A real letter, not a corner that grew wide by joining (a half of w). */
+  function letterBody(item, H) {
+    return !item.fragment && isBroad(item.b, H);
   }
 
   function shouldMerge(a, b, H) {
     var gap = xGap(a.b, b.b);
-    var ha;
-    var hb;
-    var wa;
-    var wb;
     var hole;
     var reach;
     var wide;
     var near;
-    if (gap < GAP_RATIO * H) return true;
-    ha = strokeReach(a.b);
-    hb = strokeReach(b.b);
-    wa = Math.max(1, a.b.maxX - a.b.minX);
-    wb = Math.max(1, b.b.maxX - b.b.minX);
+    var letters;
+    var pair;
+    /* Overlap is one letter: a stem on its bowl, a bar across t, a dot
+       that sits on the stem. */
+    if (gap <= 0) return true;
+    if (isTittleBox(a.b, b.b) || isTittleBox(b.b, a.b)) return true;
+    letters = letterBody(a, H) && letterBody(b, H);
+    /* A small gap is one letter (a broken bowl, a dot just beside i).
+       Two wide letters are the exception: daylight between an h and an e
+       stays a space even when a descender makes the word tall enough that
+       the gap is under GAP_RATIO of that height. A flat bar is not a
+       license to grab the next letter either. */
+    if (gap < GAP_RATIO * H && !letters) {
+      if (!((isFlat(a.b) && letterBody(b, H)) || (isFlat(b.b) && letterBody(a, H)))) return true;
+    }
     hole = Math.max(0, gap);
-    reach = Math.min(ha, hb);
-    wide = Math.max(wa, wb);
+    pair = endpointPair(a, b);
+    reach = Math.min(strokeReach(pair.aBox, pair.bBox), strokeReach(pair.bBox, pair.aBox));
+    wide = Math.max(boxW(a.b), boxW(b.b));
     /* A hole wider than the strokes is a space, not a missed corner. */
     if (hole > HOLE_RATIO * wide) return false;
     if (hole > JOIN_CAP * H) return false;
-    near = endpointGap(a, b);
+    /* Two finished letters do not reach across daylight. A fragment
+       (a leg, an arm, a stem) may still meet a corner. */
+    if (letters) return false;
+    near = pair.dist;
     return near < JOIN_RATIO * reach && near < JOIN_CAP * H;
   }
 
@@ -476,6 +559,7 @@
       }
       if (big.length) items = big;
     }
+    for (i = 0; i < items.length; i++) items[i].fragment = !isBroad(items[i].b, H);
     var merged = true;
     var guard = 0;
     while (merged && guard < 80) {
@@ -487,6 +571,7 @@
           if (!shouldMerge(items[i], items[j], H)) continue;
           items[i].strokes = items[i].strokes.concat(items[j].strokes);
           items[i].b = unionBox(items[i].b, items[j].b);
+          items[i].fragment = items[i].fragment && items[j].fragment;
           items.splice(j, 1);
           merged = true;
         }
@@ -604,6 +689,132 @@
     return { right: span(right), left: span(left) };
   }
 
+  /* A one-stroke a draws the bowl and keeps going down the right side.
+     There is no separate skinny stroke, so the stem is the narrow rows
+     on the right, above the bowl (d) or below it (a, or q when it drops). */
+  function embeddedStem(pts, box) {
+    var rows = 12;
+    var H = Math.max(1, box.maxY - box.minY);
+    var W = Math.max(1, box.maxX - box.minX);
+    var left = [];
+    var right = [];
+    var cnt = [];
+    var narrow = [];
+    var r;
+    var i;
+    var ri;
+    var bestStart = -1;
+    var bestLen = 0;
+    var run = 0;
+    var runStart = 0;
+    var head = 0;
+    var tail = 0;
+    var aligned = 0;
+    for (r = 0; r < rows; r++) {
+      left.push(Infinity);
+      right.push(-Infinity);
+      cnt.push(0);
+    }
+    for (i = 0; i < pts.length; i++) {
+      ri = Math.floor(((pts[i].y - box.minY) / H) * rows);
+      if (ri < 0) ri = 0;
+      if (ri >= rows) ri = rows - 1;
+      if (pts[i].x < left[ri]) left[ri] = pts[i].x;
+      if (pts[i].x > right[ri]) right[ri] = pts[i].x;
+      cnt[ri]++;
+    }
+    for (r = 0; r < rows; r++) {
+      var width = cnt[r] ? right[r] - left[r] : 0;
+      var mid = cnt[r] ? (left[r] + right[r]) / 2 : 0;
+      narrow.push(!!(cnt[r] && width < W * 0.40 && mid > box.minX + W * 0.60));
+    }
+    for (r = 0; r <= rows; r++) {
+      var occ = r < rows && cnt[r] && !narrow[r];
+      if (occ) {
+        if (run === 0) runStart = r;
+        run++;
+      } else if (run) {
+        if (run > bestLen) {
+          bestLen = run;
+          bestStart = runStart;
+        }
+        run = 0;
+      }
+    }
+    if (bestLen < 3) return null;
+    for (r = bestStart - 1; r >= 0; r--) {
+      if (!cnt[r]) continue;
+      if (!narrow[r]) break;
+      head++;
+    }
+    for (r = bestStart + bestLen; r < rows; r++) {
+      if (!cnt[r]) continue;
+      if (!narrow[r]) break;
+      tail++;
+    }
+    if (head + tail < 2) return null;
+    for (r = bestStart; r < bestStart + bestLen; r++) {
+      if (right[r] > box.minX + W * 0.64) aligned++;
+    }
+    return {
+      side: 'right',
+      above: head / bestLen,
+      below: tail / bestLen,
+      span: aligned / bestLen
+    };
+  }
+
+  /* Where the ink sits, for h (tall left, open right) and e (a middle bar). */
+  function bandsOf(pts, box) {
+    var H = Math.max(1, box.maxY - box.minY);
+    var W = Math.max(1, box.maxX - box.minX);
+    var rows = 12;
+    var rmin = [];
+    var rmax = [];
+    var rn = [];
+    var upperL = 0;
+    var upperR = 0;
+    var lowerL = 0;
+    var i;
+    var ri;
+    var yf;
+    var xf;
+    var lowMin = Infinity;
+    var bar = false;
+    var rightOpen = false;
+    var empty = { leftTall: false, midBar: false, openRight: false, tailLeft: false };
+    if (!pts || !pts.length) return empty;
+    for (i = 0; i < rows; i++) {
+      rmin.push(Infinity);
+      rmax.push(-Infinity);
+      rn.push(0);
+    }
+    for (i = 0; i < pts.length; i++) {
+      yf = (pts[i].y - box.minY) / H;
+      xf = (pts[i].x - box.minX) / W;
+      if (yf < 0.34 && xf < 0.40) upperL++;
+      if (yf < 0.34 && xf > 0.62) upperR++;
+      if (yf > 0.70 && xf < 0.40) lowerL++;
+      if (yf > 0.80 && pts[i].x < lowMin) lowMin = pts[i].x;
+      ri = Math.floor(yf * rows);
+      if (ri < 0) ri = 0;
+      if (ri >= rows) ri = rows - 1;
+      if (pts[i].x < rmin[ri]) rmin[ri] = pts[i].x;
+      if (pts[i].x > rmax[ri]) rmax[ri] = pts[i].x;
+      rn[ri]++;
+    }
+    for (i = 4; i <= 7; i++) {
+      if (rn[i] && (rmax[i] - rmin[i]) >= W * 0.62) bar = true;
+      if (rn[i] && rmax[i] < box.minX + W * 0.72) rightOpen = true;
+    }
+    return {
+      leftTall: upperL > 2 && lowerL > 1 && upperR * 3 < upperL,
+      midBar: bar,
+      openRight: rightOpen,
+      tailLeft: isFinite(lowMin) && lowMin < box.minX + W * 0.42
+    };
+  }
+
   function geometry(strokes) {
     var stats = [];
     var i;
@@ -621,7 +832,7 @@
         cy: (b.minY + b.maxY) / 2
       });
     }
-    if (!stats.length) return { tittle: false, stick: false, hook: false, bowlReal: false, closed: false, occupied: 0, aspect: 1, stem: null };
+    if (!stats.length) return { tittle: false, stick: false, hook: false, bowlReal: false, closed: false, occupied: 0, aspect: 1, stem: null, leftTall: false, midBar: false, openRight: false, tailLeft: false };
     var all = stats[0].b;
     for (i = 1; i < stats.length; i++) all = unionBox(all, stats[i].b);
     var H = Math.max(1, all.maxY - all.minY);
@@ -680,7 +891,9 @@
     var close = bowlReal ? closureOf(bowlPts) : { closed: false, occupied: 0 };
     var allPts = [];
     for (i = 0; i < stats.length; i++) allPts = allPts.concat(stats[i].pts);
+    if (!stem && bowlReal) stem = embeddedStem(allPts, all);
     var edge = contourRange(allPts, all);
+    var bands = bandsOf(allPts, all);
     return {
       tittle: tittles.length > 0,
       stick: bowls.length === 0,
@@ -691,7 +904,11 @@
       aspect: W / H,
       stem: stem,
       edge: edge,
-      profile: profileOf(allPts, all)
+      profile: profileOf(allPts, all),
+      leftTall: bands.leftTall,
+      midBar: bands.midBar,
+      openRight: bands.openRight,
+      tailLeft: bands.tailLeft
     };
   }
 
@@ -782,11 +999,29 @@
     var tailRows = 0;
     var wideTop = false;
     var span;
-    for (r = rows - 1; r >= 0; r--) {
-      if (!rowN[r]) continue;
-      span = rowMax[r] - rowMin[r];
-      if (span > W * 0.32) break;
-      tailRows++;
+    var neck = 0;
+    var hookRows = 0;
+    var rr;
+    /* A tail is a narrow run. A hook at the very bottom widens the last
+       rows (a y that curls left); the narrow neck above that hook still counts. */
+    rr = rows - 1;
+    while (rr >= 0 && !rowN[rr]) rr--;
+    while (rr >= 0 && rowN[rr] && (rowMax[rr] - rowMin[rr]) > W * 0.32) {
+      hookRows++;
+      rr--;
+    }
+    while (rr >= 0 && rowN[rr] && (rowMax[rr] - rowMin[rr]) <= W * 0.32) {
+      neck++;
+      rr--;
+    }
+    if (neck >= 2 && hookRows > 0 && hookRows <= rows * 0.35) tailRows = neck + hookRows;
+    else {
+      for (r = rows - 1; r >= 0; r--) {
+        if (!rowN[r]) continue;
+        span = rowMax[r] - rowMin[r];
+        if (span > W * 0.32) break;
+        tailRows++;
+      }
     }
     for (r = 0; r < rows * 0.62; r++) {
       if (!rowN[r]) continue;
@@ -817,19 +1052,34 @@
     return null;
   }
 
-  /* a, o, d, p, q. A partial stem (the muddy o) returns null on purpose. */
-  function pickBowl(g) {
+  /* True when the stem clears the shared baseline, not merely its own bowl.
+     Alone, with no neighbors, the bowl itself is the baseline. */
+  function dropsBelow(s, ctx) {
+    if (!s) return false;
+    if (ctx && ctx.contrast) return ctx.drop >= BASELINE_DROP;
+    return s.below >= DESCENDER_RATIO;
+  }
+
+  /* a, o, d, p, q. A partial stem (the muddy o) returns null on purpose.
+     A stem below the bowl is not q unless it also drops below the word. */
+  function pickBowl(g, ctx) {
     var s;
+    var down;
+    var wordTall;
     if (!g.bowlReal) return null;
     s = g.stem;
+    down = dropsBelow(s, ctx);
     if (s && s.side === 'right') {
-      if (s.above >= ASCENDER_RATIO && s.below < 0.45 && g.closed) return 'd';
-      if (s.below >= DESCENDER_RATIO && s.above < 0.45 && g.closed) return 'q';
-      if (s.above < 0.75 && s.below < 0.50 && s.span >= STEM_SPAN && s.below >= -0.10 && s.above >= -0.15) return 'a';
+      wordTall = !!(ctx && ctx.contrast && ctx.rel >= 0.88);
+      if (wordTall && s.span >= 0.45 && s.above >= 0.20 && !down && !g.tailLeft) return 'd';
+      if (s.above >= ASCENDER_RATIO && s.below < 0.45 && g.closed && !down) return 'd';
+      /* A hook that swings back under the bowl is g, left for $P. */
+      if (s.below >= DESCENDER_RATIO && s.above < 0.45 && g.closed && down && !g.tailLeft) return 'q';
+      if (!down && s.above < 0.75 && s.span >= STEM_SPAN && s.below < 1.05 && s.below >= -0.10 && s.above >= -0.15) return 'a';
       return null;
     }
     if (s && s.side === 'left') {
-      if (s.below >= DESCENDER_RATIO && s.above < 0.45 && g.closed) return 'p';
+      if (s.below >= DESCENDER_RATIO && s.above < 0.45 && g.closed && down) return 'p';
       return null;
     }
     if (!s && g.closed && g.occupied >= 15 && g.aspect > 0.8 && g.aspect < 1.25) {
@@ -838,8 +1088,33 @@
     return null;
   }
 
+  /* An open h: tall ink on the left, nothing closing the upper right. */
+  function pickArch(g) {
+    var p = g.profile;
+    /* A closed bowl with no opening on the right is b, not h.
+       An arch can still fill enough angle bins to look closed. */
+    if (g.tittle || !g.leftTall) return null;
+    if (g.closed && !g.openRight) return null;
+    if (g.aspect < 0.55 || g.aspect > 1.65) return null;
+    if (p && p.feet >= 3) return null;
+    if (p && p.tail >= TAIL_RATIO && p.wideTop) return null;
+    return 'h';
+  }
+
+  /* A loose e: a bar through the middle and a gap on the right, not a closed o. */
+  function pickE(g) {
+    if (g.closed || g.tittle) return null;
+    if (g.stem && g.stem.span >= 0.45) return null;
+    if (!g.midBar || !g.openRight) return null;
+    if (g.aspect < 0.65 || g.aspect > 1.80) return null;
+    if (g.profile && g.profile.feet >= 3) return null;
+    return 'e';
+  }
+
   var STICK_FAMILY = { i: 1, l: 1, j: 1 };
-  var BOWL_FAMILY = { a: 1, o: 1, d: 1, p: 1, q: 1, b: 1, g: 1 };
+  var BOWL_FAMILY = { a: 1, o: 1, d: 1, p: 1, q: 1, b: 1, g: 1, j: 1 };
+  var ARCH_FAMILY = { h: 1, b: 1, n: 1, k: 1, m: 1, u: 1 };
+  var E_FAMILY = { e: 1, o: 1, c: 1 };
   var W_FAMILY = { w: 1, v: 1, u: 1, m: 1, n: 1 };
   var Y_FAMILY = { y: 1, v: 1, u: 1, g: 1, q: 1, j: 1, x: 1 };
 
@@ -848,7 +1123,7 @@
     var p = g.profile;
     if (!p || g.tittle) return null;
     /* closed is a real bowl (o, g, q). A pair of diagonals is not one. */
-    if (p.tail >= TAIL_RATIO && p.wideTop && g.aspect >= 0.48 && g.aspect < 1.42 && p.feet <= 2 && !g.closed) return 'y';
+    if (p.tail >= TAIL_RATIO && p.wideTop && !g.midBar && g.aspect >= 0.48 && g.aspect < 1.42 && p.feet <= 2 && !g.closed) return 'y';
     if (p.feet >= 3 && g.aspect >= 1.15 && p.tail < TAIL_RATIO && p.footRise >= 0.18 && p.peak) return 'm';
     if (p.feet === 2 && g.aspect >= WIDE_RATIO && p.tail < TAIL_RATIO && p.footRise >= 0.22 && p.peak && !p.cup) return 'w';
     /* A v is one low point. A gap at that point is still one point, not a w:
@@ -892,14 +1167,20 @@
     var g;
     var stickPick;
     var bowlPick;
+    var archPick;
+    var ePick;
     var forkPick;
     if (!ranked.length) return ranked;
     g = geometry(strokes);
     stickPick = pickStick(g, ctx);
-    bowlPick = pickBowl(g);
+    bowlPick = pickBowl(g, ctx);
+    archPick = pickArch(g);
+    ePick = pickE(g);
     forkPick = pickFork(g);
     if (stickPick && STICK_FAMILY[ranked[0].ch]) prefer(ranked, stickPick);
     else if (bowlPick && BOWL_FAMILY[ranked[0].ch]) prefer(ranked, bowlPick);
+    else if (archPick && ARCH_FAMILY[ranked[0].ch]) prefer(ranked, archPick);
+    else if (ePick && E_FAMILY[ranked[0].ch]) prefer(ranked, ePick);
     else if (forkPick === 'y' && Y_FAMILY[ranked[0].ch]) prefer(ranked, forkPick);
     else if ((forkPick === 'w' || forkPick === 'm') && W_FAMILY[ranked[0].ch]) prefer(ranked, forkPick);
     else if (forkPick === 'v' && (Y_FAMILY[ranked[0].ch] || ranked[0].ch === 'w')) prefer(ranked, forkPick);
@@ -936,8 +1217,19 @@
       ch: top.ch,
       dist: top.d,
       margin: second ? second.d - top.d : 1,
-      ranked: ranked.slice(0, 5)
+      ranked: keepRanked(ranked)
     };
+  }
+
+  /* The chip rule needs a readable target letter even when it is not in the
+     top five. Letters past READABLE_DIST are not candidates. */
+  function keepRanked(ranked) {
+    var kept = [];
+    var i;
+    for (i = 0; i < ranked.length; i++) {
+      if (i < 5 || ranked[i].d <= READABLE_DIST) kept.push(ranked[i]);
+    }
+    return kept;
   }
 
   function wordCue(groups) {
@@ -951,9 +1243,15 @@
     }
     var sorted = hs.slice().sort(function (a, b) { return a - b; });
     var median = sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : 0;
+    var bottoms = [];
+    for (i = 0; i < groups.length; i++) bottoms.push(groups[i].b.maxY);
+    bottoms.sort(function (a, b) { return a - b; });
+    var baseline = bottoms.length ? bottoms[Math.floor((bottoms.length - 1) / 2)] : 0;
     return {
       maxH: Math.max(1, maxH),
-      contrast: groups.length >= 2 && median > 0 && maxH >= median * HEIGHT_CONTRAST
+      contrast: groups.length >= 2 && median > 0 && maxH >= median * HEIGHT_CONTRAST,
+      baseline: baseline,
+      xh: Math.max(1, median)
     };
   }
 
@@ -970,7 +1268,11 @@
     var letters = [];
     for (i = 0; i < groups.length; i++) {
       var h = groups[i].b.maxY - groups[i].b.minY;
-      var c = classify(groups[i].strokes, { rel: h / cue.maxH, contrast: cue.contrast });
+      var c = classify(groups[i].strokes, {
+        rel: h / cue.maxH,
+        contrast: cue.contrast,
+        drop: (groups[i].b.maxY - cue.baseline) / cue.xh
+      });
       c.box = groups[i].b;
       letters.push(c);
     }
@@ -1114,13 +1416,16 @@
   }
 
   /* The demo word joins the chips when every letter that differs is already
-     a close, readable candidate. A crisp other letter blocks it. */
+     a readable candidate. A close call (inside ASK_MARGIN) counts, and so
+     does a readable letter that is not yet a crisp other character. A crisp
+     other letter blocks the chip. A full row drops one other chip to make room. */
   function includeTarget(choices, letters, target) {
     var chars;
     var alt;
     var i;
     var k;
     var changed = false;
+    var word;
     if (!target || !choices.length || target.length !== letters.length) return choices;
     if (choices.indexOf(target) !== -1) return choices;
     chars = choices[0].split('');
@@ -1129,6 +1434,7 @@
     for (i = 0; i < letters.length; i++) {
       var ranked;
       var hit = null;
+      var gap;
       if (alt[i] === target.charAt(i)) continue;
       ranked = letters[i].ranked || [];
       if (!ranked.length) return choices;
@@ -1136,12 +1442,17 @@
         if (ranked[k].ch === target.charAt(i)) hit = ranked[k];
       }
       if (!hit || !(hit.d <= READABLE_DIST)) return choices;
-      if (hit.d - ranked[0].d >= ASK_MARGIN) return choices;
+      gap = hit.d - ranked[0].d;
+      if (letterSure(letters[i]) && ranked[0].ch !== target.charAt(i)) return choices;
+      if (gap >= ASK_MARGIN && letterSure(letters[i])) return choices;
       alt[i] = target.charAt(i);
       changed = true;
     }
     if (!changed) return choices;
-    if (choices.indexOf(alt.join('')) === -1 && choices.length < CHIP_MAX) choices.push(alt.join(''));
+    word = alt.join('');
+    if (choices.indexOf(word) !== -1) return choices;
+    if (choices.length >= CHIP_MAX) choices.pop();
+    choices.push(word);
     return choices;
   }
 
@@ -1195,6 +1506,7 @@
     PRIOR_REACH: PRIOR_REACH,
     ASCENDER_RATIO: ASCENDER_RATIO,
     DESCENDER_RATIO: DESCENDER_RATIO,
+    BASELINE_DROP: BASELINE_DROP,
     STEM_SPAN: STEM_SPAN,
     HEIGHT_CONTRAST: HEIGHT_CONTRAST,
     SHORT_RATIO: SHORT_RATIO,

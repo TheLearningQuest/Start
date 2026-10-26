@@ -420,12 +420,14 @@
       var askInk = kind === 'ask' || kind === 'demo-ask';
       var kidInk = kind === 'kid' || kind === 'demo-kid';
       var wideInk = kind === 'wide' || kind === 'demo-wide';
+      var careInk = kind === 'care' || kind === 'demo-care';
       if (askInk) strokes = samples.askStrokes(word.w, box);
       else if (kidInk) strokes = samples.kidStrokes(word.w, box);
       else if (wideInk) strokes = samples.wideStrokes(word.w, box);
+      else if (careInk) strokes = samples.careStrokes(word.w, box);
       else strokes = samples.wordStrokes(word.w, box);
       redraw();
-      if (kind === 'demo-clear' || kind === 'demo-ask' || kind === 'demo-kid' || kind === 'demo-wide') submit();
+      if (kind === 'demo-clear' || kind === 'demo-ask' || kind === 'demo-kid' || kind === 'demo-wide' || kind === 'demo-care') submit();
     });
   }
 
@@ -437,6 +439,7 @@
     var asking = sample === 'ask' || demo === 'ask';
     var kid = sample === 'kid' || demo === 'kid';
     var wide = sample === 'wide' || demo === 'wide';
+    var care = sample === 'care' || demo === 'care';
     var word;
     renderGrid();
     try {
@@ -466,6 +469,7 @@
       else if (asking) paintSample(demo === 'ask' ? 'demo-ask' : 'ask', word);
       else if (kid) paintSample(demo === 'kid' ? 'demo-kid' : 'kid', word);
       else if (wide) paintSample(demo === 'wide' ? 'demo-wide' : 'wide', word);
+      else if (care) paintSample(demo === 'care' ? 'demo-care' : 'care', word);
     } else {
       showPick();
     }

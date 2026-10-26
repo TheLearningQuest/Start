@@ -8,7 +8,8 @@
    formWord swaps in a named kid shape (a dash-dot i, a stem that starts
    a little high, a w whose corners do not meet, a y with a short tail).
    kidStrokes uses the a and i shapes for ?demo=kid. wideStrokes uses the
-   gapped w and the short-tailed y for ?demo=wide. */
+   gapped w and the short-tailed y for ?demo=wide. careStrokes places the
+   iPad shapes from the said and they screenshots, for ?demo=care. */
 (function (root) {
   'use strict';
 
@@ -210,6 +211,139 @@
     return formWord(word, box, forms);
   }
 
+  function ellipse(cx, cy, rx, ry, a0, a1, n) {
+    var pts = [];
+    var i;
+    var a;
+    n = n || 16;
+    for (i = 0; i <= n; i++) {
+      a = a0 + (a1 - a0) * (i / n);
+      pts.push([Math.round((cx + Math.cos(a) * rx) * 10) / 10, Math.round((cy + Math.sin(a) * ry) * 10) / 10]);
+    }
+    return pts;
+  }
+
+  /* said, traced from the iPad screenshot. The a is one stroke: the bowl
+     continues down the right side onto the same baseline as s. The d's
+     stem rises, but not by a full ascender, and hooks a little right at
+     the baseline. The i dot sits just left of the stem. */
+  function photoSaid() {
+    var a = ellipse(580, 1700, 90, 70, -1.15, Math.PI * 2 + 0.35, 28);
+    var dStem = Letters.line(1188, 1548, 1184, 1765, 10).concat(Letters.line(1184, 1765, 1236, 1856, 6));
+    return []
+      .concat(placeShape(Letters.get('s'), 190, 1620, 370, 1820))
+      .concat([a.concat(Letters.line(668, 1748, 700, 1830, 8))])
+      .concat([Letters.line(798, 1496, 822, 1504, 4), Letters.line(848, 1640, 862, 1784, 8)])
+      .concat([ellipse(1095, 1702, 82, 62, 0, Math.PI * 2, 24), dStem]);
+  }
+
+  /* they, traced from the iPad screenshot. The letters sit close together,
+     and the y descender makes the word taller than the x-height. h is an
+     open low arch. e is an upper curve, a middle bar, and a bottom bar,
+     open on the lower right. y's right arm starts below the left one, and
+     the tail hooks left. */
+  function photoThey() {
+    var arch = []
+      .concat(Letters.line(492, 1740, 640, 1710, 6))
+      .concat(Letters.line(640, 1710, 742, 1760, 6))
+      .concat(Letters.line(742, 1760, 758, 1910, 8))
+      .concat(Letters.line(758, 1910, 728, 1900, 3));
+    var eBody = ellipse(970, 1768, 105, 72, -2.6, 0.35, 16)
+      .concat(Letters.line(860, 1810, 855, 1900, 6))
+      .concat(Letters.line(855, 1900, 1050, 1904, 7));
+    var yTail = Letters.line(1162, 1712, 1230, 1850, 8).concat(Letters.line(1230, 1850, 1168, 2054, 10));
+    return [
+      Letters.line(250, 1562, 250, 1855, 12),
+      Letters.line(128, 1718, 402, 1724, 8),
+      Letters.line(490, 1560, 492, 1848, 14),
+      arch,
+      eBody,
+      Letters.line(868, 1784, 1035, 1792, 6),
+      yTail,
+      Letters.line(1324, 1748, 1250, 1852, 8)
+    ];
+  }
+
+  /* Uniform scale into the paper, so the gaps stay in proportion. */
+  function fitStrokes(raw, box) {
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+    var s;
+    var i;
+    var p;
+    var x;
+    var y;
+    box = box || { w: 980, h: 480, pad: 28 };
+    for (s = 0; s < raw.length; s++) {
+      for (i = 0; i < raw[s].length; i++) {
+        p = raw[s][i];
+        x = p.x != null ? p.x : p[0];
+        y = p.y != null ? p.y : p[1];
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    var pad = box.pad == null ? 28 : box.pad;
+    var bw = Math.max(40, box.w - pad * 2);
+    var bh = Math.max(40, box.h - pad * 2);
+    var scale = Math.min(bw / Math.max(1, maxX - minX), bh / Math.max(1, maxY - minY));
+    var ox = pad + (bw - (maxX - minX) * scale) / 2;
+    var oy = pad + (bh - (maxY - minY) * scale) / 2;
+    var out = [];
+    for (s = 0; s < raw.length; s++) {
+      var stroke = [];
+      for (i = 0; i < raw[s].length; i++) {
+        p = raw[s][i];
+        x = p.x != null ? p.x : p[0];
+        y = p.y != null ? p.y : p[1];
+        stroke.push({ x: ox + (x - minX) * scale, y: oy + (y - minY) * scale });
+      }
+      out.push(stroke);
+    }
+    return out;
+  }
+
+  function placeShape(shape, x0, y0, x1, y1) {
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+    var s;
+    var i;
+    var sc;
+    for (s = 0; s < shape.length; s++) {
+      for (i = 0; i < shape[s].length; i++) {
+        if (shape[s][i][0] < minX) minX = shape[s][i][0];
+        if (shape[s][i][0] > maxX) maxX = shape[s][i][0];
+        if (shape[s][i][1] < minY) minY = shape[s][i][1];
+        if (shape[s][i][1] > maxY) maxY = shape[s][i][1];
+      }
+    }
+    sc = Math.min((x1 - x0) / Math.max(1, maxX - minX), (y1 - y0) / Math.max(1, maxY - minY));
+    var out = [];
+    for (s = 0; s < shape.length; s++) {
+      var stroke = [];
+      for (i = 0; i < shape[s].length; i++) {
+        stroke.push([
+          Math.round((x0 + (shape[s][i][0] - minX) * sc) * 10) / 10,
+          Math.round((y0 + (shape[s][i][1] - minY) * sc) * 10) / 10
+        ]);
+      }
+      out.push(stroke);
+    }
+    return out;
+  }
+
+  /* The iPad ink for said and they. Other words fall back to said's page. */
+  function careStrokes(word, box) {
+    var raw = String(word || '') === 'they' ? photoThey() : photoSaid();
+    return fitStrokes(raw, box);
+  }
+
   /* A w in four strokes and a y whose tail is a bit short. */
   function wideStrokes(word, box) {
     var forms = {};
@@ -231,7 +365,10 @@
     askStrokes: askStrokes,
     formWord: formWord,
     kidStrokes: kidStrokes,
-    wideStrokes: wideStrokes
+    wideStrokes: wideStrokes,
+    careStrokes: careStrokes,
+    photoSaid: photoSaid,
+    photoThey: photoThey
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
