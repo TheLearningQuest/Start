@@ -6,8 +6,9 @@
    MUDDY_STEM is that stem length, in the 100×140 letter box.
 
    formWord swaps in a named kid shape (a dash-dot i, a stem that starts
-   a little high). kidStrokes uses those for a and i, which is what the
-   ?demo=kid link draws. */
+   a little high, a w whose corners do not meet, a y with a short tail).
+   kidStrokes uses the a and i shapes for ?demo=kid. wideStrokes uses the
+   gapped w and the short-tailed y for ?demo=wide. */
 (function (root) {
   'use strict';
 
@@ -61,7 +62,78 @@
     'o-round': [Letters.oval(50, 88, 22, 24, 20)],
     'd-asc': [Letters.circle(40, 88, 18), Letters.line(58, 30, 60, 108, 12)],
     'p-desc': [Letters.line(32, 66, 32, 132, 12), Letters.circle(52, 84, 18)],
-    'q-desc': [Letters.circle(42, 80, 18), Letters.line(60, 66, 62, 132, 10)]
+    'q-desc': [Letters.circle(42, 80, 18), Letters.line(60, 66, 62, 132, 10)],
+    /* Four strokes, a small gap at each corner. Not the stored template. */
+    'w-gap': [
+      Letters.line(10, 66, 26, 108, 5),
+      Letters.line(34, 108, 48, 78, 5),
+      Letters.line(58, 78, 72, 108, 5),
+      Letters.line(80, 108, 96, 66, 5)
+    ],
+    'w-flat': [
+      Letters.line(12, 66, 30, 108, 5),
+      Letters.line(36, 108, 66, 108, 4),
+      Letters.line(72, 108, 92, 66, 5)
+    ],
+    'w-round': [
+      Letters.line(12, 66, 12, 96, 4),
+      Letters.arc(28, 96, 16, Math.PI, 0, 10),
+      Letters.line(44, 96, 44, 70, 4),
+      Letters.line(52, 70, 52, 96, 4),
+      Letters.arc(68, 96, 16, Math.PI, 0, 10),
+      Letters.line(84, 96, 84, 66, 4)
+    ],
+    'w-zig': [
+      Letters.line(10, 66, 28, 106, 5),
+      Letters.join([
+        Letters.line(36, 106, 52, 74, 4),
+        Letters.line(52, 74, 68, 106, 4)
+      ]),
+      Letters.line(76, 106, 94, 66, 5)
+    ],
+    'y-short': [
+      Letters.line(28, 66, 50, 102, 5),
+      Letters.line(74, 66, 46, 118, 6)
+    ],
+    /* A little off the stored short-tail y, so the tail cue has to help. */
+    'y-off': [
+      Letters.line(24, 64, 48, 100, 5),
+      Letters.line(78, 64, 44, 120, 6)
+    ],
+    'y-gap': [
+      Letters.line(16, 66, 40, 98, 5),
+      Letters.line(84, 66, 58, 98, 5),
+      Letters.line(48, 104, 40, 134, 5)
+    ],
+    'y-fork': [
+      Letters.line(22, 66, 46, 100, 5),
+      Letters.line(80, 66, 54, 100, 5),
+      Letters.line(50, 108, 42, 132, 5)
+    ],
+    'v-point': [
+      Letters.line(26, 66, 50, 108, 6),
+      Letters.line(76, 66, 50, 108, 6)
+    ],
+    'v-gap': [
+      Letters.line(24, 66, 46, 104, 5),
+      Letters.line(62, 104, 80, 66, 5)
+    ],
+    'u-cup': [
+      Letters.line(28, 66, 28, 96, 5),
+      Letters.arc(50, 96, 22, Math.PI, 0, 10),
+      Letters.line(72, 96, 72, 66, 5)
+    ],
+    'm-gap': [
+      Letters.line(16, 66, 18, 108, 5),
+      Letters.join([
+        Letters.arc(40, 80, 14, Math.PI, Math.PI * 2, 8),
+        Letters.line(54, 80, 54, 108, 4)
+      ]),
+      Letters.join([
+        Letters.arc(72, 80, 14, Math.PI, Math.PI * 2, 8),
+        Letters.line(86, 80, 86, 108, 4)
+      ])
+    ]
   };
 
   function wordStrokes(word, box, opts) {
@@ -138,6 +210,18 @@
     return formWord(word, box, forms);
   }
 
+  /* A w in four strokes and a y whose tail is a bit short. */
+  function wideStrokes(word, box) {
+    var forms = {};
+    var i;
+    word = String(word || '');
+    for (i = 0; i < word.length; i++) {
+      if (word.charAt(i) === 'w') forms[i] = 'w-gap';
+      else if (word.charAt(i) === 'y') forms[i] = 'y-short';
+    }
+    return formWord(word, box, forms);
+  }
+
   var api = {
     MUDDY_STEM: MUDDY_STEM,
     ASK_WORD: ASK_WORD,
@@ -146,7 +230,8 @@
     wordStrokes: wordStrokes,
     askStrokes: askStrokes,
     formWord: formWord,
-    kidStrokes: kidStrokes
+    kidStrokes: kidStrokes,
+    wideStrokes: wideStrokes
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

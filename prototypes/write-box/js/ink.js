@@ -6,13 +6,19 @@
    and greedily match it to the print skeletons and kid-print forms
    in letters.js. Stroke order and direction do not matter.
 
-   $P alone ties i with l (the dot is a few points) and a with o, d, p, q
-   (a bowl plus a stem). After the cloud rank, a small geometric pass
-   may overturn a close pair:
+   A careful w is often four short strokes whose corners do not quite
+   touch. Those ends are joined into one letter before matching.
+   A hole wider than the strokes themselves stays a space between letters.
+
+   $P alone ties i with l (the dot is a few points), a with o, d, p, q
+   (a bowl plus a stem), w with v, u, and m, and y with v, g, q, and j.
+   After the cloud rank, a small geometric pass may overturn a close pair:
    - i vs l: a detached dot or short dash above the stem, or a stick
      that is short next to a taller letter in the same word.
    - a vs o, d, p, q: a closed or open bowl, a right-side stem, and
      whether that stem rises above the bowl or drops below it.
+   - w vs v, u, m: two low feet and a wide zig-zag, not one point or a cup.
+   - y vs v, g, q, j: a fork with a narrow tail, and no bowl or dot.
    The cue has to be clear. A half stem stays a question, not a grade.
 
    Uncertainty, so a close call does not become a miss:
@@ -55,6 +61,14 @@
   /* Strokes whose boxes sit closer than this fraction of the ink height
      are the same letter (a dot over i, the cross of t, a broken bowl). */
   var GAP_RATIO = 0.10;
+  /* A lifted pen at a corner (w, y, v, m) still joins when the stroke
+     ends are this close, as a fraction of the shorter stroke's height. */
+  var JOIN_RATIO = 0.65;
+  /* The x-hole may be a bit wider than a steep leg. Wider than that,
+     next to a skinny stroke, is a space between letters (two l's). */
+  var HOLE_RATIO = 1.65;
+  /* Never bridge more than this fraction of the whole ink height. */
+  var JOIN_CAP = 0.50;
   /* A speck is ink much smaller than the whole word. A dot above a stem stays
      even when it is smaller than this. */
   var SPECK_RATIO = 0.045;
@@ -78,6 +92,10 @@
   var SHORT_RATIO = 0.78;
   /* A stick this tall, with no dot, reads as l. */
   var TALL_RATIO = 0.90;
+  /* A tail at least this much of the letter, under a wide fork, is y not v. */
+  var TAIL_RATIO = 0.20;
+  /* Two low feet with a real peak between them, this wide, are w not v or u. */
+  var WIDE_RATIO = 1.40;
 
   var PROMPT_EMPTY = 'Write the word, then tap Submit.';
   var PROMPT_TINY = 'Write it a little bigger, then tap Submit.';
@@ -361,8 +379,75 @@
     return false;
   }
 
+  function strokeEnds(stroke) {
+    var a;
+    var b;
+    if (!stroke || !stroke.length) return [];
+    a = stroke[0];
+    b = stroke[stroke.length - 1];
+    return [
+      { x: a.x != null ? a.x : a[0], y: a.y != null ? a.y : a[1] },
+      { x: b.x != null ? b.x : b[0], y: b.y != null ? b.y : b[1] }
+    ];
+  }
+
+  /* Closest pair of stroke ends. A broken corner of w or y is small.
+     The facing sides of two letters usually are not stroke ends. */
+  function endpointGap(a, b) {
+    var best = Infinity;
+    var ae = [];
+    var be = [];
+    var s;
+    var i;
+    var j;
+    var dx;
+    var dy;
+    var d;
+    for (s = 0; s < a.strokes.length; s++) ae = ae.concat(strokeEnds(a.strokes[s]));
+    for (s = 0; s < b.strokes.length; s++) be = be.concat(strokeEnds(b.strokes[s]));
+    for (i = 0; i < ae.length; i++) {
+      for (j = 0; j < be.length; j++) {
+        dx = ae[i].x - be[j].x;
+        dy = ae[i].y - be[j].y;
+        d = dx * dx + dy * dy;
+        if (d < best) best = d;
+      }
+    }
+    return Math.sqrt(best);
+  }
+
+  /* A flat bar (the middle of a 3-stroke w) is wide and has no height.
+     A tall leg is measured by its height, so two skinny l's do not qualify. */
+  function strokeReach(box) {
+    var w = Math.max(1, box.maxX - box.minX);
+    var h = Math.max(1, box.maxY - box.minY);
+    if (h < w * 0.35) return w;
+    return h;
+  }
+
   function shouldMerge(a, b, H) {
-    return xGap(a, b) < GAP_RATIO * H;
+    var gap = xGap(a.b, b.b);
+    var ha;
+    var hb;
+    var wa;
+    var wb;
+    var hole;
+    var reach;
+    var wide;
+    var near;
+    if (gap < GAP_RATIO * H) return true;
+    ha = strokeReach(a.b);
+    hb = strokeReach(b.b);
+    wa = Math.max(1, a.b.maxX - a.b.minX);
+    wb = Math.max(1, b.b.maxX - b.b.minX);
+    hole = Math.max(0, gap);
+    reach = Math.min(ha, hb);
+    wide = Math.max(wa, wb);
+    /* A hole wider than the strokes is a space, not a missed corner. */
+    if (hole > HOLE_RATIO * wide) return false;
+    if (hole > JOIN_CAP * H) return false;
+    near = endpointGap(a, b);
+    return near < JOIN_RATIO * reach && near < JOIN_CAP * H;
   }
 
   function segment(strokes) {
@@ -399,7 +484,7 @@
       for (i = 0; i < items.length && !merged; i++) {
         var j;
         for (j = i + 1; j < items.length && !merged; j++) {
-          if (!shouldMerge(items[i].b, items[j].b, H)) continue;
+          if (!shouldMerge(items[i], items[j], H)) continue;
           items[i].strokes = items[i].strokes.concat(items[j].strokes);
           items[i].b = unionBox(items[i].b, items[j].b);
           items.splice(j, 1);
@@ -605,7 +690,118 @@
       occupied: close.occupied,
       aspect: W / H,
       stem: stem,
-      edge: edge
+      edge: edge,
+      profile: profileOf(allPts, all)
+    };
+  }
+
+  /* Feet, the rise between them, and a narrow tail under a wide top.
+     y grows downward, so a foot is a low (large y) column. */
+  function profileOf(pts, box) {
+    var cols = 9;
+    var rows = 14;
+    var W = Math.max(1, box.maxX - box.minX);
+    var H = Math.max(1, box.maxY - box.minY);
+    var bottom = [];
+    var top = [];
+    var cnt = [];
+    var rowN = [];
+    var rowMin = [];
+    var rowMax = [];
+    var c;
+    var r;
+    var i;
+    var ci;
+    var ri;
+    var empty = {
+      feet: 0, footRise: 0, peak: false, tail: 0, wideTop: false, cup: false,
+      footSpan: 0, footMid: 0.5
+    };
+    if (!pts || !pts.length) return empty;
+    for (c = 0; c < cols; c++) {
+      bottom.push(-Infinity);
+      top.push(Infinity);
+      cnt.push(0);
+    }
+    for (r = 0; r < rows; r++) {
+      rowN.push(0);
+      rowMin.push(Infinity);
+      rowMax.push(-Infinity);
+    }
+    for (i = 0; i < pts.length; i++) {
+      ci = Math.floor(((pts[i].x - box.minX) / W) * cols);
+      if (ci < 0) ci = 0;
+      if (ci >= cols) ci = cols - 1;
+      if (pts[i].y > bottom[ci]) bottom[ci] = pts[i].y;
+      if (pts[i].y < top[ci]) top[ci] = pts[i].y;
+      cnt[ci]++;
+      ri = Math.floor(((pts[i].y - box.minY) / H) * rows);
+      if (ri < 0) ri = 0;
+      if (ri >= rows) ri = rows - 1;
+      rowN[ri]++;
+      if (pts[i].x < rowMin[ri]) rowMin[ri] = pts[i].x;
+      if (pts[i].x > rowMax[ri]) rowMax[ri] = pts[i].x;
+    }
+    var low = -Infinity;
+    for (c = 0; c < cols; c++) if (cnt[c] && bottom[c] > low) low = bottom[c];
+    var band = H * 0.16;
+    var lowCol = [];
+    for (c = 0; c < cols; c++) lowCol.push(!!(cnt[c] && bottom[c] >= low - band));
+    var feet = 0;
+    var inRun = false;
+    var first = -1;
+    var last = -1;
+    var lowN = 0;
+    for (c = 0; c < cols; c++) {
+      if (lowCol[c]) {
+        lowN++;
+        if (!inRun) {
+          feet++;
+          inRun = true;
+        }
+        if (first < 0) first = c;
+        last = c;
+      } else inRun = false;
+    }
+    var rise = 0;
+    var peak = false;
+    if (first >= 0 && last > first) {
+      var highest = Infinity;
+      var topmost = Infinity;
+      var seen = false;
+      for (c = first + 1; c <= last - 1; c++) {
+        if (!lowCol[c] && cnt[c]) {
+          seen = true;
+          if (bottom[c] < highest) highest = bottom[c];
+          if (top[c] < topmost) topmost = top[c];
+        }
+      }
+      if (seen && isFinite(highest)) rise = (low - highest) / H;
+      if (seen && isFinite(topmost) && topmost <= box.minY + H * 0.55) peak = true;
+    }
+    var tailRows = 0;
+    var wideTop = false;
+    var span;
+    for (r = rows - 1; r >= 0; r--) {
+      if (!rowN[r]) continue;
+      span = rowMax[r] - rowMin[r];
+      if (span > W * 0.32) break;
+      tailRows++;
+    }
+    for (r = 0; r < rows * 0.62; r++) {
+      if (!rowN[r]) continue;
+      if ((rowMax[r] - rowMin[r]) >= W * 0.62) wideTop = true;
+    }
+    return {
+      feet: feet,
+      footRise: rise,
+      peak: peak,
+      tail: tailRows / rows,
+      wideTop: wideTop,
+      cup: feet === 1 && lowN >= cols * 0.45,
+      /* 0 = one column, 1 = feet at both outer edges (an x, not a v). */
+      footSpan: first < 0 ? 0 : (last - first) / (cols - 1),
+      footMid: first < 0 ? 0.5 : ((first + last) / 2) / (cols - 1)
     };
   }
 
@@ -644,6 +840,24 @@
 
   var STICK_FAMILY = { i: 1, l: 1, j: 1 };
   var BOWL_FAMILY = { a: 1, o: 1, d: 1, p: 1, q: 1, b: 1, g: 1 };
+  var W_FAMILY = { w: 1, v: 1, u: 1, m: 1, n: 1 };
+  var Y_FAMILY = { y: 1, v: 1, u: 1, g: 1, q: 1, j: 1, x: 1 };
+
+  /* w, m, and y. A bowl or a dot stays with the other checks. */
+  function pickFork(g) {
+    var p = g.profile;
+    if (!p || g.tittle) return null;
+    /* closed is a real bowl (o, g, q). A pair of diagonals is not one. */
+    if (p.tail >= TAIL_RATIO && p.wideTop && g.aspect >= 0.48 && g.aspect < 1.42 && p.feet <= 2 && !g.closed) return 'y';
+    if (p.feet >= 3 && g.aspect >= 1.15 && p.tail < TAIL_RATIO && p.footRise >= 0.18 && p.peak) return 'm';
+    if (p.feet === 2 && g.aspect >= WIDE_RATIO && p.tail < TAIL_RATIO && p.footRise >= 0.22 && p.peak && !p.cup) return 'w';
+    /* A v is one low point. A gap at that point is still one point, not a w:
+       the feet stay near the middle and nothing rises between them. */
+    if (p.tail < 0.16 && p.wideTop && !g.closed && !p.peak && !p.cup &&
+        g.aspect >= 0.85 && g.aspect < 1.70 && p.feet >= 1 && p.feet <= 2 &&
+        p.footSpan <= 0.40 && p.footMid > 0.28 && p.footMid < 0.72) return 'v';
+    return null;
+  }
 
   function findRank(ranked, ch) {
     var i;
@@ -678,12 +892,17 @@
     var g;
     var stickPick;
     var bowlPick;
+    var forkPick;
     if (!ranked.length) return ranked;
     g = geometry(strokes);
     stickPick = pickStick(g, ctx);
     bowlPick = pickBowl(g);
+    forkPick = pickFork(g);
     if (stickPick && STICK_FAMILY[ranked[0].ch]) prefer(ranked, stickPick);
     else if (bowlPick && BOWL_FAMILY[ranked[0].ch]) prefer(ranked, bowlPick);
+    else if (forkPick === 'y' && Y_FAMILY[ranked[0].ch]) prefer(ranked, forkPick);
+    else if ((forkPick === 'w' || forkPick === 'm') && W_FAMILY[ranked[0].ch]) prefer(ranked, forkPick);
+    else if (forkPick === 'v' && (Y_FAMILY[ranked[0].ch] || ranked[0].ch === 'w')) prefer(ranked, forkPick);
     return ranked;
   }
 
@@ -967,6 +1186,9 @@
     READABLE_DIST: READABLE_DIST,
     CHIP_MAX: CHIP_MAX,
     GAP_RATIO: GAP_RATIO,
+    JOIN_RATIO: JOIN_RATIO,
+    HOLE_RATIO: HOLE_RATIO,
+    JOIN_CAP: JOIN_CAP,
     SPECK_RATIO: SPECK_RATIO,
     TINY: TINY,
     PAIR_WINDOW: PAIR_WINDOW,
@@ -977,6 +1199,8 @@
     HEIGHT_CONTRAST: HEIGHT_CONTRAST,
     SHORT_RATIO: SHORT_RATIO,
     TALL_RATIO: TALL_RATIO,
+    TAIL_RATIO: TAIL_RATIO,
+    WIDE_RATIO: WIDE_RATIO,
     TEMPLATES: TEMPLATES,
     segment: segment,
     classify: classify,

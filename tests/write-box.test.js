@@ -194,6 +194,66 @@ test('a bowl and a right stem reads as a, not o, d, p, or q', function () {
   assert.equal(friend.reading, 'friend');
 });
 
+test('a w with gaps, a flat bottom, or rounded valleys reads as w', function () {
+  function letter(form) {
+    const read = Ink.read(Samples.formWord('w', BOX, { 0: form }));
+    assert.equal(read.letters.length, 1, form);
+    assert.equal(read.text, 'w', form);
+    assert.equal(read.letters[0].ch, 'w', form);
+    ['v', 'u', 'm', 'n'].forEach(function (other) {
+      assert.notEqual(read.letters[0].ranked[0].ch, other, form + ' vs ' + other);
+    });
+    assert.ok(read.letters[0].dist < Ink.SURE_DIST, form);
+    assert.ok(read.letters[0].margin >= Ink.SURE_MARGIN, form + ' ' + read.letters[0].margin);
+    return read;
+  }
+  ['w-gap', 'w-flat', 'w-round', 'w-zig'].forEach(letter);
+  const gapped = Ink.segment(Samples.formWord('w', BOX, { 0: 'w-gap' }));
+  assert.equal(gapped.length, 1);
+  assert.equal(gapped[0].strokes.length, 4);
+  const was = Ink.planWrite(Ink.read(Samples.formWord('was', BOX, { 0: 'w-round' })), 'was');
+  assert.equal(was.action, 'celebrate');
+  assert.equal(was.miss, false);
+  assert.equal(was.reading, 'was');
+  const wide = Ink.planWrite(Ink.read(Samples.wideStrokes('was', BOX)), 'was');
+  assert.equal(wide.action, 'celebrate');
+  assert.equal(wide.reason, 'clear');
+  assert.equal(wide.reading, 'was');
+});
+
+test('a y with a tail reads as y, and a v or u or m stays itself', function () {
+  function one(form, want) {
+    const read = Ink.read(Samples.formWord(want, BOX, { 0: form }));
+    assert.equal(read.letters.length, 1, form);
+    assert.equal(read.text, want, form);
+    assert.ok(read.letters[0].dist < Ink.SURE_DIST, form + ' ' + read.letters[0].dist);
+    assert.ok(read.letters[0].margin >= Ink.SURE_MARGIN, form + ' ' + read.letters[0].margin);
+    return read;
+  }
+  ['y-short', 'y-off', 'y-gap', 'y-fork'].forEach(function (form) {
+    const read = one(form, 'y');
+    ['v', 'g', 'q', 'j'].forEach(function (other) {
+      assert.notEqual(read.letters[0].ranked[0].ch, other, form + ' vs ' + other);
+    });
+  });
+  one('v-point', 'v');
+  one('v-gap', 'v');
+  assert.notEqual(Ink.read(Samples.formWord('v', BOX, { 0: 'v-gap' })).text, 'w');
+  one('u-cup', 'u');
+  const m = Ink.segment(Samples.formWord('m', BOX, { 0: 'm-gap' }));
+  assert.equal(m.length, 1);
+  one('m-gap', 'm');
+  ['y-short', 'y-gap', 'y-off'].forEach(function (form) {
+    const they = Ink.planWrite(Ink.read(Samples.formWord('they', BOX, { 3: form })), 'they');
+    assert.equal(they.action, 'celebrate', form);
+    assert.equal(they.miss, false, form);
+    assert.equal(they.reading, 'they', form);
+  });
+  const wide = Ink.planWrite(Ink.read(Samples.wideStrokes('they', BOX)), 'they');
+  assert.equal(wide.action, 'celebrate');
+  assert.equal(wide.reading, 'they');
+});
+
 test('a soft near-miss can lean toward the word, and a crisp other letter cannot', function () {
   const soft = [
     fake('s', 0.05, 'c', 0.30),
@@ -430,12 +490,20 @@ test('the page is self-contained, ungraded, and kept off the main app', function
   assert.match(ink, /STEM_SPAN = 0\.90/);
   assert.match(ink, /SHORT_RATIO = 0\.78/);
   assert.match(ink, /TALL_RATIO = 0\.90/);
+  assert.match(ink, /JOIN_RATIO = 0\.65/);
+  assert.match(ink, /HOLE_RATIO = 1\.65/);
+  assert.match(ink, /JOIN_CAP = 0\.50/);
+  assert.match(ink, /TAIL_RATIO = 0\.20/);
+  assert.match(ink, /WIDE_RATIO = 1\.40/);
   assert.match(readme, /PAIR_WINDOW/);
   assert.match(readme, /PRIOR_REACH/);
   assert.match(readme, /0\.14/);
   assert.match(readme, /ASCENDER_RATIO/);
   assert.match(readme, /kid-print/);
   assert.match(readme, /demo=kid/);
+  assert.match(readme, /demo=wide/);
+  assert.match(readme, /JOIN_RATIO/);
+  assert.match(readme, /TAIL_RATIO/);
   assert.match(readme, /https:\/\/thelearningquest\.github\.io\/Start\/prototypes\/write-box\//);
   assert.match(readme, /s\[ai:e\]d/);
   assert.match(readme, /SURE_DIST/);

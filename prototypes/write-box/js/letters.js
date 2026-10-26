@@ -4,8 +4,9 @@
    compares against. A child may stroke them in any order.
 
    get(ch) is the neat print skeleton. variants(ch) adds that skeleton
-   plus a few kid-print forms: a single-story a, a dotted or dashed i,
-   and slightly wobbly bowls for the heart-word letters. */
+   plus kid-print forms: a single-story a, a dotted or dashed i,
+   a w in separate strokes or rounded valleys, a y with a short tail
+   or a gap in the fork, and a light wobble on the other letters. */
 (function (root) {
   'use strict';
 
@@ -304,10 +305,10 @@
       ], 1.6, 9)
     ],
     l: [
-      join([
+      [join([
         line(48, 30, 50, 100, 10),
         line(50, 100, 58, 110, 3)
-      ]),
+      ])],
       [line(46, 32, 54, 108, 12)]
     ],
     o: [
@@ -336,15 +337,77 @@
     c: [wobble([openC(50, 88, 22)], 2, 7)],
     e: [wobble([openC(50, 88, 22), line(30, 88, 68, 88, 6)], 2, 11)],
     f: [wobble(F.f, 1.6, 13)],
-    h: [wobble(F.h, 1.6, 15)],
     m: [wobble(F.m, 1.8, 17)],
     n: [wobble(F.n, 1.8, 19)],
     r: [wobble(F.r, 1.6, 21)],
     s: [wobble(F.s, 2, 23)],
     t: [wobble(F.t, 1.6, 25)],
     u: [wobble(F.u, 1.8, 27)],
-    w: [wobble(F.w, 1.8, 29)],
-    y: [wobble(F.y, 1.6, 31)]
+    /* Pointed zig-zag, four strokes with a gap at each corner, a flat
+       bottom, and two rounded valleys. */
+    w: [
+      wobble(F.w, 1.8, 29),
+      [
+        line(8, 66, 24, 108, 5),
+        line(36, 108, 48, 76, 5),
+        line(60, 76, 74, 108, 5),
+        line(86, 108, 100, 66, 5)
+      ],
+      [
+        line(12, 66, 30, 108, 5),
+        line(34, 108, 68, 108, 4),
+        line(72, 108, 90, 66, 5)
+      ],
+      [
+        line(12, 66, 12, 96, 4),
+        arc(28, 96, 16, Math.PI, 0, 8),
+        line(44, 96, 44, 72, 4),
+        line(52, 72, 52, 96, 4),
+        arc(68, 96, 16, Math.PI, 0, 8),
+        line(84, 96, 84, 66, 4)
+      ]
+    ],
+    /* A long tail, a short tail, and a fork whose arms do not quite meet. */
+    y: [
+      wobble(F.y, 1.6, 31),
+      [
+        line(28, 66, 50, 102, 5),
+        line(74, 66, 46, 118, 6)
+      ],
+      [
+        line(16, 66, 40, 98, 5),
+        line(84, 66, 58, 98, 5),
+        line(48, 104, 40, 134, 5)
+      ],
+      [
+        line(22, 66, 46, 100, 5),
+        line(80, 66, 54, 100, 5),
+        line(50, 108, 42, 132, 5)
+      ]
+    ],
+    /* A k or h whose joins do not quite touch, and a g with the tail a bit apart. */
+    k: [[
+      line(32, 28, 34, 108, 8),
+      line(40, 78, 68, 56, 5),
+      line(46, 82, 70, 108, 5)
+    ]],
+    h: [
+      wobble(F.h, 1.6, 15),
+      [
+        line(30, 28, 32, 108, 8),
+        join([
+          arc(54, 84, 16, Math.PI, Math.PI * 2, 8),
+          line(70, 84, 72, 108, 4)
+        ])
+      ]
+    ],
+    g: [[
+      circle(42, 84, 18),
+      join([
+        line(64, 78, 62, 124, 6),
+        arc(46, 124, 14, 0, Math.PI * 0.85, 6)
+      ])
+    ]]
   };
 
   function get(ch) {
