@@ -378,6 +378,12 @@ body:not(.quiet) .run .mark { animation: wiggle 1.6s ease-in-out infinite; }
   gap: 10px;
 }
 
+body[data-phase="ask"] #choices {
+  padding: 8px;
+  border-radius: 32px;
+  background: rgba(255, 248, 238, 0.72);
+}
+
 .chip {
   flex: 1 1 140px;
   min-height: 92px;
@@ -388,6 +394,15 @@ body:not(.quiet) .run .mark { animation: wiggle 1.6s ease-in-out infinite; }
   box-shadow: 0 6px 0 #d7c4f0;
   font-size: clamp(32px, 5vw, 52px);
   line-height: 1;
+}
+
+body:not(.quiet) .chip {
+  animation: chip-in 0.28s ease-out both;
+}
+
+@keyframes chip-in {
+  0% { transform: translateY(12px); opacity: 0; }
+  100% { transform: none; opacity: 1; }
 }
 
 .chip:active {
@@ -412,11 +427,13 @@ body:not(.quiet) .run .mark { animation: wiggle 1.6s ease-in-out infinite; }
 }
 
 body.quiet .run .mark,
-body.quiet .bit.fly { animation: none; }
+body.quiet .bit.fly,
+body.quiet .chip { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .run .mark,
-  .bit.fly { animation: none; }
+  .bit.fly,
+  .chip { animation: none; }
 }
 
 @media (max-width: 720px) {

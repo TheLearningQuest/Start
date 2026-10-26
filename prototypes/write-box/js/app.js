@@ -418,9 +418,12 @@
     whenPaperReady(function () {
       var box = paperBox();
       var askInk = kind === 'ask' || kind === 'demo-ask';
-      strokes = askInk ? samples.askStrokes(word.w, box) : samples.wordStrokes(word.w, box);
+      var kidInk = kind === 'kid' || kind === 'demo-kid';
+      if (askInk) strokes = samples.askStrokes(word.w, box);
+      else if (kidInk) strokes = samples.kidStrokes(word.w, box);
+      else strokes = samples.wordStrokes(word.w, box);
       redraw();
-      if (kind === 'demo-clear' || kind === 'demo-ask') submit();
+      if (kind === 'demo-clear' || kind === 'demo-ask' || kind === 'demo-kid') submit();
     });
   }
 
@@ -430,6 +433,7 @@
     var demo = q.demo || '';
     var want = q.word || '';
     var asking = sample === 'ask' || demo === 'ask';
+    var kid = sample === 'kid' || demo === 'kid';
     var word;
     renderGrid();
     try {
@@ -457,6 +461,7 @@
       openWord(word, { speak: false });
       if (sample === 'clear' || demo === 'clear') paintSample(demo === 'clear' ? 'demo-clear' : 'clear', word);
       else if (asking) paintSample(demo === 'ask' ? 'demo-ask' : 'ask', word);
+      else if (kid) paintSample(demo === 'kid' ? 'demo-kid' : 'kid', word);
     } else {
       showPick();
     }

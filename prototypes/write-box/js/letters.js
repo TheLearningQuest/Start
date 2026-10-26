@@ -1,7 +1,11 @@
 /* Print skeletons for the write-box matcher. A 100×140 box, y grows downward.
 
    These are not a tracing lesson. They are the shapes the recognizer
-   compares against. A child may stroke them in any order. */
+   compares against. A child may stroke them in any order.
+
+   get(ch) is the neat print skeleton. variants(ch) adds that skeleton
+   plus a few kid-print forms: a single-story a, a dotted or dashed i,
+   and slightly wobbly bowls for the heart-word letters. */
 (function (root) {
   'use strict';
 
@@ -56,6 +60,40 @@
 
   function circle(cx, cy, rad) {
     return arc(cx, cy, rad, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2, 22);
+  }
+
+  function oval(cx, cy, rx, ry, n) {
+    var pts = [];
+    var i;
+    var a;
+    n = n || 20;
+    for (i = 0; i <= n; i++) {
+      a = -Math.PI / 2 + (Math.PI * 2) * (i / n);
+      pts.push([rnum(cx + Math.cos(a) * rx), rnum(cy + Math.sin(a) * ry)]);
+    }
+    return pts;
+  }
+
+  /* Fixed jiggle so a kid bowl is not a perfect circle. Same seed, same shape. */
+  function wobble(strokes, amp, seed) {
+    var a = seed || 1;
+    var out = [];
+    var s;
+    var i;
+    var p;
+    for (s = 0; s < strokes.length; s++) {
+      var stroke = [];
+      for (i = 0; i < strokes[s].length; i++) {
+        p = strokes[s][i];
+        a = (a * 1664525 + 1013904223) >>> 0;
+        var dx = ((a % 1000) / 999 - 0.5) * 2 * amp;
+        a = (a * 1664525 + 1013904223) >>> 0;
+        var dy = ((a % 1000) / 999 - 0.5) * 2 * amp;
+        stroke.push([rnum(p[0] + dx), rnum(p[1] + dy)]);
+      }
+      out.push(stroke);
+    }
+    return out;
   }
 
   /* Opening faces right. Terminals sit near 1 o'clock and 5 o'clock. */
@@ -233,17 +271,102 @@
     line(28, BASE, 78, BASE, 5)
   ])];
 
+  /* Extra kid-print forms. The neat skeleton stays first in variants(). */
+  var KID = {
+    a: [
+      /* Bowl not quite closed, full right stem. */
+      [
+        arc(40, 90, 18, 0.7, Math.PI * 2 - 0.15, 16),
+        line(58, 70, 60, 110, 8)
+      ],
+      /* Round bowl, stem a little apart but still one letter. */
+      [
+        circle(38, 92, 16),
+        line(56, 74, 57, 112, 8)
+      ],
+      wobble([
+        circle(42, 90, 17),
+        line(58, 72, 60, 108, 8)
+      ], 2.4, 4),
+      /* Stem starts a bit above the bowl. Still an a, not a d. */
+      [
+        circle(40, 92, 17),
+        line(57, 56, 58, 110, 9)
+      ]
+    ],
+    i: [
+      [line(50, 78, 50, 108, 6), circle(50, 56, 3.2)],
+      [line(48, 74, 54, 108, 7), line(42, 50, 58, 48, 3)],
+      [line(46, 72, 54, 108, 7), circle(49, 46, 3.6)],
+      wobble([
+        line(50, 76, 50, 108, 6),
+        circle(50, 54, 4)
+      ], 1.6, 9)
+    ],
+    l: [
+      join([
+        line(48, 30, 50, 100, 10),
+        line(50, 100, 58, 110, 3)
+      ]),
+      [line(46, 32, 54, 108, 12)]
+    ],
+    o: [
+      [oval(50, 88, 20, 26, 20)],
+      [oval(50, 88, 26, 20, 20)],
+      wobble([circle(50, 88, 22)], 2.2, 3)
+    ],
+    d: [
+      [circle(38, 90, 17), line(58, 30, 60, 110, 12)],
+      wobble([circle(40, 88, 18), line(60, 32, 60, 108, 12)], 2, 6)
+    ],
+    p: [
+      [line(30, 68, 32, 130, 12), circle(54, 88, 17)],
+      wobble([line(34, 66, 34, 132, 12), circle(54, 86, 18)], 2, 8)
+    ],
+    q: [
+      [circle(40, 84, 17), line(58, 68, 60, 130, 10)],
+      wobble([
+        circle(44, 86, 18),
+        join([line(62, 66, 62, 128, 8), line(62, 128, 74, 138, 3)])
+      ], 1.8, 5)
+    ],
+    b: [
+      wobble([line(32, 30, 32, 108, 12), circle(54, 88, 17)], 1.8, 2)
+    ],
+    c: [wobble([openC(50, 88, 22)], 2, 7)],
+    e: [wobble([openC(50, 88, 22), line(30, 88, 68, 88, 6)], 2, 11)],
+    f: [wobble(F.f, 1.6, 13)],
+    h: [wobble(F.h, 1.6, 15)],
+    m: [wobble(F.m, 1.8, 17)],
+    n: [wobble(F.n, 1.8, 19)],
+    r: [wobble(F.r, 1.6, 21)],
+    s: [wobble(F.s, 2, 23)],
+    t: [wobble(F.t, 1.6, 25)],
+    u: [wobble(F.u, 1.8, 27)],
+    w: [wobble(F.w, 1.8, 29)],
+    y: [wobble(F.y, 1.6, 31)]
+  };
+
   function get(ch) {
     var key = String(ch || '').toLowerCase();
     return F[key] || [line(50, 36, 50, BASE, 8)];
   }
 
+  function variants(ch) {
+    var key = String(ch || '').toLowerCase();
+    var base = get(key);
+    var extra = KID[key] || [];
+    return [base].concat(extra);
+  }
+
   var api = {
     get: get,
+    variants: variants,
     shapes: F,
     arc: arc,
     line: line,
     circle: circle,
+    oval: oval,
     join: join
   };
 

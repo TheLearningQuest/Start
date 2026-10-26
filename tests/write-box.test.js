@@ -99,7 +99,7 @@ test('a short stem on the o in come asks come or came and is not a miss', functi
   assert.equal(plan.reason, 'ambiguous');
   assert.equal(plan.miss, false);
   assert.deepEqual(plan.choices, ['came', 'come']);
-  assert.equal(plan.prompt, 'Did you mean came or come?');
+  assert.equal(plan.prompt, 'Almost — was it came or come?');
   const meant = Ink.judgeChoice(plan.choices[1], 'come');
   assert.equal(meant.action, 'celebrate');
   assert.equal(meant.reason, 'choice');
@@ -116,7 +116,7 @@ test('said with a muddy a asks, and picking said still wins', function () {
   assert.equal(plan.action, 'ask');
   assert.equal(plan.miss, false);
   assert.deepEqual(plan.choices, ['said', 'soid']);
-  assert.equal(plan.prompt, 'Did you mean said or soid?');
+  assert.equal(plan.prompt, 'Almost — was it said or soid?');
   assert.equal(Ink.judgeChoice('said', 'said').action, 'celebrate');
   assert.equal(Ink.judgeChoice('said', 'said').miss, false);
   assert.equal(Ink.judgeChoice('soid', 'said').action, 'retry');
@@ -130,6 +130,119 @@ test('a stem long enough to be a clear a is a gentle mismatch, not a chip', func
   assert.deepEqual(plan.choices, []);
   assert.equal(plan.prompt, "Let's try that once more.");
   assert.equal(plan.reading, 'came');
+});
+
+test('a dotted i stays i, and a tall stroke with no dot stays l', function () {
+  function letter(word, index, forms) {
+    return Ink.read(Samples.formWord(word, BOX, forms)).letters[index];
+  }
+  ['i-dash', 'i-tiny', 'i-tap', 'i-short', 'i-talldot'].forEach(function (form) {
+    const forms = { 2: form };
+    const read = Ink.read(Samples.formWord('said', BOX, forms));
+    const plan = Ink.planWrite(read, 'said');
+    assert.equal(read.letters[2].ch, 'i', form);
+    assert.notEqual(read.letters[2].ranked[0].ch, 'l', form);
+    assert.equal(read.text, 'said', form);
+    assert.equal(plan.action, 'celebrate', form);
+    assert.equal(plan.miss, false, form);
+    assert.ok(read.letters[2].margin >= Ink.SURE_MARGIN, form);
+  });
+  assert.equal(letter('l', 0, { 0: 'l-tall' }).ch, 'l');
+  const lip = Ink.read(Samples.formWord('lip', BOX, { 0: 'l-tall', 1: 'i-tiny' }));
+  assert.equal(lip.text, 'lip');
+  assert.equal(lip.letters[0].ch, 'l');
+  assert.equal(lip.letters[1].ch, 'i');
+  const ill = Ink.read(Samples.formWord('ill', BOX, { 1: 'l-tall', 2: 'l-tall' }));
+  assert.equal(ill.text, 'ill');
+  const friend = Ink.planWrite(Ink.read(Samples.formWord('friend', BOX, { 2: 'i-tiny' })), 'friend');
+  assert.equal(friend.action, 'celebrate');
+  assert.equal(friend.miss, false);
+});
+
+test('a bowl and a right stem reads as a, not o, d, p, or q', function () {
+  function readForm(word, index, form) {
+    const forms = {};
+    forms[index] = form;
+    return Ink.read(Samples.formWord(word, BOX, forms));
+  }
+  ['a-kid', 'a-high', 'a-over', 'a-open'].forEach(function (form) {
+    const read = readForm('a', 0, form);
+    assert.equal(read.text, 'a', form);
+    assert.equal(read.letters[0].ch, 'a', form);
+    ['o', 'd', 'p', 'q'].forEach(function (other) {
+      assert.notEqual(read.letters[0].ranked[0].ch, other, form + ' vs ' + other);
+    });
+  });
+  assert.equal(readForm('o', 0, 'o-round').text, 'o');
+  assert.equal(readForm('d', 0, 'd-asc').text, 'd');
+  assert.equal(readForm('p', 0, 'p-desc').text, 'p');
+  assert.equal(readForm('q', 0, 'q-desc').text, 'q');
+  const was = Ink.planWrite(readForm('was', 1, 'a-high'), 'was');
+  assert.equal(was.action, 'celebrate');
+  assert.equal(was.miss, false);
+  assert.equal(was.reading, 'was');
+  const dad = readForm('dad', 1, 'a-high');
+  assert.equal(dad.text, 'dad');
+  assert.equal(dad.letters[0].ch, 'd');
+  assert.equal(dad.letters[1].ch, 'a');
+  const said = Ink.planWrite(Ink.read(Samples.kidStrokes('said', BOX)), 'said');
+  assert.equal(said.action, 'celebrate');
+  assert.equal(said.miss, false);
+  assert.equal(said.reading, 'said');
+  const friend = Ink.planWrite(Ink.read(Samples.kidStrokes('friend', BOX)), 'friend');
+  assert.equal(friend.action, 'celebrate');
+  assert.equal(friend.reading, 'friend');
+});
+
+test('a soft near-miss can lean toward the word, and a crisp other letter cannot', function () {
+  const soft = [
+    fake('s', 0.05, 'c', 0.30),
+    fake('a', 0.05, 'o', 0.30),
+    fake('l', 0.30, 'i', 0.40),
+    fake('d', 0.05, 'a', 0.30)
+  ];
+  const leaned = Ink.planWrite({ text: 'sald', letters: soft }, 'said');
+  assert.equal(leaned.action, 'celebrate');
+  assert.equal(leaned.reason, 'likely');
+  assert.equal(leaned.miss, false);
+  assert.equal(leaned.reading, 'said');
+  assert.deepEqual(leaned.choices, []);
+  assert.equal(soft[2].ch, 'l');
+
+  const crisp = [
+    fake('s', 0.05, 'c', 0.30),
+    fake('a', 0.05, 'o', 0.30),
+    fake('l', 0.08, 'i', 0.20),
+    fake('d', 0.05, 'a', 0.30)
+  ];
+  const miss = Ink.planWrite({ text: 'sald', letters: crisp }, 'said');
+  assert.equal(miss.action, 'retry');
+  assert.equal(miss.reason, 'mismatch');
+  assert.equal(miss.miss, true);
+  assert.equal(miss.reading, 'sald');
+  assert.deepEqual(miss.choices, []);
+
+  const toss = [
+    fake('c', 0.08, 'e', 0.30),
+    fake('a', 0.10, 'o', 0.10 + Ink.ASK_MARGIN - 0.01),
+    fake('m', 0.05, 'n', 0.30),
+    fake('e', 0.05, 'c', 0.30)
+  ];
+  const ask = Ink.planWrite({ text: 'came', letters: toss }, 'come');
+  assert.equal(ask.action, 'ask');
+  assert.equal(ask.miss, false);
+  assert.deepEqual(ask.choices, ['came', 'come']);
+
+  const third = [{
+    ch: 'l',
+    dist: 0.10,
+    margin: 0.03,
+    ranked: [{ ch: 'l', d: 0.10 }, { ch: 't', d: 0.13 }, { ch: 'i', d: 0.15 }]
+  }];
+  const chip = Ink.planWrite({ text: 'l', letters: third }, 'i');
+  assert.equal(chip.action, 'ask');
+  assert.deepEqual(chip.choices, ['l', 't', 'i']);
+  assert.equal(chip.miss, false);
 });
 
 test('a crisp other word does not offer the target as a free chip', function () {
@@ -170,7 +283,7 @@ test('uncertainty rules: ask, likely, soft, and unreadable', function () {
   assert.equal(ask.action, 'ask');
   assert.equal(ask.miss, false);
   assert.deepEqual(ask.choices, ['come', 'came']);
-  assert.equal(ask.prompt, 'Did you mean come or came?');
+  assert.equal(ask.prompt, 'Almost — was it come or came?');
 
   const edge = fake('o', 0.1, 'a', 0.1 + Ink.ASK_MARGIN);
   assert.equal(Ink.letterUnsure(edge), false);
@@ -222,7 +335,7 @@ test('chips swap one unsure letter, and a double swap only when exactly two are 
 
   const three = Ink.planWrite({ text: 'cat', letters: [fake('c', 0.05, 'o', 0.08), fake('a', 0.05, 'u', 0.09), fake('t', 0.05, 'l', 0.08)] }, 'cat');
   assert.equal(three.action, 'ask');
-  assert.equal(three.prompt, 'Which word did you write?');
+  assert.equal(three.prompt, 'Almost — which word did you write?');
   assert.equal(three.choices.length, 4);
 });
 
@@ -310,6 +423,19 @@ test('the page is self-contained, ungraded, and kept off the main app', function
   assert.match(ink, /READABLE_DIST = 0\.42/);
   assert.match(ink, /CHIP_MAX = 4/);
   assert.match(ink, /GAP_RATIO = 0\.10/);
+  assert.match(ink, /PAIR_WINDOW = 0\.22/);
+  assert.match(ink, /PRIOR_REACH = 0\.14/);
+  assert.match(ink, /ASCENDER_RATIO = 0\.85/);
+  assert.match(ink, /DESCENDER_RATIO = 0\.55/);
+  assert.match(ink, /STEM_SPAN = 0\.90/);
+  assert.match(ink, /SHORT_RATIO = 0\.78/);
+  assert.match(ink, /TALL_RATIO = 0\.90/);
+  assert.match(readme, /PAIR_WINDOW/);
+  assert.match(readme, /PRIOR_REACH/);
+  assert.match(readme, /0\.14/);
+  assert.match(readme, /ASCENDER_RATIO/);
+  assert.match(readme, /kid-print/);
+  assert.match(readme, /demo=kid/);
   assert.match(readme, /https:\/\/thelearningquest\.github\.io\/Start\/prototypes\/write-box\//);
   assert.match(readme, /s\[ai:e\]d/);
   assert.match(readme, /SURE_DIST/);
