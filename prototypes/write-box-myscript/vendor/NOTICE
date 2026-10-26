@@ -1,0 +1,9 @@
+iink-ts 4.1.0
+https://github.com/MyScript/iinkTS
+https://www.npmjs.com/package/iink-ts
+
+Copyright MyScript. Licensed under the Apache License, Version 2.0.
+The license text is LICENSE-Apache-2.0.txt.
+
+vendor/iink.min.js is the published UMD build (dist/iink.min.js).
+The sourceMappingURL comment was removed so the page does not request a map file.
