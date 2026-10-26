@@ -3,7 +3,11 @@
    wordStrokes lays the print skeletons in a row with a gap between letters.
    askStrokes keeps that word, but the first a or o is a bowl with a short
    stem: long enough to suggest a, short enough to still look like o.
-   MUDDY_STEM is that stem length, in the 100×140 letter box. */
+   MUDDY_STEM is that stem length, in the 100×140 letter box.
+
+   formWord swaps in a named kid shape (a dash-dot i, a stem that starts
+   a little high). kidStrokes uses those for a and i, which is what the
+   ?demo=kid link draws. */
 (function (root) {
   'use strict';
 
@@ -36,6 +40,30 @@
     return [bowl, side];
   }
 
+  /* Shapes that used to come back as the wrong letter. 100×140, y downward. */
+  var FORMS = {
+    'i-dash': [Letters.line(50, 70, 52, 108, 8), [[44, 50], [56, 48]]],
+    'i-tiny': [Letters.line(50, 72, 50, 108, 8), Letters.circle(50, 48, 2.2)],
+    'i-tap': [Letters.line(50, 74, 50, 108, 7), [[48, 50], [52, 49]]],
+    'i-short': [Letters.line(50, 74, 50, 108, 8)],
+    'i-talldot': [Letters.line(50, 36, 50, 108, 10), Letters.circle(50, 22, 4)],
+    'l-tall': [Letters.line(50, 28, 50, 108, 12)],
+    'a-kid': [
+      Letters.arc(40, 90, 18, 0.55, Math.PI * 2 + 0.15, 16),
+      Letters.line(58, 70, 60, 110, 8)
+    ],
+    'a-high': [Letters.circle(40, 90, 18), Letters.line(58, 52, 58, 108, 8)],
+    'a-over': [Letters.circle(40, 86, 18), Letters.line(58, 66, 58, 118, 8)],
+    'a-open': [
+      Letters.arc(42, 90, 18, 0.7, Math.PI * 2 - 0.1, 14),
+      Letters.line(60, 72, 62, 110, 8)
+    ],
+    'o-round': [Letters.oval(50, 88, 22, 24, 20)],
+    'd-asc': [Letters.circle(40, 88, 18), Letters.line(58, 30, 60, 108, 12)],
+    'p-desc': [Letters.line(32, 66, 32, 132, 12), Letters.circle(52, 84, 18)],
+    'q-desc': [Letters.circle(42, 80, 18), Letters.line(60, 66, 62, 132, 10)]
+  };
+
   function wordStrokes(word, box, opts) {
     opts = opts || {};
     box = box || { w: 900, h: 420 };
@@ -60,7 +88,9 @@
     var strokes = [];
     var i;
     for (i = 0; i < chars.length; i++) {
-      var shape = (i === muddyAt) ? muddyShape(opts.stem == null ? MUDDY_STEM : opts.stem) : Letters.get(chars[i]);
+      var shape = Letters.get(chars[i]);
+      if (opts.forms && opts.forms[i] && FORMS[opts.forms[i]]) shape = FORMS[opts.forms[i]];
+      else if (i === muddyAt) shape = muddyShape(opts.stem == null ? MUDDY_STEM : opts.stem);
       var lw = 100 * scale;
       var lh = 140 * scale;
       var ox = pad + i * slot + (slot - lw) / 2;
@@ -91,12 +121,32 @@
     return wordStrokes(word, box, opts);
   }
 
+  function formWord(word, box, forms) {
+    return wordStrokes(word, box, { forms: forms || {} });
+  }
+
+  /* The a starts a little high (it used to read as d). The i is a stem
+     plus a short dash (it used to read as l). */
+  function kidStrokes(word, box) {
+    var forms = {};
+    var i;
+    word = String(word || '');
+    for (i = 0; i < word.length; i++) {
+      if (word.charAt(i) === 'a') forms[i] = 'a-high';
+      else if (word.charAt(i) === 'i') forms[i] = 'i-dash';
+    }
+    return formWord(word, box, forms);
+  }
+
   var api = {
     MUDDY_STEM: MUDDY_STEM,
     ASK_WORD: ASK_WORD,
+    FORMS: FORMS,
     muddyShape: muddyShape,
     wordStrokes: wordStrokes,
-    askStrokes: askStrokes
+    askStrokes: askStrokes,
+    formWord: formWord,
+    kidStrokes: kidStrokes
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

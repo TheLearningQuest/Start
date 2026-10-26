@@ -3,8 +3,17 @@
    Strokes stay on the device. Nothing is fetched.
    Letters are matched with $P (Vatavu, Anthony, and Wobbrock, 2012):
    resample each stroke to a point cloud, scale it into a box,
-   and greedily match it to hand-made print templates in letters.js.
-   Stroke order and direction do not matter.
+   and greedily match it to the print skeletons and kid-print forms
+   in letters.js. Stroke order and direction do not matter.
+
+   $P alone ties i with l (the dot is a few points) and a with o, d, p, q
+   (a bowl plus a stem). After the cloud rank, a small geometric pass
+   may overturn a close pair:
+   - i vs l: a detached dot or short dash above the stem, or a stick
+     that is short next to a taller letter in the same word.
+   - a vs o, d, p, q: a closed or open bowl, a right-side stem, and
+     whether that stem rises above the bowl or drops below it.
+   The cue has to be clear. A half stem stays a question, not a grade.
 
    Uncertainty, so a close call does not become a miss:
    - SURE_DIST (0.22): a letter is crisp when its best distance is under this.
@@ -13,11 +22,16 @@
      Same number as SURE_MARGIN, so any close second means "ask", not "grade".
    - READABLE_DIST (0.42): a best distance above this is not a letter.
    - CHIP_MAX (4): at most four chips.
+   - PAIR_WINDOW (0.22): a strong dot or stem cue may pass $P inside this gap.
+   - PRIOR_REACH (0.14): after the ink is read, the demo word's letter may
+     lean forward when it is already this close, the ink is readable, and
+     the call is neither crisp nor a toss-up. A crisp other letter stays.
 
    Chips are the best spelling, then one chip per unsure letter with that
    letter swapped to its runner-up (left to right). When exactly two letters
-   are unsure, one more chip swaps both, if there is room.
-   The target word is not pasted in. A chip appears only if the ink produced it.
+   are unsure, one more chip swaps both, if there is room. If the demo word
+   itself is already one of those close readings, it is included too.
+   The target is not pasted in over a crisp other word.
 
    Nothing is saved, and a close call is not graded. miss is true only for a crisp other
    word (every letter under SURE_DIST, no close runner-up), or for a chip
@@ -41,17 +55,37 @@
   /* Strokes whose boxes sit closer than this fraction of the ink height
      are the same letter (a dot over i, the cross of t, a broken bowl). */
   var GAP_RATIO = 0.10;
-  /* A speck is ink much smaller than the whole word. Dots on i and j stay. */
+  /* A speck is ink much smaller than the whole word. A dot above a stem stays
+     even when it is smaller than this. */
   var SPECK_RATIO = 0.045;
   var TINY = 18;
   var SHEAR = 0.12;
+  /* Strong geometry (a dot, a full stem, a clear height) may overturn $P
+     when the two letters are at most this far apart. */
+  var PAIR_WINDOW = 0.22;
+  /* The demo letter may lean forward when it is already within this of the
+     best reading. Wider than ASK_MARGIN, so a real toss-up still asks. */
+  var PRIOR_REACH = 0.14;
+  /* Stem must rise this many bowl-heights above the bowl to count as d. */
+  var ASCENDER_RATIO = 0.85;
+  /* And drop this far below the bowl to count as q or p. */
+  var DESCENDER_RATIO = 0.55;
+  /* A full a-stem covers at least this much of the bowl, top to bottom. */
+  var STEM_SPAN = 0.90;
+  /* Tallest letter vs the median. Above this, the word has ascenders. */
+  var HEIGHT_CONTRAST = 1.32;
+  /* A stick this short beside a taller letter reads as i, not l. */
+  var SHORT_RATIO = 0.78;
+  /* A stick this tall, with no dot, reads as l. */
+  var TALL_RATIO = 0.90;
 
   var PROMPT_EMPTY = 'Write the word, then tap Submit.';
   var PROMPT_TINY = 'Write it a little bigger, then tap Submit.';
   var PROMPT_UNREADABLE = "I couldn't quite read that. Try again.";
   var PROMPT_MISMATCH = "Let's try that once more.";
   var PROMPT_WIN = 'You wrote it!';
-  var PROMPT_MANY = 'Which word did you write?';
+  var PROMPT_MANY = 'Almost — which word did you write?';
+  var PROMPT_SOFT = "Almost — let's try that once more.";
 
   function dist(a, b) {
     var dx = a.x - b.x;
@@ -262,15 +296,21 @@
   var li;
   for (li = 0; li < LETTERS.length; li++) {
     var ch = LETTERS.charAt(li);
-    var base = Letters.get(ch);
-    var variants = [base, shear(base, SHEAR), shear(base, -SHEAR)];
+    /* Primary print, slanted both ways, then kid-print forms unslanted.
+       Slant on every kid form made near letters tie. */
+    var forms = Letters.variants ? Letters.variants(ch) : [Letters.get(ch)];
     var v;
-    for (v = 0; v < variants.length; v++) {
-      TEMPLATES.push({
-        ch: ch,
-        cloud: prep(variants[v]),
-        aspect: aspectOf(variants[v])
-      });
+    for (v = 0; v < forms.length; v++) {
+      var slants = v === 0 ? [0, SHEAR, -SHEAR] : [0];
+      var s;
+      for (s = 0; s < slants.length; s++) {
+        var shaped = slants[s] ? shear(forms[v], slants[s]) : forms[v];
+        TEMPLATES.push({
+          ch: ch,
+          cloud: prep(shaped),
+          aspect: aspectOf(shaped)
+        });
+      }
     }
   }
 
@@ -290,6 +330,35 @@
   /* gap is negative when the boxes overlap in x. */
   function xGap(a, b) {
     return Math.max(a.minX, b.minX) - Math.min(a.maxX, b.maxX);
+  }
+
+  /* A small mark sitting just above a taller stroke: the dot on i or j,
+     including a short dash. A crossbar cuts through the stem, so it is not one. */
+  function isTittleBox(small, tall) {
+    var sh = small.maxY - small.minY;
+    var sw = small.maxX - small.minX;
+    var bh = Math.max(1, tall.maxY - tall.minY);
+    var gap = tall.minY - small.maxY;
+    var scy = (small.minY + small.maxY) / 2;
+    if (sh > bh * 0.48) return false;
+    if (sw > bh * 0.75) return false;
+    if (gap < -Math.max(2, bh * 0.08)) return false;
+    if (scy > tall.minY + bh * 0.02) return false;
+    if (small.maxX < tall.minX - bh * 0.35) return false;
+    if (small.minX > tall.maxX + bh * 0.35) return false;
+    return true;
+  }
+
+  function keepStroke(item, items, H) {
+    var i;
+    if (diagOf(item.b) >= SPECK_RATIO * H) return true;
+    for (i = 0; i < items.length; i++) {
+      if (items[i] === item) continue;
+      var bh = items[i].b.maxY - items[i].b.minY;
+      if (bh < H * 0.22) continue;
+      if (isTittleBox(item.b, items[i].b)) return true;
+    }
+    return false;
   }
 
   function shouldMerge(a, b, H) {
@@ -318,7 +387,7 @@
     if (Math.max(H, W) >= TINY) {
       var big = [];
       for (i = 0; i < items.length; i++) {
-        if (diagOf(items[i].b) >= SPECK_RATIO * H) big.push(items[i]);
+        if (keepStroke(items[i], items, H)) big.push(items[i]);
       }
       if (big.length) items = big;
     }
@@ -342,7 +411,283 @@
     return items;
   }
 
-  function classify(strokes) {
+  function strokePoints(stroke) {
+    var pts = [];
+    var i;
+    var p;
+    stroke = stroke || [];
+    for (i = 0; i < stroke.length; i++) {
+      p = stroke[i];
+      pts.push({ x: p.x != null ? p.x : p[0], y: p.y != null ? p.y : p[1] });
+    }
+    return pts;
+  }
+
+  function hasHook(pts, box) {
+    var h;
+    var yCut;
+    var minX = Infinity;
+    var maxX = -Infinity;
+    var minU = Infinity;
+    var maxU = -Infinity;
+    var n = 0;
+    var i;
+    if (!pts || pts.length < 5) return false;
+    h = Math.max(1, box.maxY - box.minY);
+    yCut = box.minY + h * 0.68;
+    for (i = 0; i < pts.length; i++) {
+      if (pts[i].y >= yCut) {
+        if (pts[i].x < minX) minX = pts[i].x;
+        if (pts[i].x > maxX) maxX = pts[i].x;
+        n++;
+      } else if (pts[i].y < box.minY + h * 0.45) {
+        if (pts[i].x < minU) minU = pts[i].x;
+        if (pts[i].x > maxU) maxU = pts[i].x;
+      }
+    }
+    if (n < 2 || !isFinite(minX)) return false;
+    var bottomW = maxX - minX;
+    var upperW = isFinite(minU) ? (maxU - minU) : 0;
+    return bottomW > h * 0.18 && bottomW > upperW + h * 0.08;
+  }
+
+  function closureOf(pts) {
+    var cx = 0;
+    var cy = 0;
+    var bins = [];
+    var i;
+    var occupied = 0;
+    var emptyRight = 0;
+    if (!pts || pts.length < 8) return { closed: false, occupied: 0 };
+    for (i = 0; i < pts.length; i++) {
+      cx += pts[i].x;
+      cy += pts[i].y;
+    }
+    cx /= pts.length;
+    cy /= pts.length;
+    for (i = 0; i < 16; i++) bins.push(0);
+    for (i = 0; i < pts.length; i++) {
+      var ang = Math.atan2(pts[i].y - cy, pts[i].x - cx);
+      var bi = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 16) % 16;
+      bins[bi]++;
+    }
+    for (i = 0; i < 16; i++) if (bins[i] > 0) occupied++;
+    for (i = 6; i <= 10; i++) if (!bins[i]) emptyRight++;
+    return {
+      closed: occupied >= 12 && emptyRight <= 1,
+      occupied: occupied
+    };
+  }
+
+  /* Right and left contours, as a fraction of width. A stem makes one side flat. */
+  function contourRange(pts, box) {
+    var rows = 12;
+    var right = [];
+    var left = [];
+    var cnt = [];
+    var r;
+    var i;
+    var H = Math.max(1, box.maxY - box.minY);
+    var W = Math.max(1, box.maxX - box.minX);
+    for (r = 0; r < rows; r++) {
+      right.push(-Infinity);
+      left.push(Infinity);
+      cnt.push(0);
+    }
+    for (i = 0; i < pts.length; i++) {
+      var ri = Math.floor(((pts[i].y - box.minY) / H) * rows);
+      if (ri < 0) ri = 0;
+      if (ri >= rows) ri = rows - 1;
+      if (pts[i].x > right[ri]) right[ri] = pts[i].x;
+      if (pts[i].x < left[ri]) left[ri] = pts[i].x;
+      cnt[ri]++;
+    }
+    function span(arr) {
+      var lo = Infinity;
+      var hi = -Infinity;
+      var n = 0;
+      var k;
+      for (k = 0; k < arr.length; k++) {
+        if (!cnt[k] || !isFinite(arr[k])) continue;
+        if (arr[k] < lo) lo = arr[k];
+        if (arr[k] > hi) hi = arr[k];
+        n++;
+      }
+      if (n < 4) return 1;
+      return (hi - lo) / W;
+    }
+    return { right: span(right), left: span(left) };
+  }
+
+  function geometry(strokes) {
+    var stats = [];
+    var i;
+    strokes = strokes || [];
+    for (i = 0; i < strokes.length; i++) {
+      var pts = strokePoints(strokes[i]);
+      if (!pts.length) continue;
+      var b = bbox(pts);
+      stats.push({
+        pts: pts,
+        b: b,
+        w: Math.max(0, b.maxX - b.minX),
+        h: Math.max(0, b.maxY - b.minY),
+        cx: (b.minX + b.maxX) / 2,
+        cy: (b.minY + b.maxY) / 2
+      });
+    }
+    if (!stats.length) return { tittle: false, stick: false, hook: false, bowlReal: false, closed: false, occupied: 0, aspect: 1, stem: null };
+    var all = stats[0].b;
+    for (i = 1; i < stats.length; i++) all = unionBox(all, stats[i].b);
+    var H = Math.max(1, all.maxY - all.minY);
+    var W = Math.max(1, all.maxX - all.minX);
+    var tallest = stats[0];
+    for (i = 1; i < stats.length; i++) if (stats[i].h > tallest.h) tallest = stats[i];
+    var tittles = [];
+    var body = [];
+    for (i = 0; i < stats.length; i++) {
+      var s = stats[i];
+      if (s !== tallest && isTittleBox(s.b, tallest.b)) tittles.push(s);
+      else body.push(s);
+    }
+    if (!body.length) body = stats.slice();
+    var bodyBox = body[0].b;
+    for (i = 1; i < body.length; i++) bodyBox = unionBox(bodyBox, body[i].b);
+    var bodyH = Math.max(1, bodyBox.maxY - bodyBox.minY);
+    var bodyW = Math.max(0.001, bodyBox.maxX - bodyBox.minX);
+    var stems = [];
+    var bowls = [];
+    for (i = 0; i < body.length; i++) {
+      var st = body[i];
+      var skinny = st.h >= st.w * 2.4 && st.h >= bodyH * 0.55 && st.w <= Math.max(bodyW * 0.45, H * 0.18);
+      if (skinny) stems.push(st);
+      else bowls.push(st);
+    }
+    var bowlBox = null;
+    if (bowls.length) {
+      bowlBox = bowls[0].b;
+      for (i = 1; i < bowls.length; i++) bowlBox = unionBox(bowlBox, bowls[i].b);
+    }
+    var bowlH = bowlBox ? Math.max(0, bowlBox.maxY - bowlBox.minY) : 0;
+    var bowlW = bowlBox ? Math.max(0, bowlBox.maxX - bowlBox.minX) : 0;
+    var bowlReal = !!(bowlBox && bowlH >= H * 0.32 && bowlW >= H * 0.22);
+    var stem = null;
+    for (i = 0; i < stems.length; i++) {
+      var ref = bowlReal ? bowlBox : bodyBox;
+      var bh = Math.max(1, ref.maxY - ref.minY);
+      var above = (ref.minY - stems[i].b.minY) / bh;
+      var below = (stems[i].b.maxY - ref.maxY) / bh;
+      var overlapTop = Math.max(stems[i].b.minY, ref.minY);
+      var overlapBot = Math.min(stems[i].b.maxY, ref.maxY);
+      var span = overlapBot > overlapTop ? (overlapBot - overlapTop) / bh : 0;
+      var side = 'right';
+      if (bowlReal) side = stems[i].cx <= (bowlBox.minX + bowlBox.maxX) / 2 ? 'left' : 'right';
+      var reach = span + Math.max(0, above) + Math.max(0, below);
+      var prev = stem ? stem.span + Math.max(0, stem.above) + Math.max(0, stem.below) : -1;
+      if (reach > prev) stem = { side: side, above: above, below: below, span: span };
+    }
+    var hook = false;
+    for (i = 0; i < body.length; i++) {
+      if (hasHook(body[i].pts, body[i].b)) hook = true;
+    }
+    var bowlPts = [];
+    for (i = 0; i < bowls.length; i++) bowlPts = bowlPts.concat(bowls[i].pts);
+    var close = bowlReal ? closureOf(bowlPts) : { closed: false, occupied: 0 };
+    var allPts = [];
+    for (i = 0; i < stats.length; i++) allPts = allPts.concat(stats[i].pts);
+    var edge = contourRange(allPts, all);
+    return {
+      tittle: tittles.length > 0,
+      stick: bowls.length === 0,
+      hook: hook,
+      bowlReal: bowlReal,
+      closed: close.closed,
+      occupied: close.occupied,
+      aspect: W / H,
+      stem: stem,
+      edge: edge
+    };
+  }
+
+  /* i, l, and j. A dot wins. Without one, height next to the rest of the word does. */
+  function pickStick(g, ctx) {
+    var narrow = g.aspect < 0.45;
+    if (!(g.stick || (g.tittle && narrow))) return null;
+    if (g.tittle && g.hook) return 'j';
+    if (g.tittle && !g.hook) return 'i';
+    if (g.hook) return null;
+    if (ctx && ctx.contrast && ctx.rel <= SHORT_RATIO) return 'i';
+    if (ctx && ctx.contrast && ctx.rel >= TALL_RATIO) return 'l';
+    return null;
+  }
+
+  /* a, o, d, p, q. A partial stem (the muddy o) returns null on purpose. */
+  function pickBowl(g) {
+    var s;
+    if (!g.bowlReal) return null;
+    s = g.stem;
+    if (s && s.side === 'right') {
+      if (s.above >= ASCENDER_RATIO && s.below < 0.45 && g.closed) return 'd';
+      if (s.below >= DESCENDER_RATIO && s.above < 0.45 && g.closed) return 'q';
+      if (s.above < 0.75 && s.below < 0.50 && s.span >= STEM_SPAN && s.below >= -0.10 && s.above >= -0.15) return 'a';
+      return null;
+    }
+    if (s && s.side === 'left') {
+      if (s.below >= DESCENDER_RATIO && s.above < 0.45 && g.closed) return 'p';
+      return null;
+    }
+    if (!s && g.closed && g.occupied >= 15 && g.aspect > 0.8 && g.aspect < 1.25) {
+      if (g.edge && g.edge.right < 0.55 && g.edge.left < 0.55 && Math.abs(g.edge.right - g.edge.left) < 0.18) return 'o';
+    }
+    return null;
+  }
+
+  var STICK_FAMILY = { i: 1, l: 1, j: 1 };
+  var BOWL_FAMILY = { a: 1, o: 1, d: 1, p: 1, q: 1, b: 1, g: 1 };
+
+  function findRank(ranked, ch) {
+    var i;
+    for (i = 0; i < ranked.length; i++) if (ranked[i].ch === ch) return i;
+    return -1;
+  }
+
+  /* Move ch to the front when $P already had it nearby, and separate the
+     runner-up so a clear dot or stem is not offered as a toss-up. */
+  function prefer(ranked, ch) {
+    var idx = findRank(ranked, ch);
+    var item;
+    var k;
+    var need;
+    if (idx < 0) return ranked;
+    item = ranked[idx];
+    if (idx !== 0) {
+      if (item.d - ranked[0].d > PAIR_WINDOW) return ranked;
+      if (item.d > READABLE_DIST) return ranked;
+      ranked.splice(idx, 1);
+      ranked.unshift(item);
+    }
+    for (k = 1; k < ranked.length; k++) {
+      need = ranked[0].d + SURE_MARGIN + 0.01;
+      if (ranked[k].d < need) ranked[k].d = need + (k - 1) * 0.001;
+    }
+    ranked.sort(function (a, b) { return a.d - b.d; });
+    return ranked;
+  }
+
+  function discriminate(ranked, strokes, ctx) {
+    var g;
+    var stickPick;
+    var bowlPick;
+    if (!ranked.length) return ranked;
+    g = geometry(strokes);
+    stickPick = pickStick(g, ctx);
+    bowlPick = pickBowl(g);
+    if (stickPick && STICK_FAMILY[ranked[0].ch]) prefer(ranked, stickPick);
+    else if (bowlPick && BOWL_FAMILY[ranked[0].ch]) prefer(ranked, bowlPick);
+    return ranked;
+  }
+
+  function classify(strokes, ctx) {
     var cloud = prep(strokes);
     var asp = aspectOf(strokes);
     var best = {};
@@ -365,14 +710,31 @@
       if (Object.prototype.hasOwnProperty.call(best, key)) ranked.push({ ch: key, d: best[key] });
     }
     ranked.sort(function (a, b) { return a.d - b.d; });
+    discriminate(ranked, strokes, ctx || null);
     var top = ranked[0];
     var second = ranked[1];
-    var margin = second ? second.d - top.d : 1;
     return {
       ch: top.ch,
       dist: top.d,
-      margin: margin,
-      ranked: ranked.slice(0, 3)
+      margin: second ? second.d - top.d : 1,
+      ranked: ranked.slice(0, 5)
+    };
+  }
+
+  function wordCue(groups) {
+    var hs = [];
+    var i;
+    var maxH = 0;
+    for (i = 0; i < groups.length; i++) {
+      var h = groups[i].b.maxY - groups[i].b.minY;
+      hs.push(h);
+      if (h > maxH) maxH = h;
+    }
+    var sorted = hs.slice().sort(function (a, b) { return a - b; });
+    var median = sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : 0;
+    return {
+      maxH: Math.max(1, maxH),
+      contrast: groups.length >= 2 && median > 0 && maxH >= median * HEIGHT_CONTRAST
     };
   }
 
@@ -385,9 +747,11 @@
     var H = all.maxY - all.minY;
     var W = all.maxX - all.minX;
     if (Math.max(H, W) < TINY) return { text: '', letters: [], reason: 'tiny' };
+    var cue = wordCue(groups);
     var letters = [];
     for (i = 0; i < groups.length; i++) {
-      var c = classify(groups[i].strokes);
+      var h = groups[i].b.maxY - groups[i].b.minY;
+      var c = classify(groups[i].strokes, { rel: h / cue.maxH, contrast: cue.contrast });
       c.box = groups[i].b;
       letters.push(c);
     }
@@ -452,7 +816,7 @@
   }
 
   function askPrompt(choices) {
-    if (choices.length === 2) return 'Did you mean ' + choices[0] + ' or ' + choices[1] + '?';
+    if (choices.length === 2) return 'Almost — was it ' + choices[0] + ' or ' + choices[1] + '?';
     return PROMPT_MANY;
   }
 
@@ -462,7 +826,8 @@
     else if (action === 'ask') prompt = askPrompt(choices);
     else if (reason === 'tiny') prompt = PROMPT_TINY;
     else if (reason === 'unreadable') prompt = PROMPT_UNREADABLE;
-    else if (reason === 'mismatch' || reason === 'choice' || reason === 'soft') prompt = PROMPT_MISMATCH;
+    else if (reason === 'soft') prompt = PROMPT_SOFT;
+    else if (reason === 'mismatch' || reason === 'choice') prompt = PROMPT_MISMATCH;
     else if (reason === 'empty') prompt = PROMPT_EMPTY;
     var miss = action === 'retry' && (reason === 'mismatch' || reason === 'choice');
     return {
@@ -473,6 +838,92 @@
       prompt: prompt,
       miss: miss
     };
+  }
+
+  function copyLetter(letter) {
+    var ranked = [];
+    var src = (letter && letter.ranked) || [];
+    var i;
+    for (i = 0; i < src.length; i++) ranked.push({ ch: src[i].ch, d: src[i].d });
+    return {
+      ch: letter.ch,
+      dist: letter.dist,
+      margin: letter.margin,
+      ranked: ranked,
+      box: letter.box
+    };
+  }
+
+  /* Lean toward the demo letter only when the ink already put it close,
+     and the reading is neither crisp nor a genuine toss-up. */
+  function nudgeLetter(letter, ch) {
+    var ranked = letter.ranked;
+    var idx;
+    var best;
+    var hit;
+    var gap;
+    var old;
+    if (!ranked || !ranked.length || !ch) return;
+    if (ranked[0].ch === ch) return;
+    if (letterSure(letter)) return;
+    idx = findRank(ranked, ch);
+    if (idx < 0) return;
+    best = ranked[0];
+    hit = ranked[idx];
+    if (hit.d > READABLE_DIST || best.d > READABLE_DIST) return;
+    gap = hit.d - best.d;
+    if (gap < ASK_MARGIN) return;
+    if (gap > PRIOR_REACH) return;
+    old = best.d;
+    hit.d = old;
+    best.d = old + gap;
+    ranked.sort(function (a, b) { return a.d - b.d; });
+    letter.ch = ranked[0].ch;
+    letter.dist = ranked[0].d;
+    letter.margin = ranked.length > 1 ? ranked[1].d - ranked[0].d : 1;
+  }
+
+  function applyPrior(letters, target) {
+    var out = [];
+    var i;
+    for (i = 0; i < letters.length; i++) {
+      var letter = copyLetter(letters[i]);
+      if (target && i < target.length) nudgeLetter(letter, target.charAt(i));
+      out.push(letter);
+    }
+    return out;
+  }
+
+  /* The demo word joins the chips when every letter that differs is already
+     a close, readable candidate. A crisp other letter blocks it. */
+  function includeTarget(choices, letters, target) {
+    var chars;
+    var alt;
+    var i;
+    var k;
+    var changed = false;
+    if (!target || !choices.length || target.length !== letters.length) return choices;
+    if (choices.indexOf(target) !== -1) return choices;
+    chars = choices[0].split('');
+    if (chars.length !== target.length) return choices;
+    alt = chars.slice();
+    for (i = 0; i < letters.length; i++) {
+      var ranked;
+      var hit = null;
+      if (alt[i] === target.charAt(i)) continue;
+      ranked = letters[i].ranked || [];
+      if (!ranked.length) return choices;
+      for (k = 0; k < ranked.length; k++) {
+        if (ranked[k].ch === target.charAt(i)) hit = ranked[k];
+      }
+      if (!hit || !(hit.d <= READABLE_DIST)) return choices;
+      if (hit.d - ranked[0].d >= ASK_MARGIN) return choices;
+      alt[i] = target.charAt(i);
+      changed = true;
+    }
+    if (!changed) return choices;
+    if (choices.indexOf(alt.join('')) === -1 && choices.length < CHIP_MAX) choices.push(alt.join(''));
+    return choices;
   }
 
   function planWrite(readResult, target) {
@@ -487,7 +938,8 @@
     for (i = 0; i < letters.length; i++) {
       if (letterUnreadable(letters[i])) return finish('retry', 'unreadable', [], res.text || '');
     }
-    var choices = buildChoices(letters);
+    letters = applyPrior(letters, target);
+    var choices = includeTarget(buildChoices(letters), letters, target);
     var primary = choices[0] || '';
     var sure = true;
     for (i = 0; i < letters.length; i++) {
@@ -517,6 +969,14 @@
     GAP_RATIO: GAP_RATIO,
     SPECK_RATIO: SPECK_RATIO,
     TINY: TINY,
+    PAIR_WINDOW: PAIR_WINDOW,
+    PRIOR_REACH: PRIOR_REACH,
+    ASCENDER_RATIO: ASCENDER_RATIO,
+    DESCENDER_RATIO: DESCENDER_RATIO,
+    STEM_SPAN: STEM_SPAN,
+    HEIGHT_CONTRAST: HEIGHT_CONTRAST,
+    SHORT_RATIO: SHORT_RATIO,
+    TALL_RATIO: TALL_RATIO,
     TEMPLATES: TEMPLATES,
     segment: segment,
     classify: classify,
