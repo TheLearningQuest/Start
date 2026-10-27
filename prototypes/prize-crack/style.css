@@ -666,21 +666,68 @@ body.still .bow { transition: none; }
 
 body.shell #lobby { display: none !important; }
 
-body.shell .gift {
+body.shell .cracks { display: none; }
+
+body.shell .egg {
   transition: transform 0.28s cubic-bezier(.2, 1.45, .32, 1);
   transform-origin: 50% 78%;
 }
 
-body.shell #prize.crack-1 .gift { transform: rotate(-11deg); }
-body.shell #prize.crack-2 .gift { transform: rotate(10deg) translateY(-8px); }
-
-body.shell.calm .gift,
-body.shell.still .gift { transition: none; }
-
-body.shell.beat-word #kicker,
-body.shell.beat-sentence #kicker {
-  background: #fff;
+body.shell .half,
+body.shell .seam {
+  transition: transform 0.32s cubic-bezier(.2, 1.45, .32, 1), opacity 0.32s ease;
 }
+
+body.shell .half.top { transform-origin: 50% 100%; }
+body.shell .half.bot { transform-origin: 50% 0%; }
+
+body.shell #prize.crack-1 .egg { transform: rotate(-11deg); }
+body.shell #prize.crack-1 .half.top { transform: translateY(-22px) rotate(-10deg); }
+body.shell #prize.crack-1 .half.bot { transform: translateY(12px) rotate(5deg); }
+body.shell #prize.crack-1 .seam { transform: scaleX(0.9); opacity: 0.65; }
+
+body.shell #prize.crack-2 .egg { transform: rotate(10deg) translateY(-8px); }
+body.shell #prize.crack-2 .half.top { transform: translateY(-48px) rotate(-16deg); }
+body.shell #prize.crack-2 .half.bot { transform: translateY(30px) rotate(12deg); }
+body.shell #prize.crack-2 .seam { opacity: 0; transform: scaleX(0.3); }
+
+body.shell #prize.split .egg { transform: none; }
+body.shell #prize.split .half.top { transform: translateY(-78px) rotate(-22deg); }
+body.shell #prize.split .half.bot { transform: translateY(58px) rotate(16deg); }
+body.shell #prize.split .seam { opacity: 0; }
+
+body.shell.calm .egg,
+body.shell.calm .half,
+body.shell.calm .seam,
+body.shell.still .egg,
+body.shell.still .half,
+body.shell.still .seam { transition: none; }
+
+body.shell[data-grade="k"] .half.top {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95) 0 18px, transparent 19px),
+    linear-gradient(165deg, #ffd0e8 0%, #ff4d88 55%, #e21870 100%);
+}
+
+body.shell[data-grade="1"] .half.top {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95) 0 18px, transparent 19px),
+    linear-gradient(165deg, #ffe7a8 0%, #ffb020 55%, #e09400 100%);
+}
+
+body.shell[data-grade="2"] .half.top {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95) 0 18px, transparent 19px),
+    linear-gradient(165deg, #d6e8ff 0%, #3d8bff 55%, #1d5fd0 100%);
+}
+
+body.shell.beat-word #kicker { background: #fff; }
+
+body.shell.beat-sentence #kicker { display: none; }
+
+body.shell.beat-sentence .actions { margin-top: 4px; }
+
+body.shell.beat-sentence .actions button { min-height: 72px; }
 
 body.shell .run.heart {
   cursor: pointer;
@@ -700,26 +747,32 @@ body.shell.beat-word .run.heart:not(.found) .glyphs {
 body.shell #sentence[hidden] { display: none !important; }
 
 body.shell.beat-sentence #sentence {
-  max-width: min(26ch, 94vw);
-  margin-top: 8px;
+  display: block;
+  max-width: min(16em, 96vw);
+  margin: 0;
   padding: 0 8px;
   background: transparent;
+  text-align: center;
   font-weight: 700;
-  font-size: clamp(28px, 4.6vw, 48px);
-  letter-spacing: -0.03em;
-  line-height: 1.12;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
   color: var(--ink);
-  -webkit-text-stroke: 0.035em #fff;
+  -webkit-text-stroke: 0.045em #fff;
   paint-order: stroke fill;
 }
 
-body.shell.beat-sentence #sentence .hit {
-  color: var(--pink);
+body.shell.beat-sentence #word {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin: 0 0.04em;
+  vertical-align: -0.06em;
+  font-size: 1em;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
 }
 
-body.shell[data-grade="k"] .tag { background: #ffd0e4; color: #9d1458; }
-body.shell[data-grade="1"] .tag { background: #ffe3a3; color: #8a5a00; }
-body.shell[data-grade="2"] .tag { background: #d6e8ff; color: #1d4e9c; }
+body.shell.beat-sentence #sentence .side { font: inherit; letter-spacing: inherit; }
 
 #reveal { overflow: visible; }
 

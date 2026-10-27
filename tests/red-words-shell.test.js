@@ -88,7 +88,7 @@ test('the shell walks claw, present, both spells, write, then the seed', functio
   assert.equal(clawed.word.grade, 'k');
   assert.equal(
     flow.framePath(clawed),
-    '../prize-crack/?shell=1&won=toy&word=said&grade=k'
+    '../prize-crack/?shell=1&won=capsule&word=said&grade=k'
   );
 
   const opened = flow.applyMessage(clawed, { source: flow.SOURCE, step: 'reveal', done: true });
@@ -278,13 +278,17 @@ test('the shell page frames the steps and keeps secrets out of git', function ()
   assert.match(game, /0x3d8bff/);
   assert.match(game, /kind: 'capsule'/);
   assert.match(prize, /lesson-shell/);
-  assert.match(prize, /Tilt the present open/);
+  assert.match(prize, /Open the capsule/);
   assert.match(prize, /Tap the red letters/);
   assert.match(prize, /Read the sentence out loud/);
   assert.match(prize, /sentenceEl\.hidden = true/);
+  assert.match(prize, /sentenceEl\.appendChild\(wordEl\)/);
+  assert.match(prize, /prizeBtn\.classList\.toggle\('split'/);
   const prizeCss = read('prototypes/prize-crack/style.css');
   assert.match(prizeCss, /beat-sentence/);
   assert.match(prizeCss, /\.found \.mark/);
+  assert.match(prizeCss, /#prize\.split \.half\.top/);
+  assert.match(prizeCss, /font-size: 1em/);
   assert.match(app, /createHatch/);
   assert.match(app, /data-tier/);
   assert.match(css, /data-tier="legendary"/);
