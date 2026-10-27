@@ -19,6 +19,7 @@
   var seedSentence = document.getElementById('seed-sentence');
   var seedYay = document.getElementById('seed-yay');
   var pouch = document.getElementById('pouch');
+  var rarityEl = pouch.querySelector('.rarity');
   var anotherBtn = document.getElementById('another');
   var live = document.getElementById('live');
 
@@ -30,6 +31,7 @@
 
   var session = flow.blankSession();
   var tear = flow.createTear({ reduced: reduced });
+  var hatch = null;
   var celebrated = false;
   var moved = false;
   var suppress = false;
@@ -116,11 +118,20 @@
     osc.stop(t + dur + 0.02);
   }
 
-  function cheer() {
+  function cheer(tier) {
     tone(523, 0, 0.12);
     tone(659, 0.1, 0.14);
     tone(784, 0.2, 0.18);
-    tone(1046, 0.32, 0.22);
+    if (tier === 'rare' || tier === 'legendary') tone(988, 0.32, 0.2);
+    if (tier === 'legendary') tone(1318, 0.46, 0.28);
+    else tone(1046, 0.32, 0.22);
+  }
+
+  function tierNote(id) {
+    if (id === 'legendary') return 784;
+    if (id === 'rare') return 659;
+    if (id === 'uncommon') return 554;
+    return 440;
   }
 
   function fillRuns(el, word) {
@@ -171,13 +182,30 @@
     if (n < 0) n = 0;
     if (n > 10) n = 10;
     var open = !!tear.open || session.step === 'done';
+    var hatching = !!(hatch && !hatch.done);
+    var landed = session.step === 'done' || !!(hatch && hatch.done);
+    var shown = hatching ? hatch.shown : (landed ? session.tier : '');
     pouch.setAttribute('data-tear', open ? '10' : String(n));
     pouch.classList.toggle('open', open);
+    pouch.classList.toggle('hatching', hatching);
+    pouch.classList.toggle('hatched', landed);
+    if (shown) pouch.setAttribute('data-tier', shown);
+    else pouch.removeAttribute('data-tier');
+    var name = shown ? flow.tierName(shown) : '';
+    rarityEl.hidden = !hatching;
+    if (hatching && name && rarityEl.textContent !== name) {
+      rarityEl.textContent = name;
+      rarityEl.classList.remove('flip');
+      void rarityEl.offsetWidth;
+      rarityEl.classList.add('flip');
+    }
+    if (!name) rarityEl.textContent = '';
     var line = 'Tear the pouch sideways.';
-    if (open) line = 'A seed!';
+    if (hatching) line = name + '!';
+    else if (landed) line = flow.tierLine(session.tier);
     else if (tear.progress > 0.08) line = 'Keep tearing!';
     if (seedHint.textContent !== line) seedHint.textContent = line;
-    seedYay.hidden = !open;
+    seedYay.hidden = !landed;
     if (live.textContent !== line) live.textContent = line;
   }
 
@@ -210,12 +238,14 @@
       tear = flow.createTear({ reduced: reduced });
       tear.open = true;
       tear.progress = 1;
+      hatch = flow.createHatch(session.tier || 'common', { reduced: true });
       pouch.classList.add('settled');
       anotherBtn.hidden = false;
       celebrated = true;
     } else {
       tear = flow.createTear({ reduced: reduced });
-      pouch.classList.remove('open', 'settled');
+      hatch = null;
+      pouch.classList.remove('open', 'settled', 'hatching', 'hatched');
       anotherBtn.hidden = true;
       celebrated = false;
     }
@@ -229,17 +259,27 @@
     else showStep();
   }
 
-  function opened() {
-    if (celebrated || session.step !== 'seed') return;
-    celebrated = true;
+  function land() {
+    if (session.step === 'done') return;
     session = save(flow.finishSeed(session));
-    pouch.classList.add('open');
-    pouch.classList.remove('settled');
     anotherBtn.hidden = false;
     updateChrome();
     paintTear();
-    cheer();
-    say('A seed!');
+    cheer(session.tier);
+    say(flow.tierLine(session.tier));
+  }
+
+  function opened() {
+    if (celebrated || session.step !== 'seed') return;
+    celebrated = true;
+    session = save(flow.ensureTier(session, Math.random));
+    hatch = flow.createHatch(session.tier, { reduced: reduced });
+    pouch.classList.add('open');
+    pouch.classList.remove('settled');
+    anotherBtn.hidden = true;
+    paintTear();
+    if (hatch.done) land();
+    else kick();
   }
 
   function kick() {
@@ -253,9 +293,18 @@
     var dt = last ? (now - last) / 1000 : 0.016;
     last = now;
     var before = tear.progress;
+    var shown = hatch ? hatch.shown : '';
     flow.tearStep(tear, dt);
-    if (tear.progress !== before) paintTear();
-    if (tear.springing) kick();
+    if (hatch && !hatch.done) {
+      flow.hatchStep(hatch, dt);
+      if (hatch.shown !== shown) tone(tierNote(hatch.shown), 0, 0.08);
+      if (hatch.done) {
+        land();
+        return;
+      }
+    }
+    if (tear.progress !== before || (hatch && hatch.shown !== shown)) paintTear();
+    if (tear.springing || (hatch && !hatch.done)) kick();
   }
 
   function endDrag() {

@@ -15,6 +15,19 @@
   var TEAR_DONE = 0.82;
   var TEAR_PX = 180;
   var TUG = 1 / 3;
+  var TIERS = ['common', 'uncommon', 'rare', 'legendary'];
+  /* Out of 100. Harder grade years land on rare and legendary more often. */
+  var TIER_WEIGHTS = {
+    k: [55, 28, 13, 4],
+    '1': [40, 32, 20, 8],
+    '2': [28, 30, 28, 14]
+  };
+  var TIER_NAMES = {
+    common: 'Common',
+    uncommon: 'Uncommon',
+    rare: 'Rare',
+    legendary: 'Legendary'
+  };
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -36,7 +49,8 @@
       step: data.step,
       jumbleStage: data.jumbleStage === 2 ? 2 : 1,
       hearts: hearts,
-      word: null
+      word: null,
+      tier: TIERS.indexOf(data.tier) >= 0 ? data.tier : ''
     };
     if (data.word) {
       var found = words.find(data.word.id || data.word.w);
@@ -55,6 +69,7 @@
       var found = words.find(q.word);
       if (found) next.word = found;
     }
+    if (q.tier && TIERS.indexOf(q.tier) >= 0) next.tier = q.tier;
     if (next.step !== 'claw' && !next.word) next.word = words.pile()[0];
     return next;
   }
@@ -96,11 +111,105 @@
     return next;
   }
 
+  function rollTier(grade, rng) {
+    var weights = TIER_WEIGHTS[grade] || TIER_WEIGHTS.k;
+    var sample = typeof rng === 'function' ? rng() : Math.random();
+    if (!(sample >= 0)) sample = 0;
+    var roll = sample * 100;
+    if (roll >= 100) roll = 99.999;
+    var acc = 0;
+    var i;
+    for (i = 0; i < TIERS.length; i++) {
+      acc += weights[i];
+      if (roll < acc) return TIERS[i];
+    }
+    return 'legendary';
+  }
+
+  function ensureTier(session, rng) {
+    var next = clone(session || blankSession());
+    if (TIERS.indexOf(next.tier) >= 0) return next;
+    var grade = next.word && next.word.grade;
+    next.tier = rollTier(grade, rng);
+    return next;
+  }
+
+  function tierName(id) {
+    return TIER_NAMES[id] || TIER_NAMES.common;
+  }
+
+  function tierLine(id) {
+    var name = tierName(id);
+    if (id === 'legendary') return 'Legendary seed!';
+    if (id === 'rare') return 'A rare seed!';
+    if (id === 'uncommon') return 'An uncommon seed!';
+    return 'A common seed!';
+  }
+
+  function hatchScript(tier) {
+    var land = TIERS.indexOf(tier);
+    if (land < 0) land = 0;
+    var steps = [];
+    var i;
+  for (i = 0; i < TIERS.length; i++) steps.push({ tier: TIERS[i], ms: 320 + i * 80 });
+  var cursor = TIERS.length - 1;
+  var delay = 420;
+    var hops = 0;
+    while (hops < 6 && (cursor !== land || hops < 2)) {
+      if (cursor > land) cursor -= 1;
+      else if (cursor < land) cursor += 1;
+      steps.push({ tier: TIERS[cursor], ms: delay });
+      delay += 80;
+      hops += 1;
+    }
+    steps.push({ tier: TIERS[land], hold: true });
+    return steps;
+  }
+
+  function createHatch(tier, opts) {
+    var script = hatchScript(tier);
+    var state = {
+      tier: TIERS.indexOf(tier) >= 0 ? tier : 'common',
+      script: script,
+      index: 0,
+      elapsed: 0,
+      shown: script[0].tier,
+      done: false,
+      reduced: !!(opts && opts.reduced)
+    };
+    if (state.reduced) {
+      state.done = true;
+      state.shown = state.tier;
+      state.index = script.length - 1;
+    }
+    return state;
+  }
+
+  function hatchStep(state, dt) {
+    if (!state || state.done) return state;
+    var ms = (dt > 0 ? dt : 0) * 1000;
+    if (ms > 50) ms = 50;
+    state.elapsed += ms;
+    var step = state.script[state.index];
+    while (step && !step.hold && state.elapsed >= step.ms) {
+      state.elapsed -= step.ms;
+      state.index += 1;
+      step = state.script[state.index];
+      if (step) state.shown = step.tier;
+    }
+    if (!step || step.hold) {
+      state.done = true;
+      state.shown = state.tier;
+    }
+    return state;
+  }
+
   function finishSeed(session) {
     var next = clone(session || blankSession());
     if (next.step !== 'seed') return next;
     next.step = 'done';
     next.hearts = (next.hearts || 0) + 1;
+    if (TIERS.indexOf(next.tier) < 0) next.tier = 'common';
     return next;
   }
 
@@ -204,11 +313,18 @@
     TEAR_DONE: TEAR_DONE,
     TEAR_PX: TEAR_PX,
     TUG: TUG,
+    TIERS: TIERS,
     blankSession: blankSession,
     normalize: normalize,
     applyQuery: applyQuery,
     withPile: withPile,
     applyMessage: applyMessage,
+    rollTier: rollTier,
+    ensureTier: ensureTier,
+    tierName: tierName,
+    tierLine: tierLine,
+    createHatch: createHatch,
+    hatchStep: hatchStep,
     finishSeed: finishSeed,
     anotherWord: anotherWord,
     framePath: framePath,

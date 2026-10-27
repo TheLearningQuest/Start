@@ -166,6 +166,44 @@ test('a short sideways tear springs shut and a long one opens', function () {
   assert.equal(calm.springing, false);
 });
 
+test('harder grades roll rarer seeds, and the hatch climbs before it lands', function () {
+  assert.deepEqual(flow.TIERS, ['common', 'uncommon', 'rare', 'legendary']);
+  assert.equal(flow.rollTier('k', function () { return 0; }), 'common');
+  assert.equal(flow.rollTier('k', function () { return 0.5; }), 'common');
+  assert.equal(flow.rollTier('k', function () { return 0.7; }), 'uncommon');
+  assert.equal(flow.rollTier('2', function () { return 0.7; }), 'rare');
+  assert.equal(flow.rollTier('2', function () { return 0.9; }), 'legendary');
+  assert.equal(flow.rollTier('k', function () { return 0.9; }), 'rare');
+
+  const kept = flow.ensureTier({ v: 1, step: 'seed', tier: 'legendary', word: words.find('said') }, function () { return 0; });
+  assert.equal(kept.tier, 'legendary');
+  const rolled = flow.ensureTier({ v: 1, step: 'seed', word: words.find('because') }, function () { return 0.7; });
+  assert.equal(rolled.tier, 'rare');
+
+  function watch(tier) {
+    const hatch = flow.createHatch(tier);
+    const seen = {};
+    let n = 0;
+    while (!hatch.done && n < 400) {
+      seen[hatch.shown] = true;
+      flow.hatchStep(hatch, 0.05);
+      n += 1;
+    }
+    assert.equal(hatch.done, true);
+    assert.equal(hatch.shown, tier);
+    assert.equal(seen.common, true);
+    assert.equal(seen.legendary, true);
+    return n;
+  }
+  assert.ok(watch('common') > 4);
+  assert.ok(watch('legendary') > 4);
+  const calm = flow.createHatch('rare', { reduced: true });
+  assert.equal(calm.done, true);
+  assert.equal(calm.shown, 'rare');
+  assert.equal(flow.tierLine('legendary'), 'Legendary seed!');
+  assert.equal(flow.tierName('uncommon'), 'Uncommon');
+});
+
 test('a grown-up link can open one step, and fresh clears the round', function () {
   const saved = flow.normalize({
     v: 1,
@@ -180,11 +218,15 @@ test('a grown-up link can open one step, and fresh clears the round', function (
   assert.equal(flow.normalize({ v: 2, step: 'write' }).step, 'claw');
   assert.equal(flow.normalize(null).hearts, 0);
 
-  const jumped = flow.applyQuery(saved, { step: 'seed', word: 'friend' });
+  const jumped = flow.applyQuery(saved, { step: 'seed', word: 'friend', tier: 'legendary' });
   assert.equal(jumped.step, 'seed');
   assert.equal(jumped.word.w, 'friend');
   assert.equal(jumped.word.grade, '1');
   assert.equal(jumped.hearts, 3);
+  assert.equal(jumped.tier, 'legendary');
+  const done = flow.finishSeed(jumped);
+  assert.equal(done.tier, 'legendary');
+  assert.equal(done.step, 'done');
 
   const fresh = flow.applyQuery(saved, { fresh: '1' });
   assert.equal(fresh.step, 'claw');
@@ -237,6 +279,15 @@ test('the shell page frames the steps and keeps secrets out of git', function ()
   assert.match(game, /kind: 'capsule'/);
   assert.match(prize, /lesson-shell/);
   assert.match(prize, /Tilt the present open/);
+  assert.match(prize, /Tap the red letters/);
+  assert.match(prize, /Read the sentence out loud/);
+  assert.match(prize, /sentenceEl\.hidden = true/);
+  const prizeCss = read('prototypes/prize-crack/style.css');
+  assert.match(prizeCss, /beat-sentence/);
+  assert.match(prizeCss, /\.found \.mark/);
+  assert.match(app, /createHatch/);
+  assert.match(app, /data-tier/);
+  assert.match(css, /data-tier="legendary"/);
   assert.match(jumble, /lesson-shell/);
   assert.match(jumble, /blank: true/);
   assert.match(jumbleCss, /stage-blank/);

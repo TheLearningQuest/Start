@@ -374,11 +374,107 @@ button:focus-visible { outline: 4px solid #6d5bd0; outline-offset: 3px; }
 #pouch[data-tear="9"] .rip { width: 68px; opacity: 1; }
 #pouch[data-tear="10"] .rip { width: 76px; opacity: 1; }
 
+.halo {
+  position: absolute;
+  left: 10%;
+  top: 22%;
+  width: 58%;
+  height: 62%;
+  border-radius: 46px;
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(8px);
+}
+
+.rarity {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  top: -36px;
+  transform: translateX(-50%);
+  padding: 4px 16px;
+  border-radius: 999px;
+  border: 4px solid #fff;
+  background: #fff;
+  color: #4a2a38;
+  font-size: clamp(22px, 4vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  pointer-events: none;
+  box-shadow: 0 6px 0 rgba(90, 40, 60, 0.12);
+}
+
+.rarity[hidden] { display: none !important; }
+
+.rarity.flip { animation: rarity-pop 0.16s ease-out; }
+
+@keyframes rarity-pop {
+  from { transform: translateX(-50%) scale(0.72); }
+  to { transform: translateX(-50%) scale(1); }
+}
+
+#pouch.hatching .pouch { animation: pouch-shake 0.09s linear infinite; }
+#pouch.hatching .halo { opacity: 0.95; animation: halo-pulse 0.18s ease-in-out infinite alternate; }
+#pouch.hatching .label,
+#pouch.hatching .flower { opacity: 0; }
+#pouch.hatching .rarity {
+  top: 30%;
+  font-size: clamp(28px, 5vw, 48px);
+  color: #fff;
+  -webkit-text-stroke: 0.08em #4a2a38;
+  paint-order: stroke fill;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+@keyframes pouch-shake {
+  0% { transform: translateX(-4px) rotate(-2deg); }
+  50% { transform: translateX(5px) rotate(2deg); }
+  100% { transform: translateX(-4px) rotate(-2deg); }
+}
+
+@keyframes halo-pulse {
+  from { transform: scale(0.92); }
+  to { transform: scale(1.08); }
+}
+
+#pouch[data-tier="common"] .halo { background: #8ee06a; }
+#pouch[data-tier="uncommon"] .halo { background: #7ec8ff; }
+#pouch[data-tier="rare"] .halo { background: #ff7ab8; }
+#pouch[data-tier="legendary"] .halo { background: #ffe56a; }
+
+#pouch.hatching[data-tier="common"] .face { background: linear-gradient(180deg, #e9ffc8, #7dce57); }
+#pouch.hatching[data-tier="uncommon"] .face { background: linear-gradient(180deg, #e5f6ff, #5eb6ff); }
+#pouch.hatching[data-tier="rare"] .face { background: linear-gradient(180deg, #ffe0f2, #ff5c9a); }
+#pouch.hatching[data-tier="legendary"] .face {
+  background: linear-gradient(180deg, #fff6c2, #ffc233);
+  box-shadow: inset -14px -12px 0 rgba(180, 110, 10, 0.12), 0 0 0 8px rgba(255, 214, 70, 0.9);
+}
+
+#pouch[data-tier="uncommon"] .bean {
+  background:
+    radial-gradient(circle at 32% 28%, #fff, transparent 42%),
+    linear-gradient(160deg, #d7f3ff, #3d9dff 55%, #1d5fd0);
+}
+#pouch[data-tier="rare"] .bean {
+  background:
+    radial-gradient(circle at 32% 28%, #fff, transparent 42%),
+    linear-gradient(160deg, #ffd0ea, #ff4d88 55%, #c2185b);
+}
+#pouch[data-tier="legendary"] .bean {
+  background:
+    radial-gradient(circle at 32% 28%, #fff, transparent 36%),
+    linear-gradient(160deg, #fff4b0, #ffc107 42%, #f08a14);
+  box-shadow: 0 0 0 6px rgba(255, 214, 70, 0.7), 0 10px 0 rgba(180, 110, 10, 0.16);
+}
+#pouch.hatched[data-tier="legendary"] .halo { opacity: 0.8; }
+
 #pouch.open .tab {
   animation: tab-away 0.42s cubic-bezier(.16, .84, .44, 1) forwards;
 }
 
-#pouch.open .bean {
+#pouch.hatched .bean {
   animation: seed-pop 0.78s cubic-bezier(.16, .9, .3, 1.12) both;
 }
 
@@ -392,7 +488,7 @@ button:focus-visible { outline: 4px solid #6d5bd0; outline-offset: 3px; }
 #pouch.open .sparks i:nth-child(5) { animation-delay: 0.12s; }
 
 #pouch.open.settled .tab,
-#pouch.open.settled .bean,
+#pouch.hatched.settled .bean,
 #pouch.open.settled .sparks i { animation: none; }
 
 #pouch.open.settled .tab { transform: translateX(210px) rotate(18deg); }
@@ -436,10 +532,13 @@ button:focus-visible { outline: 4px solid #6d5bd0; outline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
   #pouch.open .tab,
-  #pouch.open .bean,
-  #pouch.open .sparks i { animation: none; }
+  #pouch.hatched .bean,
+  #pouch.open .sparks i,
+  #pouch.hatching .pouch,
+  #pouch.hatching .halo,
+  .rarity.flip { animation: none; }
   #pouch.open .tab { transform: translateX(210px) rotate(18deg); }
-  #pouch.open .bean {
+  #pouch.hatched .bean {
     opacity: 1;
     transform: translate(150px, -128px) rotate(-8deg) scale(1);
   }
@@ -447,10 +546,13 @@ button:focus-visible { outline: 4px solid #6d5bd0; outline-offset: 3px; }
 }
 
 body.calm #pouch.open .tab,
-body.calm #pouch.open .bean,
-body.calm #pouch.open .sparks i { animation: none; }
+body.calm #pouch.hatched .bean,
+body.calm #pouch.open .sparks i,
+body.calm #pouch.hatching .pouch,
+body.calm #pouch.hatching .halo,
+body.calm .rarity.flip { animation: none; }
 
-body.calm #pouch.open .bean {
+body.calm #pouch.hatched .bean {
   opacity: 1;
   transform: translate(150px, -128px) rotate(-8deg) scale(1);
 }

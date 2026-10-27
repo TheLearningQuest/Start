@@ -677,6 +677,46 @@ body.shell #prize.crack-2 .gift { transform: rotate(10deg) translateY(-8px); }
 body.shell.calm .gift,
 body.shell.still .gift { transition: none; }
 
+body.shell.beat-word #kicker,
+body.shell.beat-sentence #kicker {
+  background: #fff;
+}
+
+body.shell .run.heart {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+body.shell .run.heart.found {
+  cursor: default;
+}
+
+body.shell .run.heart.found .mark { display: none; }
+
+body.shell.beat-word .run.heart:not(.found) .glyphs {
+  text-shadow: 0 0.07em 0 #ffd0e4, 0 0 0.12em rgba(226, 24, 112, 0.35);
+}
+
+body.shell #sentence[hidden] { display: none !important; }
+
+body.shell.beat-sentence #sentence {
+  max-width: min(26ch, 94vw);
+  margin-top: 8px;
+  padding: 0 8px;
+  background: transparent;
+  font-weight: 700;
+  font-size: clamp(28px, 4.6vw, 48px);
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: var(--ink);
+  -webkit-text-stroke: 0.035em #fff;
+  paint-order: stroke fill;
+}
+
+body.shell.beat-sentence #sentence .hit {
+  color: var(--pink);
+}
+
 body.shell[data-grade="k"] .tag { background: #ffd0e4; color: #9d1458; }
 body.shell[data-grade="1"] .tag { background: #ffe3a3; color: #8a5a00; }
 body.shell[data-grade="2"] .tag { background: #d6e8ff; color: #1d4e9c; }

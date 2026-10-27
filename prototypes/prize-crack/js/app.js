@@ -29,6 +29,7 @@
   var justOpened = false;
   var justTimer = 0;
   var wordDrawn = '';
+  var shellBeat = 'word';
   var moved = false;
   var suppressClick = false;
   var downY = 0;
@@ -218,9 +219,69 @@
       glyphs.textContent = run.text;
       span.appendChild(glyphs);
       if (run.heart) span.appendChild(heartNode());
+      if (shell && run.heart) {
+        span.setAttribute('role', 'button');
+        span.tabIndex = 0;
+        span.setAttribute('aria-label', 'Red letters ' + run.text);
+      }
       wordEl.appendChild(span);
     }
-    setText(sentenceEl, word.sentence);
+    if (shell) {
+      shellBeat = 'word';
+      sentenceEl.textContent = '';
+      sentenceEl.hidden = true;
+      if (!wordEl.querySelector('.run.heart')) showSentence(word);
+    } else {
+      sentenceEl.hidden = false;
+      setText(sentenceEl, word.sentence);
+    }
+  }
+
+  function drawSentence(word) {
+    sentenceEl.textContent = '';
+    var raw = word.sentence || '';
+    var needle = String(word.w || '');
+    var lower = raw.toLowerCase();
+    var want = needle.toLowerCase();
+    var start = -1;
+    var from = 0;
+    while (want && from < lower.length) {
+      var at = lower.indexOf(want, from);
+      if (at < 0) break;
+      var before = at === 0 || !/[a-z]/i.test(raw.charAt(at - 1));
+      var after = at + want.length >= raw.length || !/[a-z]/i.test(raw.charAt(at + want.length));
+      if (before && after) { start = at; break; }
+      from = at + 1;
+    }
+    if (start < 0) {
+      sentenceEl.textContent = raw;
+      return;
+    }
+    sentenceEl.appendChild(document.createTextNode(raw.slice(0, start)));
+    var hit = document.createElement('span');
+    hit.className = 'hit';
+    hit.textContent = raw.slice(start, start + needle.length);
+    sentenceEl.appendChild(hit);
+    sentenceEl.appendChild(document.createTextNode(raw.slice(start + needle.length)));
+  }
+
+  function showSentence(word) {
+    shellBeat = 'sentence';
+    drawSentence(word);
+    sentenceEl.hidden = false;
+  }
+
+  function tapHeart(run) {
+    if (!shell || state.phase !== 'revealed' || shellBeat === 'sentence') return;
+    if (!run || !run.classList.contains('heart') || run.classList.contains('found')) return;
+    run.classList.add('found');
+    run.removeAttribute('role');
+    run.removeAttribute('tabindex');
+    var mark = run.querySelector('.mark');
+    if (mark && mark.parentNode) mark.parentNode.removeChild(mark);
+    blip();
+    if (!wordEl.querySelector('.run.heart:not(.found)')) showSentence(currentWord());
+    render();
   }
 
   function fitWord() {
@@ -229,7 +290,8 @@
     var height = reveal.clientHeight;
     if (width < 40 || height < 40) return;
     var size = Math.min(200, Math.floor(width * 0.23), Math.floor(height * 0.3));
-    if (size < 72) size = 72;
+    if (shell && shellBeat === 'sentence') size = Math.floor(size * 0.72);
+    if (size < 56) size = 56;
     wordEl.style.fontSize = size + 'px';
     var guard = 0;
     while (wordEl.scrollWidth > width - 72 && size > 44 && guard < 60) {
@@ -309,8 +371,6 @@
     if (state.prize === 'packet') packEl.style.setProperty('--peel', String(state.progress));
     else packEl.style.setProperty('--peel', '0');
 
-    if (shell && revealOn) setText(againBtn, 'Next');
-
     if (revealOn) {
       var word = currentWord();
       if (wordDrawn !== word.id) {
@@ -323,12 +383,28 @@
       fitWord();
     } else if (wordDrawn) {
       wordDrawn = '';
+      shellBeat = 'word';
       setText(liveEl, '');
+    }
+
+    document.body.classList.toggle('beat-word', shell && revealOn && shellBeat !== 'sentence');
+    document.body.classList.toggle('beat-sentence', shell && revealOn && shellBeat === 'sentence');
+    if (shell && revealOn) {
+      setText(hintEl, shellHint());
+      setText(againBtn, 'Next');
+      againBtn.hidden = shellBeat !== 'sentence';
     }
   }
 
   function shellHint() {
-    if (!shell || state.phase === 'lobby' || state.phase === 'revealed') return '';
+    if (!shell || state.phase === 'lobby') return '';
+    if (state.phase === 'revealed') {
+      if (shellBeat === 'sentence') return 'Read the sentence out loud.';
+      if (wordEl.querySelector('.run.heart.found') && wordEl.querySelector('.run.heart:not(.found)')) {
+        return 'Tap the other red letters.';
+      }
+      return 'Tap the red letters.';
+    }
     if (state.phase === 'arrive') return 'Your capsule!';
     if (!state.taps) return 'Tilt the present open.';
     if (state.taps === 1) return 'It tipped! Tap again.';
@@ -420,6 +496,19 @@
     if (!was && state.opened) openedNow();
     else pop();
     render();
+  });
+
+  wordEl.addEventListener('click', function (e) {
+    var run = e.target.closest ? e.target.closest('.run') : null;
+    tapHeart(run);
+  });
+
+  wordEl.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var run = e.target.closest ? e.target.closest('.run') : null;
+    if (!run) return;
+    e.preventDefault();
+    tapHeart(run);
   });
 
   prizeBtn.addEventListener('animationend', function (e) {
