@@ -54,6 +54,7 @@
   var canvas = null;
   var booting = null;
   var busy = false;
+  var shell = false;
 
   function motionOn() {
     return !calm && !reduce;
@@ -106,6 +107,7 @@
   function setPhase(next) {
     phase = next;
     document.body.setAttribute('data-phase', next);
+    syncChrome();
   }
 
   function setCalm(on) {
@@ -186,6 +188,10 @@
     nextBtn.hidden = !playing;
     pick.hidden = playing;
     play.hidden = !playing;
+    if (shell) {
+      wordsBtn.hidden = true;
+      nextBtn.hidden = phase !== 'done';
+    }
   }
 
   function clearBurst() {
@@ -503,8 +509,22 @@
     });
   }
 
+  function postWrite() {
+    if (!shell || !window.parent || window.parent === window) return;
+    try {
+      window.parent.postMessage({
+        source: 'lesson-shell',
+        step: 'write',
+        done: true,
+        wordId: current ? current.id : ''
+      }, window.location.origin);
+    } catch (err) { /* the shell is gone */ }
+  }
+
   function boot() {
     var q = params();
+    shell = q.shell === '1';
+    if (shell) document.body.classList.add('shell');
     var want = q.word || '';
     var word;
     refreshKeys();
@@ -555,6 +575,11 @@
   });
   nextBtn.addEventListener('click', function () {
     if (busy) return;
+    if (shell && phase === 'done') {
+      nextBtn.disabled = true;
+      postWrite();
+      return;
+    }
     ensureAudio();
     beep('tap');
     wordIndex = (wordIndex + 1) % words.DEMO.length;
