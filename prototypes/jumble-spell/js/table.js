@@ -6,6 +6,7 @@
    never matches a slot. Heart letters (the bracket parts) are marked.
    The word cards start in the dotted slots and jumble out to the table.
    Decoys start off the table and fly in. Scatter spots stay off the slots.
+   opts.blank sends the word cards in from off the mat too, so the slots stay empty.
 
    Drag
    A press arms the card. It starts moving after 8 CSS pixels.
@@ -359,6 +360,13 @@
         anim: null
       };
       tiles.push(tile);
+    }
+
+    if (opts.blank) {
+      for (i = 0; i < letters.length; i++) {
+        tiles[i].from = offstage(box, i % 4, rng());
+        tiles[i].delay = 0.08 + i * 0.05;
+      }
     }
 
     var state = {

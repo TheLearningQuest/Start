@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Red words">
+<meta name="theme-color" content="#ff8ab8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; frame-src 'self'; child-src 'self'; connect-src 'none'; media-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Red words</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-step="claw">
+<div id="app">
+  <header id="top">
+    <p id="brand">Red words</p>
+    <ol id="trail">
+      <li data-step="claw">Claw</li>
+      <li data-step="reveal">Open</li>
+      <li data-step="jumble" id="spell-label">Spell</li>
+      <li data-step="write">Write</li>
+      <li data-step="seed">Seed</li>
+    </ol>
+    <p id="hearts" aria-live="polite">♥ 0</p>
+    <button id="restart" type="button">Start over</button>
+    <p id="legend"><span class="dot k"></span> K <span class="dot y1"></span> 1st <span class="dot y2"></span> 2nd</p>
+    <p id="now" hidden></p>
+  </header>
+  <iframe id="frame" title="Claw" hidden></iframe>
+  <section id="celebrate" hidden>
+    <p id="seed-hint">Tear the pouch sideways.</p>
+    <h1 id="seed-word"></h1>
+    <p id="seed-sentence"></p>
+    <button id="pouch" type="button" data-tear="0" aria-label="Tear the seed pouch to the side">
+      <span class="pouch" aria-hidden="true">
+        <span class="face">
+          <span class="flower"><i></i><i></i><i></i><i></i><b></b></span>
+          <span class="label">Seeds</span>
+        </span>
+        <span class="rip"></span>
+        <span class="tab"><span>Tear</span></span>
+        <span class="bean"></span>
+        <span class="sparks"><i></i><i></i><i></i><i></i><i></i></span>
+      </span>
+    </button>
+    <p id="seed-yay" hidden>You finished the whole word.</p>
+    <button id="another" type="button" hidden>Another word</button>
+    <p id="live" class="sr" aria-live="polite"></p>
+  </section>
+</div>
+<script src="js/words.js"></script>
+<script src="js/flow.js"></script>
+<script src="js/shell.js"></script>
+</body>
+</html>

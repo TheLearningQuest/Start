@@ -664,6 +664,23 @@ body.calm .bow,
 body.still .lid,
 body.still .bow { transition: none; }
 
+body.shell #lobby { display: none !important; }
+
+body.shell .gift {
+  transition: transform 0.28s cubic-bezier(.2, 1.45, .32, 1);
+  transform-origin: 50% 78%;
+}
+
+body.shell #prize.crack-1 .gift { transform: rotate(-11deg); }
+body.shell #prize.crack-2 .gift { transform: rotate(10deg) translateY(-8px); }
+
+body.shell.calm .gift,
+body.shell.still .gift { transition: none; }
+
+body.shell[data-grade="k"] .tag { background: #ffd0e4; color: #9d1458; }
+body.shell[data-grade="1"] .tag { background: #ffe3a3; color: #8a5a00; }
+body.shell[data-grade="2"] .tag { background: #d6e8ff; color: #1d4e9c; }
+
 #reveal { overflow: visible; }
 
 .souvenirs {

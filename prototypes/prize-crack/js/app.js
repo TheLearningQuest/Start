@@ -53,6 +53,18 @@
 
   if (params.get('still') === '1') document.body.classList.add('still');
 
+  var shell = params.get('shell') === '1';
+  if (shell) {
+    document.body.classList.add('shell');
+    var gradeQ = params.get('grade') || '';
+    if (gradeQ === 'k' || gradeQ === '1' || gradeQ === '2') {
+      document.body.setAttribute('data-grade', gradeQ);
+    }
+    var prizeTag = document.querySelector('.tag');
+    if (prizeTag) prizeTag.textContent = 'Prize';
+    if (state.phase === 'lobby') PrizeOpen.win(state, 'toy');
+  }
+
   function currentWord() {
     var list = PrizeWords.DEMO;
     var i = state.wordIndex;
@@ -270,7 +282,7 @@
     document.body.setAttribute('data-phase', state.phase);
     document.body.setAttribute('data-prize', state.prize);
 
-    setText(hintEl, PrizeOpen.hint(state));
+    setText(hintEl, shellHint() || PrizeOpen.hint(state));
     calmBtn.setAttribute('aria-pressed', state.reduced ? 'true' : 'false');
     setText(calmBtn, state.reduced ? 'Calm on' : 'Calm');
     soundBtn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
@@ -297,6 +309,8 @@
     if (state.prize === 'packet') packEl.style.setProperty('--peel', String(state.progress));
     else packEl.style.setProperty('--peel', '0');
 
+    if (shell && revealOn) setText(againBtn, 'Next');
+
     if (revealOn) {
       var word = currentWord();
       if (wordDrawn !== word.id) {
@@ -311,6 +325,25 @@
       wordDrawn = '';
       setText(liveEl, '');
     }
+  }
+
+  function shellHint() {
+    if (!shell || state.phase === 'lobby' || state.phase === 'revealed') return '';
+    if (state.phase === 'arrive') return 'Your capsule!';
+    if (!state.taps) return 'Tilt the present open.';
+    if (state.taps === 1) return 'It tipped! Tap again.';
+    return 'One more tap!';
+  }
+
+  function postReveal() {
+    if (!window.parent || window.parent === window) return;
+    try {
+      window.parent.postMessage({
+        source: 'lesson-shell',
+        step: 'reveal',
+        done: true
+      }, window.location.origin);
+    } catch (err) { /* the shell is gone */ }
   }
 
   function kick() {
@@ -399,6 +432,12 @@
   });
 
   againBtn.addEventListener('click', function () {
+    if (shell) {
+      if (state.phase !== 'revealed') return;
+      againBtn.disabled = true;
+      postReveal();
+      return;
+    }
     blip();
     justOpened = false;
     PrizeOpen.again(state);

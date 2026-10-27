@@ -309,6 +309,9 @@ body[data-phase="done"] #another {
 .slot.filled .ghost,
 .slot.filled .mini { visibility: hidden; }
 
+body.stage-blank .slot .ghost,
+body.stage-blank .slot .mini { visibility: hidden; }
+
 .slot.ready {
   background: rgba(255, 255, 255, 0.86);
   border-color: #6d5bd0;

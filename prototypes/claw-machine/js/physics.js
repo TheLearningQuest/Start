@@ -72,8 +72,14 @@
     };
   }
 
+  function catalogList(state) {
+    if (state && state.catalog && state.catalog.length) return state.catalog;
+    return WORLD.catalog;
+  }
+
   function makePrize(state, x, y, z, kindIndex) {
-    var spec = WORLD.catalog[kindIndex % WORLD.catalog.length];
+    var list = catalogList(state);
+    var spec = list[kindIndex % list.length];
     return {
       id: state.nextId++,
       x: x, y: y, z: z,
@@ -81,6 +87,8 @@
       r: WORLD.prizeR,
       kind: spec.kind,
       color: spec.color,
+      wordId: spec.wordId || '',
+      grade: spec.grade || '',
       yaw: state.rng() * Math.PI * 2,
       held: false,
       alive: true,
@@ -114,7 +122,8 @@
       lastResult: null,
       knocked: false,
       swingFault: false,
-      homeT: 0
+      homeT: 0,
+      catalog: (opts && opts.catalog && opts.catalog.length) ? opts.catalog : null
     };
     for (var i = 0; i < WORLD.slots.length; i++) {
       state.prizes.push(makePrize(state, WORLD.slots[i][0], WORLD.prizeR, WORLD.slots[i][1], i));
@@ -247,7 +256,16 @@
     state.hint = 'Prize!';
     state.hintLock = 1.5;
     state.lastResult = 'win';
-    emit(state, 'win', { id: prize.id, kind: prize.kind, color: prize.color, x: prize.x, y: prize.y, z: prize.z });
+    emit(state, 'win', {
+      id: prize.id,
+      kind: prize.kind,
+      color: prize.color,
+      wordId: prize.wordId || '',
+      grade: prize.grade || '',
+      x: prize.x,
+      y: prize.y,
+      z: prize.z
+    });
   }
 
   function applyVerdict(state, verdict) {
@@ -639,7 +657,7 @@
   function refillPile(state) {
     if (!state || state.phase !== 'idle' || state.heldId) return false;
     var wins = state.wins;
-    var fresh = createState({ seed: (state.generation + 1) * 17 + 3 });
+    var fresh = createState({ seed: (state.generation + 1) * 17 + 3, catalog: state.catalog });
     state.prizes = fresh.prizes;
     state.nextId = fresh.nextId;
     state.rng = fresh.rng;

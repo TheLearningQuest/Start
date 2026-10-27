@@ -1032,7 +1032,50 @@
     }
   }
 
-  var state = ClawPhysics.createState();
+  /* shell=1 is the lesson shell. Capsules replace the toy mix.
+     The pile is the session the shell saved. Standalone play is unchanged. */
+  function readShellCatalog() {
+    var q = new URLSearchParams(window.location.search);
+    if (q.get('shell') !== '1') return null;
+    var colors = { k: 0xff4d88, '1': 0xffb020, '2': 0x3d8bff };
+    var pile = [];
+    try {
+      var raw = window.localStorage.getItem('red-words-shell.session');
+      if (raw) {
+        var data = JSON.parse(raw);
+        if (data && data.pile && data.pile.length) pile = data.pile;
+      }
+    } catch (err) {
+      pile = [];
+    }
+    var list = [];
+    var i, item, grade, color;
+    for (i = 0; i < pile.length; i++) {
+      item = pile[i] || {};
+      grade = String(item.grade || 'k');
+      color = typeof item.color === 'number' ? (item.color >>> 0) : (colors[grade] || colors.k);
+      list.push({
+        kind: 'capsule',
+        color: color,
+        wordId: item.id || '',
+        grade: grade
+      });
+    }
+    if (!list.length) {
+      var cycle = ['k', '1', '2'];
+      for (i = 0; i < 8; i++) {
+        grade = cycle[i % 3];
+        list.push({ kind: 'capsule', color: colors[grade], wordId: '', grade: grade });
+      }
+    }
+    return list;
+  }
+
+  var shellOn = false;
+  var shellSent = false;
+  var shellList = readShellCatalog();
+  shellOn = !!shellList;
+  var state = ClawPhysics.createState(shellList ? { catalog: shellList } : undefined);
 
   function poseClaw() {
     var headP = ClawPhysics.headPoint(state);
@@ -1159,6 +1202,21 @@
       punch = reduced ? 0 : 1;
       drawerTarget = 1;
       drawerHold = 3.2;
+      if (shellOn && !shellSent && window.parent && window.parent !== window) {
+        shellSent = true;
+        state.pendingSpawns = 0;
+        var wonId = ev.wordId || '';
+        window.setTimeout(function () {
+          try {
+            window.parent.postMessage({
+              source: 'lesson-shell',
+              step: 'claw',
+              done: true,
+              wordId: wonId
+            }, window.location.origin);
+          } catch (err) { /* the shell is gone */ }
+        }, 1600);
+      }
     } else if (ev.type === 'release') {
       tone(280, 0.12, 'sine', 0.2, 160);
     }

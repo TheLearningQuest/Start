@@ -41,6 +41,8 @@
   var lastBox = { w: 0, h: 0 };
   var last = 0;
   var holdStill = false;
+  var shell = false;
+  var jumbleStage = 1;
 
   function motionOn() {
     return !calm && !reduce;
@@ -93,9 +95,36 @@
 
   function hintText() {
     if (!state || !current) return 'Pick a heart word.';
+    if (shell && jumbleStage >= 2) {
+      if (state.phase === 'deal') return 'No letter clues. The letters fly in.';
+      if (state.phase === 'done') return 'You spelled ' + state.w + '!';
+      return 'Empty slots. Drag the letters back.';
+    }
+    if (shell) {
+      if (state.phase === 'deal') return 'Letters in the dotted slots, then they jumble.';
+      if (state.phase === 'done') return 'You spelled ' + state.w + '! Spell it again with no clues.';
+      return 'The dotted slots show the letters.';
+    }
     if (state.phase === 'deal') return 'The letters are jumbling.';
     if (state.phase === 'done') return 'You spelled ' + state.w + '!';
     return 'Drag the letters onto the dotted word.';
+  }
+
+  function applyShellStage() {
+    document.body.classList.toggle('shell', shell);
+    document.body.classList.toggle('stage-blank', shell && jumbleStage >= 2);
+  }
+
+  function postJumble(done) {
+    if (!shell || !window.parent || window.parent === window) return;
+    try {
+      window.parent.postMessage({
+        source: 'lesson-shell',
+        step: 'jumble',
+        done: !!done,
+        stage: jumbleStage
+      }, window.location.origin);
+    } catch (err) { /* the shell is gone */ }
   }
 
   function syncChrome() {
@@ -107,6 +136,17 @@
     anotherBtn.hidden = !playing;
     pick.hidden = playing;
     board.hidden = !playing;
+    if (shell) {
+      wordsBtn.hidden = true;
+      if (!state || state.phase !== 'done') anotherBtn.hidden = true;
+      else {
+        anotherBtn.hidden = false;
+        anotherBtn.disabled = false;
+        anotherBtn.textContent = jumbleStage < 2 ? 'Spell it again' : 'Next';
+      }
+    } else {
+      anotherBtn.textContent = 'Another word';
+    }
   }
 
   function readVoices() {
@@ -305,7 +345,8 @@
       seed: opts.seed,
       decoys: opts.decoys,
       still: !!opts.still || !motionOn(),
-      filled: !!opts.filled
+      filled: !!opts.filled,
+      blank: !!opts.blank
     });
     lastBox = { w: box.w, h: box.h };
     buildPieces();
@@ -495,6 +536,9 @@
     var q = new URLSearchParams(window.location.search);
     if (q.get('calm') === '1' || reduce) setCalm(true);
     holdStill = q.get('still') === '1';
+    shell = q.get('shell') === '1';
+    jumbleStage = q.get('stage') === '2' ? 2 : 1;
+    applyShellStage();
     if (q.get('sound') === '0') setSound(false);
     buildGrid();
     var named = q.get('word');
@@ -510,7 +554,8 @@
           still: q.get('still') === '1',
           filled: q.get('filled') === '1',
           decoys: q.get('decoys'),
-          seed: q.get('seed')
+          seed: q.get('seed'),
+          blank: q.get('stage') === '2'
         }
       };
     } else {
@@ -526,6 +571,18 @@
   anotherBtn.addEventListener('click', function () {
     primeSpeech();
     ensureAudio();
+    if (shell && state && state.phase === 'done' && jumbleStage < 2) {
+      jumbleStage = 2;
+      applyShellStage();
+      postJumble(false);
+      startWord(current, { blank: true, seed: String(((state.seed || 1) + 17) >>> 0) });
+      return;
+    }
+    if (shell && state && state.phase === 'done') {
+      anotherBtn.disabled = true;
+      postJumble(true);
+      return;
+    }
     wordIndex = (wordIndex + 1) % words.DEMO.length;
     startWord(words.DEMO[wordIndex], {});
   });

@@ -533,3 +533,47 @@ body.quiet .bit.fly { animation: none; }
   #paper { min-height: 200px; border-radius: 28px; }
   #check { min-height: 76px; }
 }
+
+/* Framed under the lesson shell, the key form and Check share one screen.
+   The form can scroll inside its own panel. Check stays at the bottom. */
+body.shell {
+  touch-action: pan-y;
+}
+
+body.shell #stage {
+  overflow: hidden;
+}
+
+body.shell #key-panel {
+  flex: 0 1 auto;
+  max-height: 42%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 12px 8px;
+}
+
+body.shell .key-note { margin-top: 4px; }
+
+body.shell #key-form label { margin-top: 4px; gap: 2px; }
+
+body.shell #key-form input {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+
+body.shell #key-save {
+  min-height: 40px;
+  margin-top: 6px;
+}
+
+body.shell #play {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.shell #paper {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 110px;
+}
