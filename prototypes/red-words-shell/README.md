@@ -7,10 +7,10 @@ It does not open the live Word Garden, save coins, or plant the seed in Gardens.
 ## Play
 
 1. **Claw.** Grab a capsule. Pink is kindergarten, gold is 1st grade, blue is 2nd grade. The capsule she wins is the word for the rest of the round.
-2. **Open.** The capsule opens as a present. Three taps tilt the lid. The heart word fills the screen and the iPad says it. There is no seed pouch on this step.
+2. **Open.** The capsule opens as a present. Three taps tilt the lid. The heart word fills the screen and the iPad says it. She taps the red letters. The hearts lift off, those letters stay red, and then the sample sentence appears for her to read out loud. There is no seed pouch on this step.
 3. **Spell.** Two passes. First the letters sit in the dotted slots, then they jumble, and the slots still show the letters. **Spell it again** deals the same word with empty slots. Heart slots stay pink so a heart card still has a home.
 4. **Write.** She writes the word and taps **Check**. MyScript reads it. A match is **Next**. A miss stays on this step. On a landscape iPad the key form sits above the writing box, and **Check** stays on the screen.
-5. **Seed.** After the whole module, tear the pouch sideways (or tap it three times). The seed pops out. **Another word** goes back to the claw and keeps the heart count. **Start over** clears the round, including hearts.
+5. **Seed.** After the whole module, tear the pouch sideways (or tap it three times). The pouch shakes and flashes common, uncommon, rare, then legendary, and lands on her seed. Green is common, blue is uncommon, pink is rare, gold is legendary. Kindergarten lands on common most often. 2nd grade lands on rare and legendary more often. **Another word** goes back to the claw and keeps the heart count. **Start over** clears the round, including hearts.
 
 Letter-play is not in this flow.
 
@@ -39,6 +39,7 @@ A few links for a grown-up, when you want one step:
 - `?step=jumble&word=said&stage=2` empty slots
 - `?step=write&word=friend`
 - `?step=seed&word=because`
+- `?step=seed&word=because&tier=legendary` forces that seed color
 
 ## MyScript keys
 
@@ -76,9 +77,10 @@ Add a demo word in `js/words.js` if you want another capsule. The live weekly li
 Real in this prototype:
 
 - The claw grab, with grade-colored capsules when the shell opens it
-- The present tilt, the spoken heart word, and the two jumble passes
+- The present tilt, the spoken heart word, the tap on the red letters, and the sample sentence
+- The two jumble passes
 - MyScript **Check**, once keys are saved on the device
-- The sideways pouch tear and the seed pop after a successful write
+- The sideways pouch tear, the rarity roll, and the seed pop after a successful write
 
 Still stubbed:
 
