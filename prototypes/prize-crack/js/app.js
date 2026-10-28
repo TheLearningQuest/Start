@@ -30,6 +30,7 @@
   var justTimer = 0;
   var wordDrawn = '';
   var shellBeat = 'word';
+  var splitting = false;
   var moved = false;
   var suppressClick = false;
   var downY = 0;
@@ -61,9 +62,7 @@
     if (gradeQ === 'k' || gradeQ === '1' || gradeQ === '2') {
       document.body.setAttribute('data-grade', gradeQ);
     }
-    var prizeTag = document.querySelector('.tag');
-    if (prizeTag) prizeTag.textContent = 'Prize';
-    if (state.phase === 'lobby') PrizeOpen.win(state, 'toy');
+    if (state.phase === 'lobby') PrizeOpen.win(state, 'capsule');
   }
 
   function currentWord() {
@@ -237,8 +236,7 @@
     }
   }
 
-  function drawSentence(word) {
-    sentenceEl.textContent = '';
+  function sentenceSplit(word) {
     var raw = word.sentence || '';
     var needle = String(word.w || '');
     var lower = raw.toLowerCase();
@@ -253,21 +251,28 @@
       if (before && after) { start = at; break; }
       from = at + 1;
     }
-    if (start < 0) {
-      sentenceEl.textContent = raw;
-      return;
-    }
-    sentenceEl.appendChild(document.createTextNode(raw.slice(0, start)));
-    var hit = document.createElement('span');
-    hit.className = 'hit';
-    hit.textContent = raw.slice(start, start + needle.length);
-    sentenceEl.appendChild(hit);
-    sentenceEl.appendChild(document.createTextNode(raw.slice(start + needle.length)));
+    if (start < 0) return { before: raw, after: '' };
+    return { before: raw.slice(0, start), after: raw.slice(start + needle.length) };
   }
 
   function showSentence(word) {
+    if (shellBeat === 'sentence' && sentenceEl.contains(wordEl)) return;
     shellBeat = 'sentence';
-    drawSentence(word);
+    var parts = sentenceSplit(word);
+    sentenceEl.textContent = '';
+    if (parts.before) {
+      var lead = document.createElement('span');
+      lead.className = 'side';
+      lead.textContent = parts.before;
+      sentenceEl.appendChild(lead);
+    }
+    sentenceEl.appendChild(wordEl);
+    if (parts.after) {
+      var tail = document.createElement('span');
+      tail.className = 'side';
+      tail.textContent = parts.after;
+      sentenceEl.appendChild(tail);
+    }
     sentenceEl.hidden = false;
   }
 
@@ -286,11 +291,14 @@
 
   function fitWord() {
     if (reveal.hidden) return;
+    if (shell && shellBeat === 'sentence') {
+      fitSentence();
+      return;
+    }
     var width = reveal.clientWidth;
     var height = reveal.clientHeight;
     if (width < 40 || height < 40) return;
     var size = Math.min(200, Math.floor(width * 0.23), Math.floor(height * 0.3));
-    if (shell && shellBeat === 'sentence') size = Math.floor(size * 0.72);
     if (size < 56) size = 56;
     wordEl.style.fontSize = size + 'px';
     var guard = 0;
@@ -299,6 +307,38 @@
       wordEl.style.fontSize = size + 'px';
       guard++;
     }
+    if (shell) wordEl.setAttribute('data-open-size', String(size));
+  }
+
+  function fitSentence() {
+    var width = reveal.clientWidth;
+    var height = reveal.clientHeight;
+    if (width < 40 || height < 40) return;
+    var openSize = parseFloat(wordEl.getAttribute('data-open-size'));
+    if (!(openSize > 20)) {
+      openSize = Math.min(200, Math.floor(width * 0.22), Math.floor(height * 0.34));
+    }
+    var size = Math.floor(openSize * 0.94);
+    var floor = Math.max(64, Math.floor(openSize * 0.78));
+    wordEl.style.fontSize = '1em';
+    sentenceEl.style.fontSize = size + 'px';
+    var guard = 0;
+    while (guard < 24 && size > floor && sentenceCrowded()) {
+      size -= 4;
+      sentenceEl.style.fontSize = size + 'px';
+      guard++;
+    }
+  }
+
+  function sentenceCrowded() {
+    var sentenceBox = sentenceEl.getBoundingClientRect();
+    var revealBox = reveal.getBoundingClientRect();
+    var actions = document.querySelector('.actions');
+    var actionsBox = actions.getBoundingClientRect();
+    var hitsButtons = actionsBox.height > 0 && sentenceBox.bottom > actionsBox.top - 8;
+    var pastBottom = actionsBox.bottom > Math.min(revealBox.bottom, window.innerHeight) - 12;
+    var pastSides = sentenceBox.left < revealBox.left - 2 || sentenceBox.right > revealBox.right - 2;
+    return hitsButtons || pastBottom || pastSides;
   }
 
   function ariaPrize() {
@@ -352,9 +392,11 @@
 
     var roomOn = state.phase === 'arrive' || state.phase === 'closed' || state.phase === 'opening';
     var revealOn = state.phase === 'revealed';
+    var holdSplit = shell && splitting && revealOn;
     lobby.hidden = state.phase !== 'lobby';
-    room.hidden = !roomOn;
-    reveal.hidden = !revealOn;
+    room.hidden = holdSplit ? false : !roomOn;
+    reveal.hidden = holdSplit ? true : !revealOn;
+    prizeBtn.classList.toggle('split', holdSplit);
 
     var level = PrizeOpen.crackLevel(state);
     prizeBtn.classList.toggle('crack-1', level === 1);
@@ -371,7 +413,10 @@
     if (state.prize === 'packet') packEl.style.setProperty('--peel', String(state.progress));
     else packEl.style.setProperty('--peel', '0');
 
-    if (revealOn) {
+    document.body.classList.toggle('beat-word', shell && revealOn && !holdSplit && shellBeat !== 'sentence');
+    document.body.classList.toggle('beat-sentence', shell && revealOn && !holdSplit && shellBeat === 'sentence');
+
+    if (revealOn && !holdSplit) {
       var word = currentWord();
       if (wordDrawn !== word.id) {
         drawWord(word);
@@ -381,14 +426,11 @@
         setText(liveEl, word.w);
       }
       fitWord();
-    } else if (wordDrawn) {
+    } else if (!revealOn && wordDrawn) {
       wordDrawn = '';
       shellBeat = 'word';
       setText(liveEl, '');
     }
-
-    document.body.classList.toggle('beat-word', shell && revealOn && shellBeat !== 'sentence');
-    document.body.classList.toggle('beat-sentence', shell && revealOn && shellBeat === 'sentence');
     if (shell && revealOn) {
       setText(hintEl, shellHint());
       setText(againBtn, 'Next');
@@ -399,6 +441,7 @@
   function shellHint() {
     if (!shell || state.phase === 'lobby') return '';
     if (state.phase === 'revealed') {
+      if (splitting) return 'It opened!';
       if (shellBeat === 'sentence') return 'Read the sentence out loud.';
       if (wordEl.querySelector('.run.heart.found') && wordEl.querySelector('.run.heart:not(.found)')) {
         return 'Tap the other red letters.';
@@ -406,8 +449,8 @@
       return 'Tap the red letters.';
     }
     if (state.phase === 'arrive') return 'Your capsule!';
-    if (!state.taps) return 'Tilt the present open.';
-    if (state.taps === 1) return 'It tipped! Tap again.';
+    if (!state.taps) return 'Open the capsule.';
+    if (state.taps === 1) return 'The top half tipped! Tap again.';
     return 'One more tap!';
   }
 
@@ -489,10 +532,21 @@
   prizeBtn.addEventListener('pointercancel', endDrag);
 
   prizeBtn.addEventListener('click', function () {
+    if (splitting) return;
     if (suppressClick) { suppressClick = false; return; }
     var was = state.opened;
     PrizeOpen.press(state);
     boop();
+    if (!was && state.opened && shell && state.prize === 'capsule' && !state.reduced && !document.body.classList.contains('still')) {
+      splitting = true;
+      openedNow();
+      render();
+      window.setTimeout(function () {
+        splitting = false;
+        render();
+      }, 560);
+      return;
+    }
     if (!was && state.opened) openedNow();
     else pop();
     render();

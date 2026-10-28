@@ -223,7 +223,7 @@
     var spelling = word && word.w ? encodeURIComponent(word.w) : '';
     var grade = word && word.grade ? encodeURIComponent(String(word.grade)) : '';
     var step = session && session.step;
-    if (step === 'reveal') return '../prize-crack/?shell=1&won=toy&word=' + spelling + '&grade=' + grade;
+    if (step === 'reveal') return '../prize-crack/?shell=1&won=capsule&word=' + spelling + '&grade=' + grade;
     if (step === 'jumble') {
       var stage = session.jumbleStage === 2 ? '2' : '1';
       return '../jumble-spell/?shell=1&word=' + spelling + '&stage=' + stage;
