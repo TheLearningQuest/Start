@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Brain Quest">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src 'self'; connect-src 'none'; frame-src 'self'; form-action 'none'; base-uri 'none'">
 <meta name="theme-color" content="#5b3df5">
 <title>Naomi's Brain Quest</title>
 <style>
@@ -400,141 +400,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
 .tile.live.red{background:linear-gradient(135deg,#ff6fa5,#c084fc);grid-column:auto;min-height:170px}
 .tile.live.red h3{font-size:32px}.tile.live.red .t-icon{font-size:72px}
 .tile.live.red .play-badge{color:#ec4899}
-.rw-word{display:inline-flex;align-items:baseline;letter-spacing:1px;white-space:nowrap}
-.rw-word .rl{display:inline-block}
-.rw-word .rpart{color:#ef2b5f;position:relative}
-.rw-word .rpart::after{content:"♥";position:absolute;left:50%;top:-.62em;transform:translateX(-50%);font-size:.38em;color:#ff4f8b}
-.rw-word.huge{font-size:clamp(84px,12vw,150px);line-height:1.15;padding-top:.15em}
-.rw-word.huge2{font-size:clamp(60px,8vw,104px);line-height:1.15;padding-top:.15em}
-.rw-word.mid{font-size:1.25em}
-.rw-word.sm{font-size:22px}.rw-word.sm .rpart::after{top:-.5em}
-.redtxt{color:#ef2b5f}
-.rw-sent{font-size:clamp(22px,2.6vw,30px);color:#4c1d95;background:#faf5ff;border-radius:16px;padding:10px 16px;margin:10px auto;text-align:center;font-weight:700;max-width:100%}
-.rw-hl{color:#ef2b5f;background:#ffe4ec;border-radius:8px;padding:0 6px}
-.rw-blank{color:#c4b5fd;letter-spacing:2px}
-.rw-badge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:13px;white-space:nowrap}
-.rw-badge.s-new{background:#f1f5f9;color:#64748b}.rw-badge.s-learning{background:#dcfce7;color:#15803d}.rw-badge.s-known{background:#fce7f3;color:#be185d}.rw-badge.s-mastered{background:#fef3c7;color:#b45309}
-/* hub */
-.rw-hub{display:flex;flex-direction:column;gap:14px}
-.rw-levels{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.rw-lvl,.rw-pool{background:#fff;border-radius:22px;padding:10px 12px;display:flex;flex-direction:column;align-items:center;gap:2px;box-shadow:0 6px 0 rgba(0,0,0,.2);border:5px solid transparent;color:var(--ink);min-height:120px;position:relative}
-.rw-lvl .li,.rw-pool .li{font-size:38px;line-height:1.1}
-.rw-lvl b,.rw-pool b{font-size:20px;color:var(--lc)}
-.rw-lvl small,.rw-pool small{font-size:13px;color:var(--muted)}
-.rw-lvl .lp{font-size:13px;background:#f5f3ff;border-radius:999px;padding:2px 10px;margin-top:4px}
-.rw-lvl.sel,.rw-pool.sel{border-color:var(--lc);transform:translateY(-3px);box-shadow:0 9px 0 rgba(0,0,0,.2),0 0 0 4px rgba(255,255,255,.6)}
-.rw-pool:disabled{opacity:.5}
-.rw-pool .st{font-size:13px;color:var(--purple)}
-.rw-pools{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-.rw-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.rw-act{display:flex;gap:14px;align-items:center}
-.rw-act .ra-icon{font-size:54px;width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:#fce7f3}
-.rw-act.prac .ra-icon{background:#dcfce7}
-.rw-act h3{margin:0;font-size:24px}.rw-act p{margin:4px 0 10px;color:var(--muted);font-size:16px}
-.rw-act .btn:disabled,.play-big:disabled{opacity:.45;filter:grayscale(.6);animation:none}
-.rw-garden .rg-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:10px;font-size:18px}
-.rw-garden .rg-head span{font-size:14px;color:var(--muted)}
-.rg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
-.rg-word{background:#f8fafc;border-radius:16px;padding:8px 6px 6px;font-size:26px;display:flex;flex-direction:column;align-items:center;gap:2px;box-shadow:0 4px 0 rgba(0,0,0,.1);border:3px solid transparent;min-height:78px;justify-content:center}
-.rg-word i{font-style:normal;font-size:16px}
-.rg-word .rw-word .rpart::after{display:none}
-.rg-word.s-new{color:#94a3b8;border:3px dashed #e2e8f0;background:#fff}
-.rg-word.s-new:not(:disabled){border-color:#ff4f8b;color:#be185d;animation:pulseTile 1.4s infinite}
-.rg-word.s-learning{background:#f0fdf4}.rg-word.s-known{background:#fdf2f8}.rg-word.s-mastered{background:#fffbeb;border-color:#fcd34d}
-.rg-word:disabled{cursor:default;opacity:.7}
-/* learn */
 #s-redlearn,#s-redplay{padding:12px 14px}
-.rl-steps{display:flex;gap:6px;flex:1;justify-content:center;flex-wrap:wrap}
-.rl-step{background:rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:6px 12px;font-size:15px;display:flex;align-items:center;gap:6px;white-space:nowrap}
-.rl-step i{font-style:normal}
-.rl-step.done{background:rgba(255,255,255,.7);color:#4c1d95}
-.rl-step.cur{background:#fff;color:#ec4899;box-shadow:0 4px 0 rgba(0,0,0,.18);transform:scale(1.08)}
-.rl-card{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;min-height:0;overflow:auto}
-.rl-title{font-size:clamp(22px,2.6vw,30px);color:var(--ink);max-width:900px}
-.rl-title small{display:block;font-size:.65em;color:var(--muted)}
-.rl-sub{font-size:20px;color:var(--muted)}
-.rl-big{margin:4px 0}
-.rl-hints{display:flex;flex-direction:column;gap:6px;align-items:center}
-.rl-hint{background:#fff1f5;color:#be185d;border-radius:14px;padding:6px 14px;font-size:clamp(17px,2vw,21px)}
-.rl-taps{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:8px 0}
-.rl-tap{position:relative;width:clamp(70px,9vw,104px);height:clamp(84px,11vw,124px);border-radius:22px;font-size:clamp(50px,7vw,80px);background:linear-gradient(180deg,#fff,#f5f3ff);border:4px solid #c4b5fd;box-shadow:0 7px 0 #a78bfa;color:var(--ink);transition:transform .1s}
-.rl-tap.red{color:#ef2b5f;border-color:#fda4af;box-shadow:0 7px 0 #fb7185;background:linear-gradient(180deg,#fff,#fff1f5)}
-.rl-tap i{position:absolute;top:2px;right:8px;font-size:18px;font-style:normal;color:#ff4f8b}
-.rl-tap.next{animation:nextTap .9s ease-in-out infinite;border-color:var(--gold)}
-.rl-tap.done{background:#ecfdf5;border-color:#86efac;box-shadow:0 7px 0 #22c55e}
-.rl-tap.red.done{background:#fff1f5;border-color:#fb7185}
-.rl-tap.wob{animation:wob .35s}
-.rl-tap:active{transform:translateY(5px);box-shadow:0 2px 0 #a78bfa}
-@keyframes nextTap{50%{transform:translateY(-6px) scale(1.05)}}
-@keyframes wob{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
-.rl-said{min-height:40px;font-size:30px;color:#7c3aed;letter-spacing:2px}
-.rl-roundinfo{font-size:18px;color:var(--muted)}
-.rl-trace{position:relative;width:100%;flex:1;min-height:260px;max-height:440px;border-radius:22px;border:4px dashed #f0abfc;background:#fffafd;overflow:hidden}
-#rl-trace{position:absolute;inset:0;width:100%;height:100%;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:crosshair}
-.rl-card .ink-btns{width:100%;max-width:640px}
-.btn.pulse{animation:pulseTile .8s infinite}
-.rl-card.step-2{justify-content:flex-start}
-.rl-novoice{font-size:18px;background:#fef3c7;color:#92400e;border-radius:12px;padding:8px 14px}
-.rl-fill{display:flex;flex-direction:column;align-items:center;gap:6px}
-.rl-opts{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
-.rl-opt{font-size:34px;background:#fff;border:4px solid #c4b5fd;border-radius:18px;padding:8px 22px;box-shadow:0 6px 0 #a78bfa;min-width:120px;color:var(--ink)}
-.rl-opt.good{background:#ecfdf5;border-color:#22c55e;box-shadow:0 6px 0 #16a34a}
-.rl-opt.bad{background:#eff6ff;border-color:#93c5fd;opacity:.6}
-.rl-done{text-align:center}
-.rl-done-top{font-size:26px;color:#ec4899}
-.rl-done-rw{font-size:22px;margin:6px 0}
-/* letter slots + input */
-.rw-slots{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0}
-.rw-slots .slot{width:clamp(50px,6.4vw,74px);height:clamp(62px,8vw,90px);border-radius:16px;border:4px dashed #c4b5fd;background:#faf5ff;font-size:clamp(40px,5.4vw,62px);display:flex;align-items:center;justify-content:center;color:var(--purple);line-height:1}
-.rw-slots .slot.redhint{border-color:#fb7185;background:#fff1f5}
-.rw-slots .slot.cur{border-color:var(--gold);border-style:solid}
-.rw-slots .slot.filled{border-style:solid}
-.rw-slots.peek .slot{color:var(--ink)}.rw-slots .slot.redtxt{color:#ef2b5f}
-.rw-slots.good .slot{border-color:var(--green);color:#16a34a;background:#ecfdf5;animation:pop .3s}
-.rw-input{width:100%;display:flex;flex-direction:column;gap:10px}
-.rw-tiles{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.rtile{width:clamp(62px,7.6vw,84px);height:clamp(62px,7.6vw,84px);border-radius:20px;font-size:clamp(38px,4.8vw,52px);color:var(--ink);border:3px solid #fff;box-shadow:0 6px 0 rgba(76,29,149,.25)}
-.rtile.c0{background:#fce7f3}.rtile.c1{background:#ede9fe}.rtile.c2{background:#cffafe}.rtile.c3{background:#fef9c3}
-.rtile.used{opacity:.25;transform:scale(.9)}
-.rtile:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(76,29,149,.25)}
-.rw-keys{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
-.rkey{height:clamp(48px,6vw,62px);border-radius:14px;font-size:clamp(26px,3.4vw,36px);background:#fff;border:3px solid #e9d5ff;box-shadow:0 4px 0 #c4b5fd;color:var(--ink)}
-.rkey:active{transform:translateY(3px);box-shadow:0 1px 0 #c4b5fd}
-.rw-input-btns{display:flex;gap:10px;justify-content:center}
-.rw-input-btns .btn{font-size:18px;min-height:48px;padding:8px 16px}
-.rw-compare{display:flex;flex-direction:column;align-items:center;gap:6px;margin:8px 0}
-.rw-cmp-row.want{font-size:clamp(44px,6vw,72px)}
-.rw-cmp-row.got{display:flex;gap:6px}
-.cmp{width:clamp(40px,5vw,58px);height:clamp(50px,6vw,68px);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:clamp(32px,4vw,46px)}
-.cmp.ok{background:#ecfdf5;color:#16a34a;border:3px solid #86efac}
-.cmp.no{background:#eff6ff;color:#2563eb;border:3px solid #60a5fa}
-/* practice */
-.section-title + .rw-pools,.section-title + .rw-games{margin-bottom:6px}
-.method-btn.g-spell .mi{background:#fce7f3}.method-btn.g-hunt .mi{background:#cffafe}.method-btn.g-missing .mi{background:#fef9c3}
-.rw-inpick{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:12px;color:#fff;font-size:18px;flex-wrap:wrap}
-.rw-inpick .tab{background:rgba(255,255,255,.9);color:var(--ink)}.rw-inpick .tab.sel{background:var(--purple);color:#fff}
-.rw-q{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:0}
-.rw-prompt{display:flex;align-items:center;gap:12px;font-size:clamp(22px,2.6vw,30px);color:var(--ink)}
-.rw-speak{width:72px;height:72px;border-radius:50%;font-size:36px;background:linear-gradient(180deg,#a5f3fc,#38bdf8);box-shadow:0 6px 0 #0284c7;flex:none}
-.rw-speak:active{transform:translateY(4px);box-shadow:0 2px 0 #0284c7}
-.rw-flash{font-size:clamp(48px,6vw,80px);min-height:1.4em;display:flex;align-items:center;justify-content:center;margin:6px 0;color:#94a3b8}
-.rw-flash:not(:has(.rw-word)){font-size:clamp(26px,3vw,36px)}
-.rw-missing{margin:6px 0}
-.rw-gap{display:inline-block;color:#ef2b5f;border-bottom:6px dashed #fb7185;margin:0 4px;min-width:1em;letter-spacing:4px;opacity:.75}
-.rw-gap.filled{opacity:1;border-bottom-style:solid;animation:pop .3s}
-.rw-ans{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
-.rw-hunt,.rw-chunks{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.rw-card,.rw-chunk{min-height:clamp(80px,12vh,120px);border-radius:22px;font-size:clamp(34px,4.4vw,54px);color:var(--ink);border:4px solid #fff;box-shadow:0 7px 0 rgba(76,29,149,.25);transition:transform .1s}
-.rw-chunk{font-size:clamp(40px,5vw,62px);color:#ef2b5f}
-.rw-card.c0,.rw-chunk.c0{background:#fce7f3}.rw-card.c1,.rw-chunk.c1{background:#ede9fe}.rw-card.c2,.rw-chunk.c2{background:#cffafe}.rw-card.c3,.rw-chunk.c3{background:#fef9c3}
-.rw-card:active,.rw-chunk:active{transform:translateY(5px);box-shadow:0 2px 0 rgba(76,29,149,.25)}
-.rw-card.good,.rw-chunk.good{background:#dcfce7;border-color:#22c55e;animation:pop .3s}
-.rw-card.show,.rw-chunk.show{border-color:#22c55e;box-shadow:0 0 0 5px #86efac}
-.rw-card.bad,.rw-chunk.bad{background:#eff6ff;border-color:#93c5fd;opacity:.6}
-.rw-play .gentle{min-height:50px}
-.rw-play .gentle .rw-word{color:var(--ink)}
-.rw-missed{margin-top:6px;font-size:22px}
-.rw-missed .rw-word{margin:0 6px}
 /* grown-ups */
 .p-card.wide{grid-column:1 / -1}
 #rp-root .p-stats{grid-template-columns:repeat(6,1fr);margin-bottom:8px}
@@ -582,12 +448,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important}
   .bubble{animation:none!important;top:var(--y,40%)}.bub-in{animation:none!important}}
 
-/* Red Words: portrait / narrow */
 @media (orientation:portrait), (max-width:760px){
-  .rw-actions{grid-template-columns:1fr}
-  .rw-pools{grid-template-columns:repeat(3,1fr)}
-  .rl-trace{min-height:300px}
-  .rw-play .p-left{min-height:0}
   #rp-root .p-stats{grid-template-columns:repeat(3,1fr)}
 }
 
@@ -613,120 +474,18 @@ body.shake-screen #app{animation:shake .3s linear 2}
   /* Red Words on phones */
   #s-redlearn,#s-redplay{padding:max(8px,env(safe-area-inset-top)) 10px max(8px,env(safe-area-inset-bottom))}
   .tile.live.red{min-height:140px}.tile.live.red h3{font-size:26px}.tile.live.red .t-icon{font-size:54px}
-  .rw-levels{grid-template-columns:repeat(2,1fr);gap:8px}
-  .rw-lvl{min-height:96px;padding:6px}.rw-lvl .li{font-size:28px}
-  .rw-pools{grid-template-columns:repeat(2,1fr);gap:8px}
-  .rw-act .ra-icon{width:58px;height:58px;font-size:34px}
-  .rg-grid{grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
-  .rg-word{font-size:21px;min-height:64px}
-  .rl-step b{display:none}.rl-step{padding:6px 10px;font-size:18px}
-  .rw-word.huge{font-size:clamp(56px,17vw,84px)}
-  .rw-word.huge2{font-size:clamp(44px,13vw,64px)}
-  .rl-tap{width:56px;height:70px;font-size:42px;border-radius:16px}
-  .rl-trace{min-height:220px}
-  .rw-slots{gap:5px}.rw-slots .slot{width:40px;height:52px;font-size:32px;border-radius:12px;border-width:3px}
-  .rtile{width:54px;height:54px;font-size:32px;border-radius:16px}
-  .rw-keys{gap:5px}.rkey{height:44px;font-size:24px}
-  .rw-card,.rw-chunk{min-height:70px;font-size:30px}
-  .rw-speak{width:56px;height:56px;font-size:28px}
-  .rw-sent{font-size:19px;padding:8px 10px}
   .rp-settings{align-items:stretch}
   .rp-voice{flex-basis:100%}
-  .rl-opt{font-size:26px;min-width:90px;padding:6px 14px}
 }
 
 
-/* Word garden — original chunky shapes, no outside art */
-.gw-world{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
-.gw-coins{align-self:flex-end;background:#fff;border-radius:999px;padding:8px 16px;font-size:22px;box-shadow:0 4px 0 #fbcfe8}
-.gw-spots{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.gw-spot{min-height:150px;border:0;border-radius:28px;color:#fff;font-size:28px;box-shadow:0 8px 0 rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-.gw-spot small{font-size:16px;opacity:.95}
-.gw-spot.claw{background:linear-gradient(180deg,#38bdf8,#2563eb)}
-.gw-spot.nursery{background:linear-gradient(180deg,#86efac,#16a34a)}
-.gw-spot.garden{background:linear-gradient(180deg,#f9a8d4,#db2777)}
-.gw-spot.explore{background:linear-gradient(180deg,#fde68a,#f59e0b);color:#7c2d12}
-.gw-spot.spin{background:linear-gradient(180deg,#c4b5fd,#7c3aed);grid-column:1 / -1}
-.gw-spot:active{transform:translateY(3px) scale(.98)}
-.claw-cab{margin:0 auto;width:min(560px,100%);background:#1d4ed8;border-radius:32px;padding:14px;box-shadow:0 10px 0 #1e3a8a}
-.claw-glass{position:relative;height:340px;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,#e0f2fe,#fff);touch-action:none}
-.claw-rail{position:absolute;left:6%;right:6%;top:8px;height:10px;border-radius:99px;background:#93c5fd}
-.claw-arm{position:absolute;top:8px;width:54px;margin-left:-27px;transition:left .08s linear}
-.claw-arm .rope{height:54px;width:6px;margin:0 auto;background:#facc15;border-radius:4px}
-.claw-arm.drop .rope{height:150px;transition:height .35s}
-.claw-grip{width:54px;height:36px;margin:0 auto;position:relative;animation:clawSway 1.1s ease-in-out infinite}
-.claw-grip i{position:absolute;bottom:0;width:16px;height:28px;background:#fbbf24;border-radius:0 0 12px 12px;border:3px solid #b45309}
-.claw-grip i:first-child{left:6px;transform:rotate(18deg)}
-.claw-grip i:last-child{right:6px;transform:rotate(-18deg)}
-@keyframes clawSway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
-.capsule{position:absolute;bottom:18px;width:72px;height:72px;margin-left:-36px;border-radius:50%;border:4px solid #fff;background:radial-gradient(circle at 35% 30%,#fff,#f9a8d4 40%,#ec4899);box-shadow:0 6px 0 rgba(0,0,0,.12);font-size:28px}
-.capsule.b{background:radial-gradient(circle at 35% 30%,#fff,#93c5fd 42%,#3b82f6)}
-.capsule.c{background:radial-gradient(circle at 35% 30%,#fff,#fde68a 42%,#f59e0b)}
-.capsule.pop{animation:capPop .4s ease-out forwards}
-@keyframes capPop{to{transform:scale(1.4);opacity:0}}
-.gw-pots,.gw-bed{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
-.pot{width:120px;min-height:150px;background:#fff;border-radius:24px;padding:8px;text-align:center;border:0;box-shadow:0 6px 0 #bbf7d0}
-.pot .soil{height:28px;border-radius:0 0 16px 16px;background:#92400e;margin-top:8px}
-.flower{width:84px;height:84px;margin:0 auto}
-.flower.thirsty{animation:thirst 1s ease-in-out infinite}
-@keyframes thirst{50%{transform:translateY(-4px) scale(1.04)}}
-.drop{font-size:28px;display:block}
-.gw-shop{display:flex;flex-wrap:wrap;gap:8px}
-.gw-shop button{min-height:64px;border-radius:18px}
-.gw-shop .pet{width:36px;height:36px}
-.gw-word{display:inline-flex;gap:4px;flex-wrap:wrap;justify-content:center}
-.gw-ch{position:relative;min-width:42px;font-size:clamp(40px,8vw,72px);background:#fff;border-radius:16px;padding:4px 8px;box-shadow:0 4px 0 #e9d5ff}
-.gw-ch.hot{background:#ffe4e6;color:#be123c}
-.gw-ch i{position:absolute;top:-8px;right:-4px;font-style:normal;font-size:18px;color:#fb7185}
-.gw-tiles{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.gw-tiles button,.gw-slots span{min-width:54px;min-height:64px;font-size:32px;border-radius:16px}
-.gw-slots{display:flex;gap:6px;justify-content:center;min-height:70px}
-.gw-slots span{display:inline-flex;align-items:center;justify-content:center;background:#f5f3ff;box-shadow:inset 0 0 0 3px #ddd6fe}
-.wheel{width:220px;height:220px;border-radius:50%;margin:10px auto;background:conic-gradient(#f9a8d4 0 120deg,#86efac 120deg 240deg,#fde68a 240deg 360deg);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 0 #c4b5fd}
-.wheel b{background:#fff;border-radius:50%;width:70px;height:70px;display:flex;align-items:center;justify-content:center}
-.wheel.spinning{animation:spin 1.1s cubic-bezier(.2,.8,.2,1)}
-.award{display:flex;flex-direction:column;align-items:center;gap:8px}
-.award-title{margin:0;font-size:clamp(26px,4vw,36px);color:#fff;text-shadow:0 3px 0 rgba(30,27,75,.25)}
-.prize-wrap{touch-action:none;width:min(340px,88vw);margin:8px auto 0;user-select:none}
-.prize-pointer{width:0;height:0;margin:0 auto -6px;border-left:18px solid transparent;border-right:18px solid transparent;border-top:30px solid #fff;filter:drop-shadow(0 3px 0 #7c3aed);position:relative;z-index:2}
-.prize-disk{position:relative;width:min(320px,84vw);height:min(320px,84vw);margin:0 auto;border-radius:50%;background:conic-gradient(#86efac 0 45deg,#93c5fd 45deg 90deg,#d8b4fe 90deg 135deg,#fde68a 135deg 180deg,#4ade80 180deg 225deg,#60a5fa 225deg 270deg,#c084fc 270deg 315deg,#fbbf24 315deg 360deg);box-shadow:0 12px 0 #7c3aed,inset 0 0 0 10px #fff}
-.prize-disk b{position:absolute;left:50%;top:50%;width:72px;height:72px;margin:-36px 0 0 -36px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 4px 0 #e9d5ff}
-.prize-label{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;font-size:30px;display:flex;align-items:center;justify-content:center}
-.award-stage{position:relative;width:min(680px,100%);height:360px;touch-action:none}
-.packet{position:absolute;left:4%;top:36px;width:200px;min-height:230px;border-radius:32px;background:#fff;box-shadow:0 12px 0 #86efac;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
-.packet b{font-size:64px;line-height:1}
-.packet.rare{box-shadow:0 12px 0 #60a5fa}
-.packet.epic{box-shadow:0 12px 0 #c084fc}
-.packet.mythic{box-shadow:0 12px 0 #fbbf24}
-.seed{width:104px;height:104px;touch-action:none;z-index:3;position:relative}
-.seed i{display:block;width:104px;height:104px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fef9c3,#22c55e 55%,#166534);box-shadow:0 8px 0 #14532d}
-.seed.back{transition:transform .4s cubic-bezier(.34,1.45,.4,1)}
-.seed.snap i{animation:seedPop .42s cubic-bezier(.2,1.5,.3,1)}
-@keyframes seedPop{0%{transform:scale(1.18)}45%{transform:scale(.84)}100%{transform:scale(1)}}
-.award-pot{position:absolute;right:6%;top:48px;width:180px;min-height:210px}
-.can{position:absolute;left:8%;bottom:16px;width:170px;height:130px;touch-action:none;z-index:4;filter:drop-shadow(0 8px 0 rgba(3,105,161,.35))}
-.can svg{width:170px;height:130px;display:block}
-.drops{position:absolute;left:50%;top:18px;width:36px;height:90px;margin-left:-18px;pointer-events:none}
-.drops i{position:absolute;left:0;top:0;width:12px;height:18px;border-radius:10px;background:#38bdf8;opacity:0}
-.award-pot.pour .drops i{animation:drip .55s linear infinite}
-.award-pot.pour .drops i:nth-child(2){left:12px;animation-delay:.12s}
-.award-pot.pour .drops i:nth-child(3){left:24px;animation-delay:.24s}
-@keyframes drip{0%{transform:translateY(0);opacity:0}25%{opacity:1}100%{transform:translateY(72px);opacity:0}}
-.sprout{width:90px;height:90px;margin:0 auto;transform:scale(0);transform-origin:50% 100%}
-.sprout.pop{animation:sproutUp .55s cubic-bezier(.2,1.45,.3,1) forwards}
-@keyframes sproutUp{0%{transform:scale(.15)}55%{transform:scale(1.12)}100%{transform:scale(1)}}
-.award-pot.perk .flower{animation:sproutUp .45s cubic-bezier(.2,1.4,.3,1)}
-.gw-trace{position:relative;min-height:180px;border-radius:24px;background:#fff;border:4px dashed #fbcfe8;touch-action:none}
-.gw-trace .gw-word{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:.35}
 .gw-known{display:flex;flex-wrap:wrap;gap:6px}
 .gw-known button{min-height:44px;border-radius:999px;padding:4px 10px;font-size:16px}
 .gw-known button.on{background:#bbf7d0}
-.pet{width:64px;height:64px;filter:drop-shadow(0 4px 0 rgba(0,0,0,.12))}
-
-
 .rw-stage{flex:1;min-height:0;position:relative;border-radius:28px;overflow:hidden;touch-action:none;background:#8fd4ff}
 .rw-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .rw-stage canvas.rw-hud{pointer-events:none;z-index:2}
+.lesson-frame{flex:1;width:100%;min-height:0;border:0;border-radius:24px;background:#fff7fb}
 .rw-mirror{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0}
 #s-red.active,#s-redplay.active,#s-redlearn.active,#s-redmenu.active,#s-redresults.active{overflow:hidden}
 </style>
@@ -3580,6 +3339,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
 <!-- three.min.js is Three.js r160.1 (MIT), vendored in this repo.
      It is a classic script: no eval, no WebAssembly, no runtime network.
      script-src 'self' loads it. connect-src stays 'none'. No CDN. -->
+<script src="lesson/words.js"></script>
 <script src="red-words/draw.js"></script>
 <script src="red-words/strokes.js"></script>
 <script src="red-words/trace.js"></script>
@@ -3772,6 +3532,93 @@ var LES = null, lastPlay = null, world = null;
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
   function stopClaw() { if (world && world.stop) world.stop(); }
+
+  /* The live lesson is the prototype shell: claw, capsule, jumble, write, seed.
+     Tracing each letter is not part of this lesson. MyScript keys stay in the write page's localStorage. */
+  var shellJob = null;
+  var lessonStamp = '';
+  var TIER_TO_GARDEN = { common: 'common', uncommon: 'rare', rare: 'epic', legendary: 'mythic' };
+
+  function lessonPile() {
+    var all = words();
+    var due = G.dueWords(all, P().cards, today(), !!P().explore);
+    if (!due.length) {
+      due = all.filter(function (w) {
+        if (!P().explore && !w.pathway) return false;
+        var card = P().cards[w.id];
+        return !(card && card.planted);
+      });
+    }
+    if (!due.length) due = all.filter(function (w) { return !!w.pathway; });
+    var built = [];
+    due.forEach(function (w) {
+      var heart = window.HeartWords && window.HeartWords.fromGarden(w);
+      if (heart) built.push(heart);
+    });
+    if (window.HeartWords && window.HeartWords.orderPile) built = window.HeartWords.orderPile(built);
+    return built.slice(0, 8);
+  }
+
+  function openLesson(opts) {
+    opts = opts || {};
+    var pile = opts.pile || lessonPile();
+    var word = opts.word || null;
+    if (!word && opts.wordId) {
+      var gardenWord = findWord(opts.wordId);
+      if (gardenWord && window.HeartWords) word = window.HeartWords.fromGarden(gardenWord);
+    }
+    var prev = null;
+    try { prev = JSON.parse(localStorage.getItem('red-words-shell.session') || 'null'); } catch (err) { prev = null; }
+    var hearts = prev && prev.hearts > 0 ? Math.min(99, Math.round(prev.hearts)) : 0;
+    var session = {
+      v: 1,
+      step: opts.step || 'claw',
+      jumbleStage: 1,
+      hearts: hearts,
+      word: word,
+      tier: '',
+      pile: pile
+    };
+    if (session.step !== 'claw' && !session.word && pile[0]) session.word = pile[0];
+    try { localStorage.setItem('red-words-shell.session', JSON.stringify(session)); } catch (err2) { /* the shell still opens */ }
+    shellJob = { mode: opts.mode || 'learn', ids: opts.ids || [] };
+    lessonStamp = '';
+    C.show('redplay');
+  }
+
+  function plantLesson(msg) {
+    if (!msg || !msg.wordId) return;
+    var stamp = msg.wordId + '|' + (msg.hearts || 0);
+    if (stamp === lessonStamp) return;
+    lessonStamp = stamp;
+    var word = findWord(msg.wordId);
+    if (!word) return;
+    var plot = P();
+    var card = G.sessionResult(plot.cards[word.id], true, today());
+    card.rarity = TIER_TO_GARDEN[msg.tier] || 'common';
+    card = G.dress(card, word, 0.5);
+    plot.cards[word.id] = card;
+    if (plot.todayDay !== today()) { plot.todayDay = today(); plot.todayCount = 0; }
+    plot.todayCount = (plot.todayCount || 0) + 1;
+    if (shellJob && shellJob.mode === 'place' && shellJob.ids.length) {
+      var at = shellJob.ids.indexOf(word.id);
+      if (at >= 0 && at + 1 >= shellJob.ids.length) plot.placed = true;
+    }
+    C.save();
+    syncCoins();
+    if (C.SFX) C.SFX.reward();
+    if (C.splash) C.splash('Planted!', 'l1', 0);
+  }
+
+  function onLessonMessage(e) {
+    if (!e || e.origin !== window.location.origin) return;
+    var frame = document.getElementById('lesson-frame');
+    if (!frame || e.source !== frame.contentWindow) return;
+    var msg = e.data;
+    if (!msg || msg.source !== 'lesson-shell' || !msg.done) return;
+    if (msg.step !== 'done') return;
+    plantLesson(msg);
+  }
   function syncCoins() {
     var b = document.getElementById('coin-count');
     if (b) b.textContent = String(S().coins);
@@ -3864,7 +3711,8 @@ var LES = null, lastPlay = null, world = null;
     view: view,
     word: function (id) { return findWord(id); },
     go: function (name) {
-      var map = { hub: 'red', claw: 'redplay', lesson: 'redlearn', ceremony: 'redlearn', nursery: 'redmenu', garden: 'redresults', home: 'home' };
+      if (name === 'claw') { openLesson({ step: 'claw', mode: 'learn' }); return; }
+      var map = { hub: 'red', lesson: 'redlearn', ceremony: 'redlearn', nursery: 'redmenu', garden: 'redresults', home: 'home' };
       C.show(map[name] || name);
     },
     toggleExplore: function () { P().explore = !P().explore; C.save(); },
@@ -3872,19 +3720,32 @@ var LES = null, lastPlay = null, world = null;
       if (P().award && P().award.id) { C.show('redlearn'); return; }
       var queue = G.KINDERGARTEN.filter(function (w) { var c = P().cards[w.id]; return !(c && c.planted); }).slice(0, 8);
       if (!queue.length) { P().placed = true; C.save(); C.show('red'); return; }
-      startLesson(queue[0], { mode: 'place', queue: queue, qi: 0 });
+      var built = [];
+      queue.forEach(function (w) {
+        var heart = window.HeartWords && window.HeartWords.fromGarden(w);
+        if (heart) built.push(heart);
+      });
+      openLesson({
+        step: 'reveal',
+        mode: 'place',
+        word: built[0] || null,
+        pile: window.HeartWords ? window.HeartWords.orderPile(built) : built,
+        ids: queue.map(function (w) { return w.id; })
+      });
     },
     beginReview: function (id) {
       if (P().award && P().award.id) return false;
       var card = P().cards[id], word = findWord(id);
       if (!card || !word || !G.isThirsty(card, today())) return false;
-      startLesson(word, { mode: 'review' });
+      var heart = window.HeartWords ? window.HeartWords.fromGarden(word) : null;
+      openLesson({ step: 'reveal', mode: 'review', word: heart, pile: heart ? [heart] : lessonPile(), ids: [id] });
       return true;
     },
-    beginLesson: function (id, clean) {
+    beginLesson: function (id) {
       var word = findWord(id);
       if (!word) return;
-      startLesson(word, { shiny: !!clean, mode: 'learn', quiet: true });
+      var heart = window.HeartWords ? window.HeartWords.fromGarden(word) : null;
+      openLesson({ step: 'reveal', mode: 'learn', word: heart, pile: heart ? [heart] : lessonPile(), ids: [id] });
     },
     markStar: function (which) { if (LES) LES[which] = true; },
     setStep: function (n, speak) {
@@ -3995,11 +3856,27 @@ var LES = null, lastPlay = null, world = null;
     world = window.NMQWorld.attach(canvas, scene, host);
   }
   function renderWorld() { collect(); mount('s-red', 'hub'); }
-  function renderClaw() { mount('s-redplay', 'claw'); }
+  function renderClaw() {
+    stopClaw();
+    var el = document.getElementById('s-redplay');
+    el.innerHTML = C.topbar('<button class="back" data-act="red">◀ Garden</button><div class="logo">💗 Heart word<small>CLAW · OPEN · SPELL · WRITE · SEED</small></div>');
+    var frame = document.createElement('iframe');
+    frame.id = 'lesson-frame';
+    frame.className = 'lesson-frame';
+    frame.title = 'Heart word lesson';
+    frame.src = 'prototypes/red-words-shell/index.html?live=1&r=' + Date.now();
+    el.appendChild(frame);
+  }
   function renderLesson() {
     if (P().award && P().award.id) mount('s-redlearn', 'ceremony');
-    else if (LES) mount('s-redlearn', 'lesson');
-    else mount('s-redlearn', 'ceremony');
+    else {
+      var el = document.getElementById('s-redlearn');
+      el.innerHTML = C.topbar('<button class="back" data-act="red">◀ Garden</button><div class="logo">🌱 Prize<small>SEED</small></div>');
+      var note = document.createElement('div');
+      note.className = 'card';
+      note.textContent = 'Finish a heart word in the claw. The seed pouch comes after she writes it.';
+      el.appendChild(note);
+    }
   }
   function renderNursery() { collect(); mount('s-redmenu', 'nursery'); }
   function renderGarden() { collect(); mount('s-redresults', 'garden'); }
@@ -4130,7 +4007,7 @@ var LES = null, lastPlay = null, world = null;
     collect();
     var h = '<div class="p-card wide" id="rp-root"><h3>🌷 Word garden</h3>';
     h += '<div class="p-stats"><div><b>' + S().coins + '</b><span>🪙 coins to trade</span></div><div><b>' + plantedCount() + '</b><span>🌼 planted</span></div><div><b>' + (P().todayCount || 0) + '</b><span>today</span></div></div>';
-    h += '<div class="p-note">Coins are the same jar as Robux, screen time, and claw quarters. Flowers make a few coins while the iPad is closed, up to 30 minutes of catch-up. Tick a word she already spells and it starts planted, so practice stays on the rest. K and 1st grade are the path. 2nd grade is Explore.</div>';
+    h += '<div class="p-note">Coins are the same jar as Robux, screen time, and claw quarters. Flowers make a few coins while the iPad is closed, up to 30 minutes of catch-up. Tick a word she already spells and it starts planted, so practice stays on the rest. K and 1st grade are the path. 2nd grade is Explore. The claw lesson opens a capsule, taps the red letters, spells, writes, then tears a seed pouch. Writing keys are pasted on that step and stay on this iPad.</div>';
     h += '<h4>She already spells these</h4><div class="gw-known">';
     words().forEach(function (w) {
       if (w.grade === '2' || w.grade === '2w') return;
@@ -4207,6 +4084,7 @@ var LES = null, lastPlay = null, world = null;
         try { s.getVoices(); } catch (e) { /* ignore */ }
         armVoicePoll();
       }
+      window.addEventListener('message', onLessonMessage);
       document.addEventListener('pointerdown', primeFromGesture, true);
       document.addEventListener('touchend', primeFromGesture, { capture: true, passive: true });
       document.addEventListener('change', function (e) {

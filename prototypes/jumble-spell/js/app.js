@@ -531,6 +531,16 @@
     }
   }
 
+  function packedWord(q) {
+    var raw = q && q.get ? q.get('pack') : '';
+    if (!raw) return null;
+    try {
+      var word = JSON.parse(raw);
+      if (word && word.w && word.letters && word.runs) return word;
+    } catch (err) { return null; }
+    return null;
+  }
+
   function boot() {
     reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     var q = new URLSearchParams(window.location.search);
@@ -544,7 +554,12 @@
     var named = q.get('word');
     var jump = named || q.get('still') || q.get('filled');
     if (jump) {
-      var word = words.find(named || 'said') || words.DEMO[0];
+      var word = words.find(named || 'said');
+      if (shell) {
+        var packed = packedWord(q);
+        if (packed) word = packed;
+      }
+      if (!word) word = words.DEMO[0];
       wordIndex = words.DEMO.indexOf(word);
       if (wordIndex < 0) wordIndex = 0;
       syncPlayShell();

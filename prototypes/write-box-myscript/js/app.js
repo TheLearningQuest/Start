@@ -521,6 +521,16 @@
     } catch (err) { /* the shell is gone */ }
   }
 
+  function packedWord(q) {
+    var raw = q && q.pack ? q.pack : '';
+    if (!raw) return null;
+    try {
+      var word = JSON.parse(raw);
+      if (word && word.w && word.letters && word.runs) return word;
+    } catch (err) { return null; }
+    return null;
+  }
+
   function boot() {
     var q = params();
     shell = q.shell === '1';
@@ -548,8 +558,13 @@
     if (window.speechSynthesis && window.speechSynthesis.addEventListener) {
       window.speechSynthesis.addEventListener('voiceschanged', readVoices);
     }
-    if (want) {
-      word = words.find(want) || words.DEMO[0];
+    if (want || (shell && q.pack)) {
+      word = words.find(want);
+      if (shell) {
+        var packed = packedWord(q);
+        if (packed) word = packed;
+      }
+      if (!word) word = words.DEMO[0];
       openWord(word, { speak: false });
     } else {
       showPick();

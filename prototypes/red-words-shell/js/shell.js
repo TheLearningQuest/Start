@@ -259,6 +259,24 @@
     else showStep();
   }
 
+  function tellLive() {
+    if (!window.parent || window.parent === window) return;
+    var live = false;
+    try { live = new URLSearchParams(window.location.search).get('live') === '1'; }
+    catch (err) { live = false; }
+    if (!live) return;
+    try {
+      window.parent.postMessage({
+        source: flow.SOURCE,
+        step: 'done',
+        done: true,
+        wordId: session.word ? session.word.id : '',
+        tier: session.tier || 'common',
+        hearts: session.hearts || 0
+      }, window.location.origin);
+    } catch (err2) { /* the garden is gone */ }
+  }
+
   function land() {
     if (session.step === 'done') return;
     session = save(flow.finishSeed(session));
@@ -267,6 +285,7 @@
     paintTear();
     cheer(session.tier);
     say(flow.tierLine(session.tier));
+    tellLive();
   }
 
   function opened() {

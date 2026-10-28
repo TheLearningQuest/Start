@@ -65,7 +65,21 @@
     if (state.phase === 'lobby') PrizeOpen.win(state, 'capsule');
   }
 
+  function packedWord() {
+    var raw = params.get('pack');
+    if (!raw) return null;
+    try {
+      var word = JSON.parse(raw);
+      if (word && word.w && word.letters && word.runs) return word;
+    } catch (err) { return null; }
+    return null;
+  }
+
   function currentWord() {
+    if (shell) {
+      var packed = packedWord();
+      if (packed) return packed;
+    }
     var list = PrizeWords.DEMO;
     var i = state.wordIndex;
     if (i < 0 || i >= list.length) i = 0;
