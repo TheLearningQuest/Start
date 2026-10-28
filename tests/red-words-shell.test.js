@@ -86,24 +86,22 @@ test('the shell walks claw, present, both spells, write, then the seed', functio
   assert.equal(clawed.step, 'reveal');
   assert.equal(clawed.word.w, 'said');
   assert.equal(clawed.word.grade, 'k');
-  assert.equal(
-    flow.framePath(clawed),
-    '../prize-crack/?shell=1&won=capsule&word=said&grade=k'
-  );
+  assert.ok(flow.framePath(clawed).indexOf('../prize-crack/?shell=1&won=capsule&word=said&grade=k&pack=') === 0);
+  assert.equal(JSON.parse(decodeURIComponent(flow.framePath(clawed).split('pack=')[1])).w, 'said');
 
   const opened = flow.applyMessage(clawed, { source: flow.SOURCE, step: 'reveal', done: true });
   assert.equal(opened.step, 'jumble');
   assert.equal(opened.jumbleStage, 1);
-  assert.equal(flow.framePath(opened), '../jumble-spell/?shell=1&word=said&stage=1');
+  assert.ok(flow.framePath(opened).indexOf('../jumble-spell/?shell=1&word=said&stage=1&pack=') === 0);
 
   const harder = flow.applyMessage(opened, { source: flow.SOURCE, step: 'jumble', done: false, stage: 2 });
   assert.equal(harder.step, 'jumble');
   assert.equal(harder.jumbleStage, 2);
-  assert.equal(flow.framePath(harder), '../jumble-spell/?shell=1&word=said&stage=2');
+  assert.ok(flow.framePath(harder).indexOf('../jumble-spell/?shell=1&word=said&stage=2&pack=') === 0);
 
   const spelled = flow.applyMessage(harder, { source: flow.SOURCE, step: 'jumble', done: true, stage: 2 });
   assert.equal(spelled.step, 'write');
-  assert.equal(flow.framePath(spelled), '../write-box-myscript/?shell=1&word=said');
+  assert.ok(flow.framePath(spelled).indexOf('../write-box-myscript/?shell=1&word=said&pack=') === 0);
 
   const wrote = flow.applyMessage(spelled, { source: flow.SOURCE, step: 'write', done: true });
   assert.equal(wrote.step, 'seed');
@@ -303,6 +301,13 @@ test('the shell page frames the steps and keeps secrets out of git', function ()
   assert.match(readme, /https:\/\/thelearningquest\.github\.io\/Start\/prototypes\/red-words-shell\//);
   assert.match(readme, /write-box-myscript\.keys/);
   assert.match(readme, /localStorage/);
-  assert.equal(live.includes('red-words-shell'), false);
-  assert.equal(live.includes('lesson-shell'), false);
+  assert.match(live, /prototypes\/red-words-shell\/index\.html\?live=1/);
+  assert.match(live, /lesson\/words\.js/);
+  assert.match(live, /frame-src 'self'/);
+  assert.match(live, /connect-src 'none'/);
+  assert.match(live, /lesson-shell/);
+  assert.equal(live.includes('https://'), false);
+  assert.equal(live.includes('applicationKey'), false);
+  assert.equal(live.includes('hmacKey'), false);
+  assert.equal(live.includes('letter-play'), false);
 });

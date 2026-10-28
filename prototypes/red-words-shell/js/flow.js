@@ -33,6 +33,44 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  /* A garden word can ride in the saved pile even when it is not one of the eight demo capsules. */
+  function usable(item) {
+    return !!(item && item.w && item.runs && item.letters);
+  }
+
+  function sameId(item, id) {
+    if (!item || id == null || id === '') return false;
+    var want = String(id).toLowerCase();
+    return String(item.id || '').toLowerCase() === want || String(item.w || '').toLowerCase() === want;
+  }
+
+  function adopt(id, dataWord, pile) {
+    var key = id || (dataWord && (dataWord.id || dataWord.w));
+    var found = key ? words.find(key) : null;
+    if (found) return found;
+    var i, item;
+    pile = pile || [];
+    for (i = 0; i < pile.length; i++) {
+      item = pile[i];
+      if (sameId(item, key) && usable(item)) return item;
+    }
+    if (usable(dataWord) && (!key || sameId(dataWord, key))) return dataWord;
+    return null;
+  }
+
+  function keepPile(data) {
+    var src = data && data.pile;
+    if (!src || !src.length) return null;
+    var kept = [];
+    var i, item, adopted;
+    for (i = 0; i < src.length; i++) {
+      item = src[i];
+      adopted = adopt(item && (item.id || item.w), item, null);
+      if (adopted) kept.push(adopted);
+    }
+    return kept.length ? kept : null;
+  }
+
   function blankSession() {
     return { v: 1, step: 'claw', jumbleStage: 1, hearts: 0, word: null };
   }
@@ -52,11 +90,13 @@
       word: null,
       tier: TIERS.indexOf(data.tier) >= 0 ? data.tier : ''
     };
+    var pile = keepPile(data);
+    if (pile) session.pile = pile;
     if (data.word) {
-      var found = words.find(data.word.id || data.word.w);
+      var found = adopt(data.word.id || data.word.w, data.word, pile);
       if (found) session.word = found;
     }
-    if (session.step !== 'claw' && !session.word) session.word = words.pile()[0];
+    if (session.step !== 'claw' && !session.word) session.word = (pile && pile[0]) || words.pile()[0];
     return session;
   }
 
@@ -66,17 +106,17 @@
     if (q.step && STEPS.indexOf(q.step) >= 0) next.step = q.step;
     if (q.stage === '2' || q.stage === 2) next.jumbleStage = 2;
     if (q.word) {
-      var found = words.find(q.word);
+      var found = words.find(q.word) || adopt(q.word, null, next.pile);
       if (found) next.word = found;
     }
     if (q.tier && TIERS.indexOf(q.tier) >= 0) next.tier = q.tier;
-    if (next.step !== 'claw' && !next.word) next.word = words.pile()[0];
+    if (next.step !== 'claw' && !next.word) next.word = (next.pile && next.pile[0]) || words.pile()[0];
     return next;
   }
 
   function withPile(session) {
     var copy = clone(session || blankSession());
-    copy.pile = words.pile();
+    if (!copy.pile || !copy.pile.length) copy.pile = words.pile();
     copy.v = 1;
     return copy;
   }
@@ -85,7 +125,7 @@
     var next = clone(session || blankSession());
     if (!msg || msg.source !== SOURCE) return next;
     if (msg.step === 'claw' && next.step === 'claw' && msg.done) {
-      next.word = words.find(msg.wordId) || words.pile()[0];
+      next.word = adopt(msg.wordId, null, next.pile) || words.pile()[0];
       next.step = 'reveal';
       next.jumbleStage = 1;
       return next;
@@ -215,20 +255,29 @@
 
   function anotherWord(session) {
     var hearts = session && session.hearts > 0 ? session.hearts : 0;
-    return { v: 1, step: 'claw', jumbleStage: 1, hearts: hearts, word: null };
+    var next = { v: 1, step: 'claw', jumbleStage: 1, hearts: hearts, word: null };
+    if (session && session.pile && session.pile.length) next.pile = session.pile;
+    return next;
+  }
+
+  function packQuery(word) {
+    if (!word || !word.w) return '';
+    try { return '&pack=' + encodeURIComponent(JSON.stringify(word)); }
+    catch (err) { return ''; }
   }
 
   function framePath(session) {
     var word = session && session.word;
     var spelling = word && word.w ? encodeURIComponent(word.w) : '';
     var grade = word && word.grade ? encodeURIComponent(String(word.grade)) : '';
+    var pack = packQuery(word);
     var step = session && session.step;
-    if (step === 'reveal') return '../prize-crack/?shell=1&won=capsule&word=' + spelling + '&grade=' + grade;
+    if (step === 'reveal') return '../prize-crack/?shell=1&won=capsule&word=' + spelling + '&grade=' + grade + pack;
     if (step === 'jumble') {
       var stage = session.jumbleStage === 2 ? '2' : '1';
-      return '../jumble-spell/?shell=1&word=' + spelling + '&stage=' + stage;
+      return '../jumble-spell/?shell=1&word=' + spelling + '&stage=' + stage + pack;
     }
-    if (step === 'write') return '../write-box-myscript/?shell=1&word=' + spelling;
+    if (step === 'write') return '../write-box-myscript/?shell=1&word=' + spelling + pack;
     return '../claw-machine/?shell=1';
   }
 
