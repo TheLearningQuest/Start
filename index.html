@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Brain Quest">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src 'self'; connect-src 'none'; frame-src 'self'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self'; connect-src 'none'; frame-src 'self'; form-action 'none'; base-uri 'none'">
 <meta name="theme-color" content="#5b3df5">
 <title>Naomi's Brain Quest</title>
 <style>
@@ -3339,6 +3339,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
 <!-- three.min.js is Three.js r160.1 (MIT), vendored in this repo.
      It is a classic script: no eval, no WebAssembly, no runtime network.
      script-src 'self' loads it. connect-src stays 'none'. No CDN. -->
+<script src="media/flowers.js"></script>
 <script src="lesson/words.js"></script>
 <script src="red-words/draw.js"></script>
 <script src="red-words/strokes.js"></script>
@@ -3859,7 +3860,7 @@ var LES = null, lastPlay = null, world = null;
   function renderClaw() {
     stopClaw();
     var el = document.getElementById('s-redplay');
-    el.innerHTML = C.topbar('<button class="back" data-act="red">◀ Garden</button><div class="logo">💗 Heart word<small>CLAW · OPEN · SPELL · WRITE · SEED</small></div>');
+    el.innerHTML = C.topbar('<button class="back" data-act="red">◀ Garden</button>');
     var frame = document.createElement('iframe');
     frame.id = 'lesson-frame';
     frame.className = 'lesson-frame';

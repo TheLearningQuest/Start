@@ -14,7 +14,7 @@ The page has no keys yet. Open **Add MyScript keys**, paste the application key 
 
 Ink still leaves the device only when she taps **Check**.
 
-**Clear keys** sits inside **Keys saved**. It wipes that iPad storage. Add the page to the Home Screen if you want it full screen. The Home Screen name is Write Cloud, so it sits apart from the offline write box.
+The key form shows only when keys are missing. **Clear keys** is on that form. Add `?keys=1` to open the form again after a save. It wipes that iPad storage. Add the page to the Home Screen if you want it full screen. The Home Screen name is Write Cloud, so it sits apart from the offline write box.
 
 `?word=said` opens that word. The same works for the other heart words (`the`, `because`, `was`, `they`, `friend`, `come`, `one`). `?calm=1` starts in Calm. `?sound=0` starts quiet.
 
@@ -55,9 +55,9 @@ Counters for the account: [cloud.myscript.com/#/counters](https://cloud.myscript
    - The cloud read some other letters: **Let's try that once more.** A small line shows what came back, for example `I read "soid".` The ink stays so she can fix a letter.
    - The cloud returned no letters: **I couldn't quite read that. Try again.**
    - The box is empty: a nudge to write. That tap does not call MyScript.
-4. **Hear it** says the word again. **Clear** wipes the box. **Next** deals another word. **Words** goes back to the list.
+4. **Hear it** says the red word, pauses, then reads the sentence. The word and the sentence stay off the screen while she writes. **Check** sits next to **Hear it**. **Clear** wipes the box. **Next** deals another word. **Words** goes back to the list.
 
-**Calm** starts from the iPad’s Reduce Motion setting. It holds the hearts still. **Sound** is tiny Web Audio notes made on the device. The spoken word is the iPad’s own voice (Zoe or Zoey when that voice is installed, otherwise the iPad default).
+Reduce Motion holds the hearts still. The spoken word is the iPad’s own voice (Zoe or Zoey when that voice is installed, otherwise the iPad default).
 
 The target word is not sent as a hint. MyScript sees the strokes and the language `en_US`. This page decides afterwards.
 
@@ -77,7 +77,7 @@ A WebSocket session is a different kind of request (everything between socket op
 
 ## Privacy
 
-The strokes — the path of the finger or the pencil, not a photo and not her name — are sent to MyScript Cloud when she taps **Check**. MyScript’s servers do the reading. This toy does not store the ink. Keys saved with **Save** stay in localStorage on that iPad. `config.local.js` stays on the computer you edit, and out of git. The page does not print the full keys after Save.
+The strokes — the path of the finger or the pencil, not a photo and not her name — are sent to MyScript Cloud when she taps **Check**. MyScript’s servers do the reading. This toy does not store the ink. Keys from **Save** stay in localStorage on that iPad under `write-box-myscript.keys`. `config.local.js` stays on the computer you edit, and out of git. The page does not print the full keys after Save.
 
 ## Content security policy
 

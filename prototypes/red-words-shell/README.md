@@ -10,11 +10,11 @@ It does not open the live Word Garden, save coins, or plant the seed in Gardens.
 2. **Open.** Three taps tip the capsule until its two halves separate. The heart word fills the screen and the iPad says it. She taps the red letters. The hearts lift off, those letters stay red, and that same word slides into the sample sentence for her to read out loud. There is no seed pouch on this step.
 3. **Spell.** Two passes. First the letters sit in the dotted slots, then they jumble, and the slots still show the letters. **Spell it again** deals the same word with empty slots. Heart slots stay pink so a heart card still has a home.
 4. **Write.** She writes the word and taps **Check**. MyScript reads it. A match is **Next**. A miss stays on this step. On a landscape iPad the key form sits above the writing box, and **Check** stays on the screen.
-5. **Seed.** After the whole module, tear the pouch sideways (or tap it three times). The pouch shakes and flashes common, uncommon, rare, then legendary, and lands on her seed. Green is common, blue is uncommon, pink is rare, gold is legendary. Kindergarten lands on common most often. 2nd grade lands on rare and legendary more often. **Another word** goes back to the claw and keeps the heart count. **Start over** clears the round, including hearts.
+5. **Seed.** After the whole module, tear the pouch sideways (or tap it three times). The pouch shakes and flashes common, uncommon, rare, then legendary, and lands on her seed. She hears the flower it grows into, and sees that flower at its middle growth stage (the same picture as the garden). Green is common, blue is uncommon, pink is rare, gold is legendary. Kindergarten lands on common most often. 2nd grade lands on rare and legendary more often. **Another word** goes back to the claw and keeps the heart count. **Start over** clears the round, including hearts. The top of the lesson keeps the heart count and **Start over**.
 
 Letter-play is not in this flow.
 
-**Calm** on each step follows that page. The seed pop also settles when the iPad’s Reduce Motion setting is on.
+Calm and Sound buttons are not on the lesson. The garden’s speaker button, next to the stars and coins, is the one that stays. The seed pop also settles when the iPad’s Reduce Motion setting is on.
 
 ## Open it
 

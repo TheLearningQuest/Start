@@ -99,7 +99,6 @@ button:disabled {
 
 #key-panel[hidden],
 #key-form[hidden],
-#key-saved[hidden],
 #key-error[hidden] { display: none !important; }
 
 #key-summary {
@@ -215,10 +214,9 @@ body[data-phase="retry"] #hint {
 
 #words,
 #hear,
+#check,
 #clear,
-#next,
-#calm,
-#sound {
+#next {
   min-height: 64px;
   min-width: 84px;
   padding: 0 16px;
@@ -228,19 +226,23 @@ body[data-phase="retry"] #hint {
   font-size: 20px;
 }
 
+#tools #check {
+  background: var(--pink);
+  color: #fff;
+  box-shadow: 0 6px 0 #a11258;
+}
+
 #words:active,
 #hear:active,
 #clear:active,
-#next:active,
-#calm:active,
-#sound:active {
+#next:active {
   transform: translateY(4px);
   box-shadow: 0 2px 0 #e7b7cc;
 }
 
-#calm[aria-pressed="true"],
-#sound[aria-pressed="false"] {
-  background: var(--gold);
+#tools #check:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #a11258;
 }
 
 #pick {
@@ -386,10 +388,15 @@ body[data-phase="retry"] #hint {
   align-items: center;
 }
 
+#prompt[hidden],
+#show[hidden],
+#sentence[hidden],
+#check[hidden] { display: none !important; }
+
 #paper {
   position: relative;
   flex: 1 1 auto;
-  min-height: 220px;
+  min-height: 0;
   border-radius: 36px;
   background:
     radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.9), transparent 28%),
@@ -506,18 +513,7 @@ body:not(.quiet) .run .mark { animation: wiggle 1.6s ease-in-out infinite; }
 
 #check {
   flex: none;
-  min-height: 84px;
-  border-radius: 28px;
-  background: var(--pink);
-  color: #fff;
-  box-shadow: 0 8px 0 #a11258;
-  font-size: clamp(28px, 4vw, 40px);
   letter-spacing: 0.01em;
-}
-
-#check:active:not(:disabled) {
-  transform: translateY(5px);
-  box-shadow: 0 3px 0 #a11258;
 }
 
 body.quiet .run .mark,

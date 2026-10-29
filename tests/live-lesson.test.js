@@ -81,6 +81,7 @@ test('the live page frames the shell and does not carry MyScript secrets', funct
   assert.match(html, /src="lesson\/words\.js"/);
   assert.match(html, /lesson-frame/);
   assert.match(html, /prototypes\/red-words-shell\/index\.html\?live=1/);
+  assert.equal(html.includes('CLAW · OPEN · SPELL · WRITE · SEED'), false);
   assert.match(html, /frame-src 'self'/);
   assert.match(html, /connect-src 'none'/);
   assert.match(html, /openLesson\(/);

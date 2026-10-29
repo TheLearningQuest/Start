@@ -5,8 +5,6 @@
   'use strict';
 
   var hintEl = document.getElementById('hint');
-  var calmBtn = document.getElementById('calm');
-  var soundBtn = document.getElementById('sound');
   var lobby = document.getElementById('lobby');
   var room = document.getElementById('room');
   var reveal = document.getElementById('reveal');
@@ -399,10 +397,6 @@
     document.body.setAttribute('data-prize', state.prize);
 
     setText(hintEl, shellHint() || PrizeOpen.hint(state));
-    calmBtn.setAttribute('aria-pressed', state.reduced ? 'true' : 'false');
-    setText(calmBtn, state.reduced ? 'Calm on' : 'Calm');
-    soundBtn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
-    setText(soundBtn, soundOn ? 'Sound' : 'Muted');
 
     var roomOn = state.phase === 'arrive' || state.phase === 'closed' || state.phase === 'opening';
     var revealOn = state.phase === 'revealed';
@@ -583,9 +577,22 @@
     if (e.target && e.target.classList) e.target.classList.remove('boop');
   });
 
+  function saySentence(word) {
+    if (!word || !word.sentence) return;
+    PrizeSpeech.speak(word.sentence, {
+      synth: window.speechSynthesis,
+      Utterance: window.SpeechSynthesisUtterance,
+      voices: readVoices(),
+      rate: 0.85,
+      pitch: 1.08
+    });
+  }
+
   hearBtn.addEventListener('click', function () {
     primeSpeech();
-    say(currentWord());
+    var word = currentWord();
+    if (shell && shellBeat === 'sentence') saySentence(word);
+    else say(word);
   });
 
   againBtn.addEventListener('click', function () {
@@ -599,17 +606,6 @@
     justOpened = false;
     PrizeOpen.again(state);
     render();
-  });
-
-  calmBtn.addEventListener('click', function () {
-    state.reduced = !state.reduced;
-    render();
-  });
-
-  soundBtn.addEventListener('click', function () {
-    soundOn = !soundOn;
-    render();
-    if (soundOn) ensureAudio();
   });
 
   window.addEventListener('resize', function () {
