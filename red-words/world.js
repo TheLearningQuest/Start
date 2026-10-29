@@ -2164,27 +2164,153 @@
 
   function drawRoomClaw(ctx, s, D, rect) {
     var x = rect.x, y = rect.y, w = rect.w, h = rect.h;
-    D.panel(ctx, x, y + h * 0.18, w, h * 0.82, { fill: '#fb7185', edge: '#be123c', r: 26, lip: 10 });
-    D.roundRect(ctx, x + w * 0.08, y + h * 0.28, w * 0.84, h * 0.42, 16);
-    ctx.fillStyle = '#e0f2fe';
+    var u = Math.min(w, h);
+    var bodyX = x + w * 0.08;
+    var bodyW = w * 0.84;
+    var bodyY = y + h * 0.02;
+    var bodyH = h * 0.76;
+    function capsule(cx, cy, scale, color) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(scale, scale);
+      D.roundRect(ctx, -15, -26, 30, 52, 15);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      ctx.fillRect(-15, -5, 30, 9);
+      ctx.fillStyle = '#3b2760';
+      ctx.beginPath();
+      ctx.arc(-6, -12, 2.3, 0, Math.PI * 2);
+      ctx.arc(6, -12, 2.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#3b2760';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(0, -6, 4, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.fillStyle = 'rgba(120, 40, 70, 0.18)';
+    D.ellipse(ctx, x + w * 0.5, bodyY + bodyH + u * 0.02, bodyW * 0.42, Math.max(6, u * 0.035));
+    ctx.fill();
+    ctx.restore();
+    var legW = Math.max(12, u * 0.055);
+    var legH = Math.max(16, bodyH * 0.1);
+    [0.22, 0.78].forEach(function (t) {
+      D.roundRect(ctx, bodyX + bodyW * t - legW / 2, bodyY + bodyH - legH * 0.35, legW, legH, legW * 0.45);
+      ctx.fillStyle = '#fb7185';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+    });
+    D.panel(ctx, bodyX, bodyY + bodyH * 0.78, bodyW, bodyH * 0.24, {
+      fill: '#fda4af', edge: '#e11d48', r: Math.max(16, u * 0.07), lip: Math.max(5, u * 0.03), gloss: false
+    });
+    D.panel(ctx, bodyX + bodyW * 0.05, bodyY + bodyH * 0.1, bodyW * 0.9, bodyH * 0.74, {
+      fill: '#fb7185', edge: '#be123c', r: Math.max(18, u * 0.08), lip: Math.max(6, u * 0.035)
+    });
+    D.roundRect(ctx, bodyX, bodyY, bodyW, bodyH * 0.18, Math.max(16, u * 0.07));
+    ctx.fillStyle = '#e11d48';
+    ctx.fill();
+    D.roundRect(ctx, bodyX, bodyY, bodyW, bodyH * 0.15, Math.max(16, u * 0.07));
+    ctx.fillStyle = '#fb7185';
     ctx.fill();
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = Math.max(3, u * 0.012);
     ctx.stroke();
-    D.roundRect(ctx, x + w * 0.38, y + h * 0.62, w * 0.24, h * 0.1, 8);
-    ctx.fillStyle = '#1e1b4b';
+    var signW = bodyW * 0.46;
+    var signH = Math.max(22, bodyH * 0.09);
+    D.roundRect(ctx, bodyX + (bodyW - signW) / 2, bodyY + bodyH * 0.025, signW, signH, 10);
+    ctx.fillStyle = '#fff7ed';
     ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + w * 0.5, y + h * 0.22, Math.min(22, w * 0.08), 0, Math.PI * 2);
-    ctx.fillStyle = '#ef4444';
-    ctx.fill();
-    ctx.strokeStyle = '#facc15';
     ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.5, y + h * 0.22);
-    ctx.lineTo(x + w * 0.5, y + h * 0.4);
+    ctx.strokeStyle = '#fb7185';
     ctx.stroke();
-    D.label(ctx, 'Red Words', x + w / 2, y + h * 0.9, Math.max(16, Math.min(26, w * 0.1)), '#fff', '#9f1239');
+    D.text(ctx, 'Red Words', bodyX + bodyW / 2, bodyY + bodyH * 0.025 + signH / 2, Math.max(13, Math.min(22, u * 0.065)), '#3b2760');
+    var gx = bodyX + bodyW * 0.14;
+    var gy = bodyY + bodyH * 0.18;
+    var gw = bodyW * 0.72;
+    var gh = bodyH * 0.58;
+    D.roundRect(ctx, gx, gy, gw, gh, Math.max(12, u * 0.05));
+    ctx.fillStyle = '#ddd6fe';
+    ctx.fill();
+    ctx.save();
+    D.roundRect(ctx, gx, gy, gw, gh, Math.max(12, u * 0.05));
+    ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
+    var dot;
+    for (dot = 0; dot < 16; dot++) {
+      ctx.beginPath();
+      ctx.arc(gx + 12 + (dot * 37) % Math.max(20, gw - 16), gy + 14 + (dot * 29) % Math.max(20, gh * 0.55), Math.max(3, u * 0.012), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#86efac';
+    ctx.fillRect(gx, gy + gh * 0.62, gw, gh * 0.4);
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (dot = 0; dot < 8; dot++) {
+      ctx.beginPath();
+      ctx.arc(gx + 16 + (dot * 29) % Math.max(20, gw - 20), gy + gh * 0.72 + (dot % 3) * 8, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    var toy = Math.max(0.72, Math.min(1.05, u / 340));
+    capsule(gx + gw * 0.24, gy + gh * 0.78, toy * 0.9, '#fb7185');
+    capsule(gx + gw * 0.42, gy + gh * 0.74, toy, '#38bdf8');
+    capsule(gx + gw * 0.58, gy + gh * 0.8, toy * 0.82, '#fde047');
+    ctx.beginPath();
+    ctx.ellipse(gx + gw * 0.8, gy + gh * 0.86, Math.max(16, u * 0.07), Math.max(8, u * 0.032), 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#312e81';
+    ctx.fill();
+    ctx.lineWidth = Math.max(4, u * 0.016);
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    ctx.restore();
+    D.roundRect(ctx, gx, gy, gw, gh, Math.max(12, u * 0.05));
+    ctx.lineWidth = Math.max(5, u * 0.028);
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    var clawX = gx + gw * 0.5;
+    var clawY = gy + gh * 0.36;
+    var head = Math.max(11, u * 0.05);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = Math.max(5, u * 0.02);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(gx + 12, gy + gh * 0.16);
+    ctx.lineTo(gx + gw - 12, gy + gh * 0.16);
+    ctx.stroke();
+    ctx.strokeStyle = '#a78bfa';
+    ctx.lineWidth = Math.max(4, u * 0.016);
+    ctx.beginPath();
+    ctx.moveTo(clawX, gy + gh * 0.16);
+    ctx.lineTo(clawX, clawY - head);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(clawX, clawY, head, 0, Math.PI * 2);
+    ctx.fillStyle = '#fde68a';
+    ctx.fill();
+    ctx.lineWidth = Math.max(3, u * 0.012);
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = Math.max(5, u * 0.02);
+    ctx.lineCap = 'round';
+    [[-1, 1.15], [0, 1.45], [1, 1.15]].forEach(function (prong) {
+      ctx.beginPath();
+      ctx.moveTo(clawX + prong[0] * head * 0.35, clawY + head * 0.35);
+      ctx.quadraticCurveTo(
+        clawX + prong[0] * head * 1.1,
+        clawY + head * 0.9,
+        clawX + prong[0] * head * prong[1],
+        clawY + head * 1.7
+      );
+      ctx.stroke();
+    });
+    D.label(ctx, 'Red Words', x + w / 2, y + h - 16, Math.max(16, Math.min(26, w * 0.1)), '#fff', '#9f1239');
   }
 
   function paintClaw(ctx, s, D) {

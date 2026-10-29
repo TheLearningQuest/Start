@@ -227,20 +227,52 @@ button:focus-visible { outline: 4px solid #6d5bd0; outline-offset: 3px; }
   color: #7c3aed;
 }
 
-/* The live lesson already has the garden bar, so the won seed has to fit one landscape screen. */
-body[data-step="done"] #celebrate { gap: 2px; justify-content: flex-start; overflow: hidden; }
-body[data-step="done"] #seed-hint { font-size: clamp(16px, 2.2vh, 22px); }
-body[data-step="done"] #seed-word { font-size: clamp(36px, 7vh, 64px); }
-body[data-step="done"] #seed-sentence,
-body[data-step="done"] #seed-yay { font-size: clamp(15px, 2vh, 20px); }
-body[data-step="done"] #pouch {
-  width: min(480px, 86vw);
-  height: min(200px, 28vh);
-  min-height: 0;
+/* Won seed: flower on the left, the original packet in the middle, the seed on the right.
+   The yellow packet stays 340 by 184. The button is only wider so the seed has a seat. */
+body[data-step="done"] #celebrate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  column-gap: 18px;
+  row-gap: 6px;
+  overflow: hidden;
 }
-body[data-step="done"] #pouch .label { font-size: 26px; }
-body[data-step="done"] #seed-flower { margin: 0; gap: 0; }
-body[data-step="done"] #seed-flower img { width: min(150px, 22vh); }
+body[data-step="done"] #seed-hint { grid-column: 1 / -1; grid-row: 1; font-size: clamp(16px, 2.2vh, 22px); }
+body[data-step="done"] #seed-word { grid-column: 1 / -1; grid-row: 2; font-size: clamp(36px, 7vh, 64px); }
+body[data-step="done"] #seed-sentence { grid-column: 1 / -1; grid-row: 3; font-size: clamp(15px, 2vh, 20px); }
+body[data-step="done"] #seed-yay { grid-column: 1 / -1; grid-row: 5; font-size: clamp(15px, 2vh, 20px); }
+body[data-step="done"] #another { grid-column: 1 / -1; grid-row: 6; }
+body[data-step="done"] #seed-flower {
+  grid-column: 1;
+  grid-row: 4;
+  justify-self: end;
+  align-self: center;
+  margin: 0 8px 0 0;
+}
+body[data-step="done"] #pouch {
+  grid-column: 2;
+  grid-row: 4;
+  width: 448px;
+  height: 184px;
+  min-height: 184px;
+  overflow: visible;
+}
+body[data-step="done"] #pouch > .pouch {
+  left: 0;
+  top: 0;
+  width: 340px;
+  height: 184px;
+  aspect-ratio: 340 / 184;
+}
+body[data-step="done"] #pouch.hatched .bean,
+body[data-step="done"] #pouch.open.settled .bean {
+  opacity: 1;
+  animation: none;
+  transform: translate(263px, 7px) rotate(-8deg) scale(1);
+}
+body[data-step="done"] #pouch.open.settled .tab { opacity: 0; }
+body[data-step="done"] #seed-flower img { width: min(150px, 24vh); }
 body[data-step="done"] #seed-flower figcaption { font-size: clamp(24px, 4vh, 36px); }
 body[data-step="done"] #another {
   min-height: 44px;

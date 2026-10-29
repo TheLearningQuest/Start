@@ -44,12 +44,17 @@ test('the live hub is a room and the lesson drops the old chrome', function () {
   assert.equal(world.includes('Words I already know'), false);
   assert.match(world, /Explore New Words/);
   assert.match(world, /drawRoomClaw/);
+  assert.match(world, /function capsule\(cx, cy, scale, color\)/);
   assert.match(world, /paintFlowerPic/);
   assert.match(live, /src="media\/flowers\.js"/);
   assert.match(live, /img-src 'self' data: blob:/);
 
   assert.match(shellCss, /#brand,\s*#trail,\s*#legend,\s*#now \{ display: none/);
   assert.match(shellHtml, /id="seed-flower"/);
+  assert.match(shellCss, /body\[data-step="done"\] #seed-flower \{\s*grid-column: 1;/);
+  assert.match(shellCss, /width: 340px;\s*height: 184px;\s*aspect-ratio: 340 \/ 184;/);
+  assert.match(shellCss, /translate\(263px, 7px\)/);
+  assert.equal(shellCss.includes('height: min(200px, 28vh)'), false);
   assert.match(shellHtml, /media\/flowers\.js/);
   assert.match(shell, /Flowers\.line\(flowerId\(\)\)/);
   assert.match(shellHtml, /id="hearts"/);
