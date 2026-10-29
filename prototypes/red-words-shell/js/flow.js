@@ -92,11 +92,20 @@
     };
     var pile = keepPile(data);
     if (pile) session.pile = pile;
+    var pool = keepPile({ pile: data.pool });
+    if (pool) session.pool = pool;
     if (data.word) {
       var found = adopt(data.word.id || data.word.w, data.word, pile);
       if (found) session.word = found;
     }
     if (session.step !== 'claw' && !session.word) session.word = (pile && pile[0]) || words.pile()[0];
+    if (data.exhausted) {
+      session.exhausted = true;
+      session.step = 'claw';
+      session.word = null;
+      session.pile = [];
+      session.pool = [];
+    }
     return session;
   }
 
@@ -116,7 +125,18 @@
 
   function withPile(session) {
     var copy = clone(session || blankSession());
-    if (!copy.pile || !copy.pile.length) copy.pile = words.pile();
+    if (copy.exhausted) {
+      copy.pile = [];
+      copy.pool = [];
+      copy.word = null;
+      copy.v = 1;
+      return copy;
+    }
+    if (!copy.pile || !copy.pile.length) {
+      if (copy.pool && copy.pool.length) copy.pile = copy.pool.slice().slice(0, 8);
+      else copy.pile = words.pile();
+    }
+    if (!copy.pool || !copy.pool.length) copy.pool = copy.pile.slice();
     copy.v = 1;
     return copy;
   }
@@ -253,10 +273,81 @@
     return next;
   }
 
-  function anotherWord(session) {
+  function shuffle(list, rng) {
+    var out = (list || []).slice();
+    var random = typeof rng === 'function' ? rng : Math.random;
+    var i, j, sample, tmp;
+    for (i = out.length - 1; i > 0; i--) {
+      sample = random();
+      if (!(sample >= 0) || sample >= 1) sample = 0;
+      j = Math.floor(sample * (i + 1));
+      tmp = out[i];
+      out[i] = out[j];
+      out[j] = tmp;
+    }
+    return out;
+  }
+
+  function sameWord(item, word) {
+    if (!item || !word) return false;
+    if (word.id && sameId(item, word.id)) return true;
+    if (word.w && sameId(item, word.w)) return true;
+    return false;
+  }
+
+  function withoutWord(list, word) {
+    var out = [];
+    var i;
+    for (i = 0; i < (list || []).length; i++) {
+      if (!sameWord(list[i], word)) out.push(list[i]);
+    }
+    return out;
+  }
+
+  /* Drop the word she just finished. Shuffle what is still in the machine.
+     When that handful is gone, bring in the next words from the pool.
+     A finished pool does not come back. An empty pool ends the claw. */
+  function anotherWord(session, rng) {
     var hearts = session && session.hearts > 0 ? session.hearts : 0;
-    var next = { v: 1, step: 'claw', jumbleStage: 1, hearts: hearts, word: null };
-    if (session && session.pile && session.pile.length) next.pile = session.pile;
+    var hadPile = !!(session && session.pile && session.pile.length);
+    var source = hadPile ? session.pile : ((session && session.pool && session.pool.length) ? session.pool : words.pile());
+    var pool = (session && session.pool && session.pool.length) ? session.pool : source;
+    var won = session && session.word;
+    var rest = withoutWord(pool, won);
+    var shown = withoutWord(source, won);
+    var exhausted = !rest.length;
+    if (!shown.length && !exhausted) shown = rest.slice(0, 8);
+    if (exhausted) shown = [];
+    return {
+      v: 1,
+      step: 'claw',
+      jumbleStage: 1,
+      hearts: hearts,
+      word: null,
+      pile: shuffle(shown, rng),
+      pool: rest.slice(),
+      exhausted: exhausted
+    };
+  }
+
+  /* Every claw visit reshuffles the capsules already in the machine. */
+  function shuffleClaw(session, rng) {
+    var next = clone(session || blankSession());
+    if (next.exhausted) {
+      next.pile = [];
+      next.pool = [];
+      next.word = null;
+      return next;
+    }
+    var tracked = !!(session && Array.isArray(session.pool));
+    if (!next.pile || !next.pile.length) {
+      if (tracked && next.pool && next.pool.length) next.pile = next.pool.slice().slice(0, 8);
+      else if (!tracked) next.pile = words.pile();
+    }
+    if (!next.pool || !next.pool.length) {
+      if (!tracked) next.pool = (next.pile || []).slice();
+    }
+    if (next.step === 'claw' && next.pile && next.pile.length) next.pile = shuffle(next.pile, rng);
     return next;
   }
 
@@ -376,6 +467,7 @@
     hatchStep: hatchStep,
     finishSeed: finishSeed,
     anotherWord: anotherWord,
+    shuffleClaw: shuffleClaw,
     framePath: framePath,
     createTear: createTear,
     tearDown: tearDown,

@@ -114,6 +114,8 @@ test('the shell walks claw, present, both spells, write, then the seed', functio
   assert.equal(again.step, 'claw');
   assert.equal(again.word, null);
   assert.equal(again.hearts, 1);
+  assert.equal(again.pile.some(function (item) { return item.w === 'said'; }), false);
+  assert.equal(again.pile.length, 7);
   assert.equal(flow.framePath(again), '../claw-machine/?shell=1');
 
   const stale = flow.applyMessage(wrote, { source: flow.SOURCE, step: 'claw', done: true, wordId: 'the' });

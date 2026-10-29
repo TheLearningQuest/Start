@@ -270,12 +270,49 @@
       anotherBtn.hidden = true;
       celebrated = false;
     }
+    pouch.hidden = false;
     paintTear();
   }
 
+  function showExhausted() {
+    frame.hidden = true;
+    frame.src = 'rest.html';
+    celebrate.hidden = false;
+    seedHint.textContent = 'Every word is done!';
+    seedWord.textContent = '';
+    seedSentence.textContent = '';
+    pouch.hidden = true;
+    seedFlower.hidden = true;
+    seedYay.hidden = true;
+    anotherBtn.hidden = true;
+    if (live.textContent !== 'Every word is done!') live.textContent = 'Every word is done!';
+    tellExhausted();
+  }
+
+  function tellExhausted() {
+    if (!window.parent || window.parent === window) return;
+    var liveMode = false;
+    try { liveMode = new URLSearchParams(window.location.search).get('live') === '1'; }
+    catch (err) { liveMode = false; }
+    if (!liveMode) return;
+    try {
+      window.parent.postMessage({
+        source: flow.SOURCE,
+        step: 'claw',
+        done: true,
+        exhausted: true
+      }, window.location.origin);
+    } catch (err2) { /* the garden is gone */ }
+  }
+
   function render() {
+    if (session.step === 'claw') session = flow.shuffleClaw(session);
     session = save(session);
     updateChrome();
+    if (session.exhausted) {
+      showExhausted();
+      return;
+    }
     if (session.step === 'seed' || session.step === 'done') showCelebrate();
     else showStep();
   }

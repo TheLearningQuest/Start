@@ -37,7 +37,10 @@ test('every garden word becomes one heart-letter word', function () {
     assert.equal(heart.id, word.id);
     assert.equal(heart.w.toLowerCase(), String(word.w).toLowerCase());
     assert.ok(heart.runs.length > 0, word.id);
+    assert.ok(heart.runs.some(function (run) { return run.heart && run.text; }), word.id + ' has no red letter');
     assert.ok(boundary(heart.sentence, heart.w), heart.sentence + ' / ' + heart.w);
+    if (word.w === 'I') assert.equal(heart.sentence, 'I can read.');
+    else assert.equal(/^I can read\b/i.test(heart.sentence), false, word.id + ' ' + heart.sentence);
     assert.ok(heart.color === Heart.COLORS.k || heart.color === Heart.COLORS['1'] || heart.color === Heart.COLORS['2']);
   });
   const said = Heart.fromGarden(Garden.byId('rw-k-said', []));
@@ -51,6 +54,14 @@ test('every garden word becomes one heart-letter word', function () {
   assert.equal(because.grade, '2');
   assert.equal(because.color, 0x3d8bff);
   assert.deepEqual(because.runs.filter(function (run) { return run.heart; }).map(function (run) { return run.text; }), ['au', 'e']);
+  const asWord = Heart.fromGarden(Garden.byId('rw-k-as', []));
+  const byWord = Heart.fromGarden(Garden.byId('rw-k-by', []));
+  assert.deepEqual(asWord.runs.filter(function (run) { return run.heart; }).map(function (run) { return run.text; }), ['s']);
+  assert.deepEqual(byWord.runs.filter(function (run) { return run.heart; }).map(function (run) { return run.text; }), ['y']);
+  assert.equal(asWord.sentence, 'We sit as the cat naps.');
+  assert.equal(byWord.sentence, 'Sit by the bunny.');
+  assert.equal(/^I can read\b/i.test(asWord.sentence), false);
+  assert.equal(/^I can read\b/i.test(byWord.sentence), false);
 });
 
 test('the claw keeps a garden pile that is not the eight demo words', function () {
@@ -71,10 +82,74 @@ test('the claw keeps a garden pile that is not the eight demo words', function (
   const packed = JSON.parse(decodeURIComponent(framed.split('pack=')[1]));
   assert.equal(packed.id, 'rw-k-where');
   assert.ok(packed.runs.some(function (run) { return run.heart && run.text === 'ere'; }));
-  const again = flow.anotherWord(grabbed);
+  const again = flow.anotherWord(grabbed, function () { return 0; });
   assert.equal(again.step, 'claw');
-  assert.equal(again.pile[0].w, pile[0].w);
+  assert.equal(again.word, null);
+  assert.deepEqual(again.pile.map(function (item) { return item.w; }), ['and']);
+  assert.equal(again.pile.some(function (item) { return item.w === 'where'; }), false);
   assert.equal(flow.framePath(again), '../claw-machine/?shell=1');
+});
+
+test('another word removes the won capsule and ends when the pool is empty', function () {
+  const and = Heart.fromGarden(Garden.byId('rw-k-and', []));
+  const where = Heart.fromGarden(Garden.byId('rw-k-where', []));
+  const asWord = Heart.fromGarden(Garden.byId('rw-k-as', []));
+  const byWord = Heart.fromGarden(Garden.byId('rw-k-by', []));
+  const the = Heart.fromGarden(Garden.byId('rw-k-the', []));
+  const pool = [and, where, asWord];
+  const zero = function () { return 0; };
+  const afterWhere = flow.anotherWord({
+    v: 1, step: 'done', hearts: 1, word: where, pile: pool, pool: pool
+  }, zero);
+  assert.deepEqual(afterWhere.pile.map(function (item) { return item.w; }), ['as', 'and']);
+  assert.deepEqual(afterWhere.pool.map(function (item) { return item.w; }), ['and', 'as']);
+  assert.equal(afterWhere.exhausted, false);
+  const kept = flow.normalize(JSON.parse(JSON.stringify(afterWhere)));
+  assert.deepEqual(kept.pool.map(function (item) { return item.w; }), ['and', 'as']);
+  assert.equal(kept.pile.some(function (item) { return item.w === 'where'; }), false);
+
+  const afterAs = flow.anotherWord(Object.assign({}, kept, { word: asWord, step: 'done' }), zero);
+  assert.deepEqual(afterAs.pile.map(function (item) { return item.w; }), ['and']);
+  assert.deepEqual(afterAs.pool.map(function (item) { return item.w; }), ['and']);
+
+  const finished = flow.anotherWord(Object.assign({}, afterAs, { word: and, step: 'done' }), zero);
+  assert.equal(finished.exhausted, true);
+  assert.deepEqual(finished.pile, []);
+  assert.deepEqual(finished.pool, []);
+  assert.equal(finished.step, 'claw');
+  assert.equal(finished.word, null);
+  const remembered = flow.normalize(JSON.parse(JSON.stringify(finished)));
+  assert.equal(remembered.exhausted, true);
+  assert.deepEqual(remembered.pile, []);
+  assert.deepEqual(flow.withPile(remembered).pile, []);
+  assert.deepEqual(flow.shuffleClaw(remembered, zero).pile, []);
+
+  const waiting = [and, where, asWord, byWord, the];
+  const nextHand = flow.anotherWord({
+    v: 1, step: 'done', hearts: 2, word: where, pile: [and, where], pool: waiting
+  }, zero);
+  assert.deepEqual(nextHand.pile.map(function (item) { return item.w; }), ['and']);
+  assert.deepEqual(nextHand.pool.map(function (item) { return item.w; }), ['and', 'as', 'by', 'the']);
+  const brought = flow.anotherWord(Object.assign({}, nextHand, { word: and, step: 'done' }), zero);
+  assert.equal(brought.exhausted, false);
+  assert.deepEqual(brought.pile.map(function (item) { return item.w; }), ['by', 'the', 'as']);
+  assert.equal(brought.pile.some(function (item) { return item.w === 'and' || item.w === 'where'; }), false);
+
+  const visit = flow.shuffleClaw({
+    v: 1, step: 'claw', hearts: 2, word: null, pile: [and, where, asWord]
+  }, zero);
+  assert.deepEqual(visit.pile.map(function (item) { return item.w; }), ['where', 'as', 'and']);
+  assert.equal(visit.pool.length, 3);
+  const shell = fs.readFileSync(path.join(root, 'prototypes', 'red-words-shell', 'js', 'shell.js'), 'utf8');
+  const world = fs.readFileSync(path.join(root, 'red-words', 'world.js'), 'utf8');
+  assert.match(shell, /shuffleClaw\(session\)/);
+  assert.match(shell, /function showExhausted/);
+  assert.match(shell, /exhausted: true/);
+  assert.match(world, /complete!/);
+  assert.match(world, /All done!/);
+  assert.match(world, /view\(\)\.clawOff\) return/);
+  assert.match(html, /offer\.clawOff\) return false/);
+  assert.match(html, /msg\.exhausted/);
 });
 
 test('the live page frames the shell and does not carry MyScript secrets', function () {

@@ -365,6 +365,8 @@ test('the page is a self-contained offline prize room', function () {
   assert.match(app, /voiceschanged/);
   assert.match(app, /new window\.SpeechSynthesisUtterance\(''\)/);
   assert.match(app, /PrizeSpeech\.playClip\(/);
+  assert.match(app, /var floor = 28/);
+  assert.match(app, /guard < 80 && size > floor && sentenceCrowded\(\)/);
   assert.match(app, /prefers-reduced-motion/);
   assert.equal(app.includes('new Audio'), false);
   assert.match(speech, /var CLIPS = \[\]/);

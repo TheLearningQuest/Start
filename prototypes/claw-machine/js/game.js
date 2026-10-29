@@ -1055,6 +1055,7 @@
       });
     }
     if (!list.length) {
+      if (data && data.exhausted) return [];
       var cycle = ['k', '1', '2'];
       for (i = 0; i < 8; i++) {
         grade = cycle[i % 3];
@@ -1067,8 +1068,15 @@
   var shellOn = false;
   var shellSent = false;
   var shellList = readShellCatalog();
+  var shellQuiet = Array.isArray(shellList) && !shellList.length;
   shellOn = !!shellList;
-  var state = ClawPhysics.createState(shellList ? { catalog: shellList } : undefined);
+  var state = ClawPhysics.createState(shellList && shellList.length ? { catalog: shellList } : undefined);
+  if (shellQuiet) {
+    shellOn = true;
+    state.prizes = [];
+    state.pendingSpawns = 0;
+    state.spawned = true;
+  }
 
   function poseClaw() {
     var headP = ClawPhysics.headPoint(state);
