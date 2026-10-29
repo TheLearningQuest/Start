@@ -376,11 +376,45 @@
     return spec || spelling;
   }
 
+  function wordAt(sentence, spelling) {
+    var raw = String(sentence || '');
+    var needle = String(spelling || '');
+    if (!raw || !needle) return -1;
+    var lower = raw.toLowerCase();
+    var want = needle.toLowerCase();
+    var from = 0;
+    var at;
+    while (from <= lower.length) {
+      at = lower.indexOf(want, from);
+      if (at < 0) return -1;
+      var before = at === 0 || !/[a-z]/i.test(raw.charAt(at - 1));
+      var after = at + want.length >= raw.length || !/[a-z]/i.test(raw.charAt(at + want.length));
+      if (before && after) return at;
+      from = at + 1;
+    }
+    return -1;
+  }
+
+  function leadsSentence(sentence, spelling) {
+    var at = wordAt(sentence, spelling);
+    if (at < 0) return false;
+    return !/[a-z]/i.test(String(sentence || '').slice(0, at));
+  }
+
+  /* A sentence that opens with the red word keeps a capital on that word. */
+  function spokenSentence(sentence, spelling) {
+    var raw = String(sentence || '');
+    if (!leadsSentence(raw, spelling)) return raw;
+    var at = wordAt(raw, spelling);
+    var upper = raw.charAt(at).toUpperCase();
+    if (upper === raw.charAt(at)) return raw;
+    return raw.slice(0, at) + upper + raw.slice(at + 1);
+  }
+
   function sentenceFor(spelling) {
     var key = spelling === 'I' ? 'I' : String(spelling).toLowerCase();
-    if (SENTENCES[key]) return SENTENCES[key];
-    if (spelling === 'I') return 'I can read.';
-    return 'I can read ' + key + '.';
+    var raw = SENTENCES[key] || (spelling === 'I' ? 'I can read.' : ('I can read ' + key + '.'));
+    return spokenSentence(raw, spelling);
   }
 
   function build(row) {
@@ -453,7 +487,9 @@
     parseSpec: parseSpec,
     fromGarden: fromGarden,
     orderPile: orderPile,
-    sentenceFor: sentenceFor
+    sentenceFor: sentenceFor,
+    spokenSentence: spokenSentence,
+    leadsSentence: leadsSentence
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

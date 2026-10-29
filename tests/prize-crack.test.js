@@ -38,6 +38,19 @@ test('demo heart parts follow the bracket spec', function () {
   assert.deepEqual(because.runs.map(function (r) { return r.text; }), ['bec', 'au', 's', 'e']);
 
   assert.equal(W.soundsLike(W.find('said')), 'sed');
+  assert.equal(W.leadsSentence('Go see the ducks.', 'go'), true);
+  assert.equal(W.leadsSentence('Come and see my drawing!', 'come'), true);
+  assert.equal(W.leadsSentence('We run and play.', 'and'), false);
+  assert.equal(W.leadsSentence('The cat is in the box.', 'in'), false);
+  assert.equal(W.leadsSentence('The cat naps on the mat.', 'the'), true);
+  assert.equal(W.capitalLead('go'), 'Go');
+  assert.equal(W.capitalLead('th'), 'Th');
+  assert.equal(W.capitalLead("don't"), "Don't");
+  assert.equal(W.capitalLead('I'), 'I');
+  assert.equal(W.spokenSentence('go see the ducks.', 'go'), 'Go see the ducks.');
+  assert.equal(W.spokenSentence('Go see the ducks.', 'go'), 'Go see the ducks.');
+  assert.equal(W.spokenSentence('We sit as the cat naps.', 'as'), 'We sit as the cat naps.');
+  assert.equal(W.spokenSentence("don't run in the hall.", "don't"), "Don't run in the hall.");
   assert.equal(W.soundsLike(W.find('the')), 'thu');
   assert.equal(W.soundsLike(W.find('because')), 'becus');
   assert.equal(W.soundsLike(W.find('one')), 'wun');
@@ -366,6 +379,9 @@ test('the page is a self-contained offline prize room', function () {
   assert.match(app, /new window\.SpeechSynthesisUtterance\(''\)/);
   assert.match(app, /PrizeSpeech\.playClip\(/);
   assert.match(app, /var floor = 28/);
+  assert.match(app, /PrizeWords\.leadsSentence\(word\.sentence, word\.w\)/);
+  assert.match(app, /PrizeWords\.spokenSentence\(word\.sentence, word\.w\)/);
+  assert.match(app, /capitalizeLeadGlyphs\(wordEl\)/);
   assert.match(app, /guard < 80 && size > floor && sentenceCrowded\(\)/);
   assert.match(app, /prefers-reduced-motion/);
   assert.equal(app.includes('new Audio'), false);

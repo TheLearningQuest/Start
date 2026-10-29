@@ -244,7 +244,20 @@
       if (!wordEl.querySelector('.run.heart')) showSentence(word);
     } else {
       sentenceEl.hidden = false;
-      setText(sentenceEl, word.sentence);
+      setText(sentenceEl, PrizeWords.spokenSentence(word.sentence, word.w));
+    }
+  }
+
+  /* The word chip is built from lowercase letters. A sentence that starts
+     with that word shows and speaks it with a capital. */
+  function capitalizeLeadGlyphs(el) {
+    var nodes = el.querySelectorAll('.glyphs');
+    var i, text;
+    for (i = 0; i < nodes.length; i++) {
+      text = nodes[i].textContent || '';
+      if (!text) continue;
+      nodes[i].textContent = PrizeWords.capitalLead(text);
+      return;
     }
   }
 
@@ -284,6 +297,11 @@
       tail.className = 'side';
       tail.textContent = parts.after;
       sentenceEl.appendChild(tail);
+    }
+    if (word && PrizeWords.leadsSentence(word.sentence, word.w)) {
+      capitalizeLeadGlyphs(wordEl);
+      var label = wordEl.getAttribute('aria-label');
+      if (label) wordEl.setAttribute('aria-label', PrizeWords.capitalLead(label));
     }
     sentenceEl.hidden = false;
   }
@@ -580,7 +598,7 @@
 
   function saySentence(word) {
     if (!word || !word.sentence) return;
-    PrizeSpeech.speak(word.sentence, {
+    PrizeSpeech.speak(PrizeWords.spokenSentence(word.sentence, word.w), {
       synth: window.speechSynthesis,
       Utterance: window.SpeechSynthesisUtterance,
       voices: readVoices(),

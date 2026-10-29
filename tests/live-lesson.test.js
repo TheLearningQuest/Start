@@ -41,6 +41,9 @@ test('every garden word becomes one heart-letter word', function () {
     assert.ok(boundary(heart.sentence, heart.w), heart.sentence + ' / ' + heart.w);
     if (word.w === 'I') assert.equal(heart.sentence, 'I can read.');
     else assert.equal(/^I can read\b/i.test(heart.sentence), false, word.id + ' ' + heart.sentence);
+    if (Heart.leadsSentence(heart.sentence, heart.w)) {
+      assert.equal(heart.sentence.charAt(0), heart.sentence.charAt(0).toUpperCase(), heart.sentence);
+    }
     assert.ok(heart.color === Heart.COLORS.k || heart.color === Heart.COLORS['1'] || heart.color === Heart.COLORS['2']);
   });
   const said = Heart.fromGarden(Garden.byId('rw-k-said', []));
@@ -58,6 +61,10 @@ test('every garden word becomes one heart-letter word', function () {
   const byWord = Heart.fromGarden(Garden.byId('rw-k-by', []));
   assert.deepEqual(asWord.runs.filter(function (run) { return run.heart; }).map(function (run) { return run.text; }), ['s']);
   assert.deepEqual(byWord.runs.filter(function (run) { return run.heart; }).map(function (run) { return run.text; }), ['y']);
+  assert.equal(Heart.spokenSentence('go see the ducks.', 'go'), 'Go see the ducks.');
+  assert.equal(Heart.spokenSentence('We run and play.', 'and'), 'We run and play.');
+  assert.equal(Heart.spokenSentence("don't run in the hall.", "don't"), "Don't run in the hall.");
+  assert.equal(Heart.leadsSentence('The cat is in the box.', 'in'), false);
   assert.equal(asWord.sentence, 'We sit as the cat naps.');
   assert.equal(byWord.sentence, 'Sit by the bunny.');
   assert.equal(/^I can read\b/i.test(asWord.sentence), false);
