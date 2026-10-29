@@ -746,16 +746,27 @@ body.shell.beat-word .run.heart:not(.found) .glyphs {
 
 body.shell #sentence[hidden] { display: none !important; }
 
+body.shell #reveal {
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+}
+
+body.shell.beat-sentence #reveal { overflow: hidden; }
+
 body.shell.beat-sentence #sentence {
   display: block;
-  max-width: min(16em, 96vw);
+  width: auto;
+  max-width: 100%;
   margin: 0;
-  padding: 0 8px;
+  padding: 0.02em 8px 0.16em;
   background: transparent;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
   text-align: center;
   font-weight: 700;
   letter-spacing: -0.04em;
-  line-height: 0.92;
+  line-height: 1.15;
   color: var(--ink);
   -webkit-text-stroke: 0.045em #fff;
   paint-order: stroke fill;
@@ -768,7 +779,7 @@ body.shell.beat-sentence #word {
   margin: 0 0.04em;
   vertical-align: -0.06em;
   font-size: 1em;
-  line-height: 0.9;
+  line-height: 1;
   letter-spacing: -0.04em;
 }
 

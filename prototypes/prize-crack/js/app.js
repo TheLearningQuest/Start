@@ -331,12 +331,12 @@
       openSize = Math.min(200, Math.floor(width * 0.22), Math.floor(height * 0.34));
     }
     var size = Math.floor(openSize * 0.94);
-    var floor = Math.max(64, Math.floor(openSize * 0.78));
+    var floor = 28;
     wordEl.style.fontSize = '1em';
     sentenceEl.style.fontSize = size + 'px';
     var guard = 0;
-    while (guard < 24 && size > floor && sentenceCrowded()) {
-      size -= 4;
+    while (guard < 80 && size > floor && sentenceCrowded()) {
+      size -= 2;
       sentenceEl.style.fontSize = size + 'px';
       guard++;
     }
@@ -349,8 +349,9 @@
     var actionsBox = actions.getBoundingClientRect();
     var hitsButtons = actionsBox.height > 0 && sentenceBox.bottom > actionsBox.top - 8;
     var pastBottom = actionsBox.bottom > Math.min(revealBox.bottom, window.innerHeight) - 12;
-    var pastSides = sentenceBox.left < revealBox.left - 2 || sentenceBox.right > revealBox.right - 2;
-    return hitsButtons || pastBottom || pastSides;
+    var pastSides = sentenceBox.left < revealBox.left + 4 || sentenceBox.right > revealBox.right - 4;
+    var pastWindow = sentenceBox.left < 4 || sentenceBox.right > window.innerWidth - 4 || sentenceBox.bottom > window.innerHeight - 8;
+    return hitsButtons || pastBottom || pastSides || pastWindow;
   }
 
   function ariaPrize() {

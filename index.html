@@ -3006,7 +3006,7 @@ body.shake-screen #app{animation:shake .3s linear 2}
   }
 
   var KINDERGARTEN = pack('k', [
-    ['a', '0'], ['and', ''], ['are', '0,2'], ['any', '0'], ['as', ''], ['by', ''],
+    ['a', '0'], ['and', ''], ['are', '0,2'], ['any', '0'], ['as', '1'], ['by', '1'],
     ['come', '1,3'], ['do', '1'], ['for', ''], ['from', ''], ['go', ''], ['get', ''],
     ['give', '1,3'], ['has', ''], ['have', '3'], ['he', ''], ['his', ''], ['I', ''],
     ['is', ''], ['in', ''], ['into', ''], ['like', ''], ['me', ''], ['my', ''],
@@ -3578,7 +3578,8 @@ var LES = null, lastPlay = null, world = null;
       hearts: hearts,
       word: word,
       tier: '',
-      pile: pile
+      pile: pile,
+      pool: (opts.pool || pile).slice()
     };
     if (session.step !== 'claw' && !session.word && pile[0]) session.word = pile[0];
     try { localStorage.setItem('red-words-shell.session', JSON.stringify(session)); } catch (err2) { /* the shell still opens */ }

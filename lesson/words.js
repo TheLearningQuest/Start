@@ -16,6 +16,8 @@
   var SPECS = {
     I: 'I',
     a: '[a:]',
+    as: 'a[s:z]',
+    by: 'b[y:ie]',
     the: 'th[e:u]',
     of: '[o:u][f:v]',
     said: 's[ai:e]d',
@@ -102,6 +104,8 @@
     you: 'I like you a lot!',
     your: 'Is this your kitten?',
     are: 'We are best friends.',
+    as: 'We sit as the cat naps.',
+    by: 'Sit by the bunny.',
     they: 'They play in the park.',
     where: 'Where is my paintbrush?',
     come: 'Come and see my drawing!',

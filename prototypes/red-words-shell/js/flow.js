@@ -92,6 +92,8 @@
     };
     var pile = keepPile(data);
     if (pile) session.pile = pile;
+    var pool = keepPile({ pile: data.pool });
+    if (pool) session.pool = pool;
     if (data.word) {
       var found = adopt(data.word.id || data.word.w, data.word, pile);
       if (found) session.word = found;
@@ -117,6 +119,7 @@
   function withPile(session) {
     var copy = clone(session || blankSession());
     if (!copy.pile || !copy.pile.length) copy.pile = words.pile();
+    if (!copy.pool || !copy.pool.length) copy.pool = copy.pile.slice();
     copy.v = 1;
     return copy;
   }
@@ -253,10 +256,59 @@
     return next;
   }
 
-  function anotherWord(session) {
+  function shuffle(list, rng) {
+    var out = (list || []).slice();
+    var random = typeof rng === 'function' ? rng : Math.random;
+    var i, j, sample, tmp;
+    for (i = out.length - 1; i > 0; i--) {
+      sample = random();
+      if (!(sample >= 0) || sample >= 1) sample = 0;
+      j = Math.floor(sample * (i + 1));
+      tmp = out[i];
+      out[i] = out[j];
+      out[j] = tmp;
+    }
+    return out;
+  }
+
+  function sameWord(item, word) {
+    if (!item || !word) return false;
+    if (word.id && sameId(item, word.id)) return true;
+    if (word.w && sameId(item, word.w)) return true;
+    return false;
+  }
+
+  /* Drop the word she just finished. Shuffle whatever is left.
+     When that pile is empty, the original pool comes back, shuffled,
+     so a word waits until every capsule in the pool has been won. */
+  function anotherWord(session, rng) {
     var hearts = session && session.hearts > 0 ? session.hearts : 0;
-    var next = { v: 1, step: 'claw', jumbleStage: 1, hearts: hearts, word: null };
-    if (session && session.pile && session.pile.length) next.pile = session.pile;
+    var source = session && session.pile && session.pile.length ? session.pile : words.pile();
+    var pool = session && session.pool && session.pool.length ? session.pool : source;
+    var won = session && session.word;
+    var left = [];
+    var i;
+    for (i = 0; i < source.length; i++) {
+      if (!sameWord(source[i], won)) left.push(source[i]);
+    }
+    if (!left.length) left = pool.slice();
+    return {
+      v: 1,
+      step: 'claw',
+      jumbleStage: 1,
+      hearts: hearts,
+      word: null,
+      pile: shuffle(left, rng),
+      pool: pool.slice()
+    };
+  }
+
+  /* Every claw visit reshuffles the capsules already in the machine. */
+  function shuffleClaw(session, rng) {
+    var next = clone(session || blankSession());
+    if (!next.pile || !next.pile.length) next.pile = words.pile();
+    if (!next.pool || !next.pool.length) next.pool = next.pile.slice();
+    if (next.step === 'claw') next.pile = shuffle(next.pile, rng);
     return next;
   }
 
@@ -376,6 +428,7 @@
     hatchStep: hatchStep,
     finishSeed: finishSeed,
     anotherWord: anotherWord,
+    shuffleClaw: shuffleClaw,
     framePath: framePath,
     createTear: createTear,
     tearDown: tearDown,

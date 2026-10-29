@@ -51,6 +51,14 @@ test('every garden word becomes one heart-letter word', function () {
   assert.equal(because.grade, '2');
   assert.equal(because.color, 0x3d8bff);
   assert.deepEqual(because.runs.filter(function (run) { return run.heart; }).map(function (run) { return run.text; }), ['au', 'e']);
+  const asWord = Heart.fromGarden(Garden.byId('rw-k-as', []));
+  const byWord = Heart.fromGarden(Garden.byId('rw-k-by', []));
+  assert.deepEqual(asWord.runs.filter(function (run) { return run.heart; }).map(function (run) { return run.text; }), ['s']);
+  assert.deepEqual(byWord.runs.filter(function (run) { return run.heart; }).map(function (run) { return run.text; }), ['y']);
+  assert.equal(asWord.sentence, 'We sit as the cat naps.');
+  assert.equal(byWord.sentence, 'Sit by the bunny.');
+  assert.equal(/^I can read\b/i.test(asWord.sentence), false);
+  assert.equal(/^I can read\b/i.test(byWord.sentence), false);
 });
 
 test('the claw keeps a garden pile that is not the eight demo words', function () {
@@ -71,10 +79,44 @@ test('the claw keeps a garden pile that is not the eight demo words', function (
   const packed = JSON.parse(decodeURIComponent(framed.split('pack=')[1]));
   assert.equal(packed.id, 'rw-k-where');
   assert.ok(packed.runs.some(function (run) { return run.heart && run.text === 'ere'; }));
-  const again = flow.anotherWord(grabbed);
+  const again = flow.anotherWord(grabbed, function () { return 0; });
   assert.equal(again.step, 'claw');
-  assert.equal(again.pile[0].w, pile[0].w);
+  assert.equal(again.word, null);
+  assert.deepEqual(again.pile.map(function (item) { return item.w; }), ['and']);
+  assert.equal(again.pile.some(function (item) { return item.w === 'where'; }), false);
   assert.equal(flow.framePath(again), '../claw-machine/?shell=1');
+});
+
+test('another word removes the won capsule, shuffles, and refills only when the pool is empty', function () {
+  const and = Heart.fromGarden(Garden.byId('rw-k-and', []));
+  const where = Heart.fromGarden(Garden.byId('rw-k-where', []));
+  const asWord = Heart.fromGarden(Garden.byId('rw-k-as', []));
+  const pool = [and, where, asWord];
+  const zero = function () { return 0; };
+  const afterWhere = flow.anotherWord({
+    v: 1, step: 'done', hearts: 1, word: where, pile: pool, pool: pool
+  }, zero);
+  assert.deepEqual(afterWhere.pile.map(function (item) { return item.w; }), ['as', 'and']);
+  assert.equal(afterWhere.pool.length, 3);
+  const kept = flow.normalize(JSON.parse(JSON.stringify(afterWhere)));
+  assert.deepEqual(kept.pool.map(function (item) { return item.w; }), ['and', 'where', 'as']);
+  assert.equal(kept.pile.some(function (item) { return item.w === 'where'; }), false);
+
+  const afterAs = flow.anotherWord(Object.assign({}, kept, { word: asWord, step: 'done' }), zero);
+  assert.deepEqual(afterAs.pile.map(function (item) { return item.w; }), ['and']);
+
+  const refilled = flow.anotherWord(Object.assign({}, afterAs, { word: and, step: 'done' }), zero);
+  assert.deepEqual(refilled.pile.map(function (item) { return item.w; }), ['where', 'as', 'and']);
+  assert.equal(refilled.step, 'claw');
+  assert.equal(refilled.word, null);
+
+  const visit = flow.shuffleClaw({
+    v: 1, step: 'claw', hearts: 2, word: null, pile: [and, where, asWord]
+  }, zero);
+  assert.deepEqual(visit.pile.map(function (item) { return item.w; }), ['where', 'as', 'and']);
+  assert.equal(visit.pool.length, 3);
+  const shell = fs.readFileSync(path.join(root, 'prototypes', 'red-words-shell', 'js', 'shell.js'), 'utf8');
+  assert.match(shell, /shuffleClaw\(session\)/);
 });
 
 test('the live page frames the shell and does not carry MyScript secrets', function () {

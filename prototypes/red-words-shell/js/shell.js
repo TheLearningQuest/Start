@@ -274,6 +274,7 @@
   }
 
   function render() {
+    if (session.step === 'claw') session = flow.shuffleClaw(session);
     session = save(session);
     updateChrome();
     if (session.step === 'seed' || session.step === 'done') showCelebrate();
