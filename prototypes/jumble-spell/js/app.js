@@ -20,8 +20,6 @@
   var wordsBtn = document.getElementById('words');
   var hearBtn = document.getElementById('hear');
   var anotherBtn = document.getElementById('another');
-  var calmBtn = document.getElementById('calm');
-  var soundBtn = document.getElementById('sound');
   var heartShape = document.getElementById('heart-shape');
 
   var state = null;
@@ -79,13 +77,11 @@
 
   function setCalm(on) {
     calm = !!on;
-    calmBtn.setAttribute('aria-pressed', calm ? 'true' : 'false');
     document.body.classList.toggle('calm', calm);
   }
 
   function setSound(on) {
     soundOn = !!on;
-    soundBtn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
   }
 
   function sayLive(text) {
@@ -605,14 +601,6 @@
     primeSpeech();
     if (current) say(current);
   });
-  calmBtn.addEventListener('click', function () {
-    setCalm(!calm);
-    if (calm && state && state.phase === 'deal') table.finishDeal(state);
-  });
-  soundBtn.addEventListener('click', function () {
-    setSound(!soundOn);
-  });
-
   board.addEventListener('pointerdown', onDown);
   board.addEventListener('pointermove', onMove);
   board.addEventListener('pointerup', onUp);

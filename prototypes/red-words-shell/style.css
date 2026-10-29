@@ -68,9 +68,15 @@ button:focus-visible { outline: 4px solid #6d5bd0; outline-offset: 3px; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px 10px;
   margin-bottom: 8px;
 }
+
+#brand,
+#trail,
+#legend,
+#now { display: none !important; }
 
 #brand {
   margin: 0;
@@ -196,6 +202,50 @@ button:focus-visible { outline: 4px solid #6d5bd0; outline-offset: 3px; }
 #seed-yay {
   margin: 0;
   font-size: clamp(18px, 2.4vw, 24px);
+}
+
+#seed-flower {
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+#seed-flower[hidden] { display: none !important; }
+
+#seed-flower img {
+  width: min(220px, 32vh);
+  height: auto;
+  filter: drop-shadow(0 8px 0 rgba(90, 40, 60, 0.12));
+}
+
+#seed-flower figcaption {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+/* The live lesson already has the garden bar, so the won seed has to fit one landscape screen. */
+body[data-step="done"] #celebrate { gap: 2px; justify-content: flex-start; overflow: hidden; }
+body[data-step="done"] #seed-hint { font-size: clamp(16px, 2.2vh, 22px); }
+body[data-step="done"] #seed-word { font-size: clamp(36px, 7vh, 64px); }
+body[data-step="done"] #seed-sentence,
+body[data-step="done"] #seed-yay { font-size: clamp(15px, 2vh, 20px); }
+body[data-step="done"] #pouch {
+  width: min(480px, 86vw);
+  height: min(200px, 28vh);
+  min-height: 0;
+}
+body[data-step="done"] #pouch .label { font-size: 26px; }
+body[data-step="done"] #seed-flower { margin: 0; gap: 0; }
+body[data-step="done"] #seed-flower img { width: min(150px, 22vh); }
+body[data-step="done"] #seed-flower figcaption { font-size: clamp(24px, 4vh, 36px); }
+body[data-step="done"] #another {
+  min-height: 44px;
+  padding: 8px 20px;
+  font-size: 20px;
 }
 
 #pouch {

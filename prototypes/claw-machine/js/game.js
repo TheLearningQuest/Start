@@ -20,11 +20,7 @@
 
   var canvas = document.getElementById('view');
   var hintEl = document.getElementById('hint');
-  var winsEl = document.getElementById('wins');
   var dropBtn = document.getElementById('drop');
-  var calmBtn = document.getElementById('calm');
-  var soundBtn = document.getElementById('sound');
-  var refillBtn = document.getElementById('refill');
   var joy = document.getElementById('joystick');
   var stickEl = document.getElementById('stick');
   var failEl = document.getElementById('fail');
@@ -221,10 +217,10 @@
     roundPath(g, 48, 48, 928, 224, 40);
     g.fill();
     g.fillStyle = '#3a2b55';
-    g.font = '800 148px "Trebuchet MS", sans-serif';
+    g.font = '800 120px "Trebuchet MS", sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText('TOY CLAW', 512, 168);
+    g.fillText('Red Words', 512, 168);
   });
 
   function present(inner) {
@@ -779,6 +775,7 @@
   drawer.add(drawerBody, knob);
   var drawerHomeZ = B.z1 + 0.16;
   drawer.position.set(0, 0.02, drawerHomeZ);
+  drawer.visible = false;
   scene.add(drawer);
 
   var ground = new THREE.Mesh(
@@ -984,27 +981,23 @@
       if (!p.alive) {
         if (!v.flying && !v.done) {
           v.shadow.visible = false;
-          v.flying = { t: 0, from: v.group.position.clone(), slot: Math.min(prizeSlots, 7), kind: p.kind, color: p.color };
+          v.flying = { t: 0, from: v.group.position.clone(), kind: p.kind, color: p.color };
         }
         if (v.flying && !v.done) {
           f = v.flying;
           f.t += dt;
-          k = Math.min(1, Math.max(0, (f.t - 0.12) / 0.78));
-          end = slotWorld(f.slot, scratchC);
-          scratch.set(W.chute.x, 0.38, W.chute.z);
-          var u = 1 - k;
-          scratchB.set(
-            u * u * f.from.x + 2 * u * k * scratch.x + k * k * end.x,
-            u * u * f.from.y + 2 * u * k * scratch.y + k * k * end.y,
-            u * u * f.from.z + 2 * u * k * scratch.z + k * k * end.z
+          k = Math.min(1, Math.max(0, f.t / 0.72));
+          var slide = Math.min(1, k * 1.35);
+          v.group.position.set(
+            f.from.x + (W.chute.x - f.from.x) * slide,
+            f.from.y + (-0.95 - f.from.y) * k,
+            f.from.z + (W.chute.z - f.from.z) * slide
           );
-          v.group.position.copy(scratchB);
-          v.group.scale.setScalar(v.base * (1 - 0.62 * k));
+          v.group.scale.setScalar(v.base * (1 - 0.28 * k));
           v.group.rotation.y += dt * 2.2;
           if (k >= 1) {
             v.done = true;
             v.group.visible = false;
-            addMini(f.kind, f.color);
           }
         }
         continue;
@@ -1200,8 +1193,8 @@
       burst(W.chute.x, 0.35, W.chute.z, 26, 1.5, 2.6);
       shake = reduced ? 0 : 0.12;
       punch = reduced ? 0 : 1;
-      drawerTarget = 1;
-      drawerHold = 3.2;
+      drawerTarget = 0;
+      drawerHold = 0;
       if (shellOn && !shellSent && window.parent && window.parent !== window) {
         shellSent = true;
         state.pendingSpawns = 0;
@@ -1215,7 +1208,7 @@
               wordId: wonId
             }, window.location.origin);
           } catch (err) { /* the shell is gone */ }
-        }, 1600);
+        }, 900);
       }
     } else if (ev.type === 'release') {
       tone(280, 0.12, 'sine', 0.2, 160);
@@ -1312,27 +1305,13 @@
 
   var motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   reduced = !!motionQuery.matches;
-  function syncCalm() {
-    calmBtn.setAttribute('aria-pressed', reduced ? 'true' : 'false');
-    document.body.classList.toggle('calm', reduced);
-    calmBtn.textContent = reduced ? 'Calm on' : 'Calm';
+  document.body.classList.toggle('calm', reduced);
+  if (motionQuery.addEventListener) {
+    motionQuery.addEventListener('change', function () {
+      reduced = !!motionQuery.matches;
+      document.body.classList.toggle('calm', reduced);
+    });
   }
-  syncCalm();
-  calmBtn.addEventListener('click', function () {
-    reduced = !reduced;
-    syncCalm();
-  });
-  soundBtn.addEventListener('click', function () {
-    soundOn = !soundOn;
-    soundBtn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
-    soundBtn.textContent = soundOn ? 'Sound' : 'Muted';
-    if (soundOn) ac();
-  });
-  refillBtn.addEventListener('click', function () {
-    if (ClawPhysics.refillPile(state)) {
-      tone(440, 0.08, 'sine', 0.2);
-    }
-  });
 
   function sample() {
     var ax = pad.ax;
@@ -1352,7 +1331,6 @@
 
   function updateHud() {
     hintEl.textContent = state.hint;
-    winsEl.textContent = 'Prizes ' + state.wins;
     var label = 'DROP';
     if (state.phase === 'celebrate') label = 'YAY';
     else if (state.phase !== 'idle') label = '···';

@@ -6,24 +6,18 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Toy Claw">
+<meta name="apple-mobile-web-app-title" content="Red Words">
 <meta name="theme-color" content="#ff8aa4">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; media-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'">
-<title>Toy Claw</title>
+<title>Red Words</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="stage">
   <canvas id="view" aria-hidden="true"></canvas>
-  <h1 class="sr">Toy claw</h1>
+  <h1 class="sr">Red Words</h1>
   <div id="top">
     <p id="hint" aria-live="polite">Ease the stick. Drop when the ring turns green.</p>
-    <div class="tools">
-      <p id="wins">Prizes 0</p>
-      <button id="calm" type="button" aria-pressed="false">Calm</button>
-      <button id="sound" type="button" aria-pressed="true">Sound</button>
-      <button id="refill" type="button">Refill</button>
-    </div>
   </div>
   <div id="joystick" role="slider" aria-label="Move the claw" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
     <div id="stick"></div>

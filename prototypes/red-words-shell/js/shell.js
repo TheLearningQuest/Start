@@ -18,6 +18,9 @@
   var seedWord = document.getElementById('seed-word');
   var seedSentence = document.getElementById('seed-sentence');
   var seedYay = document.getElementById('seed-yay');
+  var seedFlower = document.getElementById('seed-flower');
+  var seedFlowerImg = document.getElementById('seed-flower-img');
+  var seedFlowerName = document.getElementById('seed-flower-name');
   var pouch = document.getElementById('pouch');
   var rarityEl = pouch.querySelector('.rarity');
   var anotherBtn = document.getElementById('another');
@@ -214,6 +217,23 @@
     seedSentence.textContent = session.word ? session.word.sentence : '';
   }
 
+  function flowerId() {
+    var Flowers = window.GardenFlowers;
+    var wordId = session.word ? session.word.id : '';
+    if (!Flowers) return 'daisy';
+    return Flowers.flowerFor(wordId, Flowers.gardenBand(session.tier || 'common'));
+  }
+
+  function paintFlower(show) {
+    var Flowers = window.GardenFlowers;
+    var id = flowerId();
+    var name = Flowers ? Flowers.nameOf(id) : 'Daisy';
+    seedFlowerImg.src = Flowers ? Flowers.src(id, '../../') : ('../../media/flowers/' + id + '.svg');
+    seedFlowerImg.alt = name;
+    seedFlowerName.textContent = name;
+    seedFlower.hidden = !show;
+  }
+
   function showStep() {
     celebrate.hidden = true;
     frame.hidden = false;
@@ -234,6 +254,7 @@
     frame.src = 'rest.html';
     celebrate.hidden = false;
     paintWord();
+    paintFlower(session.step === 'done');
     if (session.step === 'done') {
       tear = flow.createTear({ reduced: reduced });
       tear.open = true;
@@ -284,7 +305,9 @@
     updateChrome();
     paintTear();
     cheer(session.tier);
-    say(flow.tierLine(session.tier));
+    paintFlower(true);
+    var Flowers = window.GardenFlowers;
+    say(Flowers ? Flowers.line(flowerId()) : 'It grows into a daisy.');
     tellLive();
   }
 

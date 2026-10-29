@@ -27,15 +27,12 @@
   var keyApp = document.getElementById('key-app');
   var keyHmac = document.getElementById('key-hmac');
   var keyError = document.getElementById('key-error');
-  var keySaved = document.getElementById('key-saved');
-  var keyMask = document.getElementById('key-mask');
   var clearKeysBtn = document.getElementById('clear-keys');
+  var promptEl = document.getElementById('prompt');
   var wordsBtn = document.getElementById('words');
   var hearBtn = document.getElementById('hear');
   var clearBtn = document.getElementById('clear');
   var nextBtn = document.getElementById('next');
-  var calmBtn = document.getElementById('calm');
-  var soundBtn = document.getElementById('sound');
   var checkBtn = document.getElementById('check');
   var heartShape = document.getElementById('heart-shape');
 
@@ -112,13 +109,16 @@
 
   function setCalm(on) {
     calm = !!on;
-    calmBtn.setAttribute('aria-pressed', calm ? 'true' : 'false');
     syncQuiet();
   }
 
   function setSound(on) {
     soundOn = !!on;
-    soundBtn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+  }
+
+  function keysForced() {
+    try { return new URLSearchParams(window.location.search).get('keys') === '1'; }
+    catch (err) { return false; }
   }
 
   function readVoices() {
@@ -135,6 +135,32 @@
       voices: readVoices(),
       rate: 0.86,
       pitch: 1.08
+    });
+  }
+
+  /* The word, a short pause, then the sentence. The page does not show either one. */
+  function sayWordThenSentence(word) {
+    if (!soundOn || !word || !word.w) return;
+    var synth = window.speechSynthesis;
+    var Utterance = window.SpeechSynthesisUtterance;
+    if (!synth || !Utterance) return;
+    var voice = speech.pickReader(readVoices());
+    try { if (synth.cancel) synth.cancel(); } catch (err) { /* the next speak still tries */ }
+    function utter(text, then) {
+      if (!text) { if (then) then(); return; }
+      var u = new Utterance(text);
+      if (voice) {
+        u.voice = voice;
+        u.lang = voice.lang || 'en-US';
+      } else u.lang = 'en-US';
+      u.rate = 0.86;
+      u.pitch = 1.08;
+      u.onend = then || null;
+      try { synth.speak(u); }
+      catch (err2) { if (then) then(); }
+    }
+    utter(word.w, function () {
+      window.setTimeout(function () { utter(word.sentence || ''); }, 480);
     });
   }
 
@@ -182,12 +208,17 @@
 
   function syncChrome() {
     var playing = phase !== 'pick';
+    var writing = phase === 'write' || phase === 'retry' || phase === 'done';
     wordsBtn.hidden = !playing;
     hearBtn.hidden = !playing;
+    checkBtn.hidden = !playing || phase === 'done';
     clearBtn.hidden = !playing;
     nextBtn.hidden = !playing;
     pick.hidden = playing;
     play.hidden = !playing;
+    if (promptEl) promptEl.hidden = writing;
+    show.hidden = writing;
+    sentence.hidden = writing;
     if (shell) {
       wordsBtn.hidden = true;
       nextBtn.hidden = phase !== 'done';
@@ -237,23 +268,14 @@
   function refreshKeys() {
     var chosen = currentKeys();
     keysOn = !!chosen;
-    if (!chosen) {
+    if (!chosen || keysForced()) {
       keyPanel.hidden = false;
       keyPanel.open = true;
       keyForm.hidden = false;
-      keySaved.hidden = true;
       keySummary.textContent = 'Add MyScript keys';
-      keyMask.textContent = '';
-    } else if (chosen.source === 'storage') {
-      keyPanel.hidden = false;
-      keyPanel.open = false;
-      keyForm.hidden = true;
-      keySaved.hidden = false;
-      keySummary.textContent = 'Keys saved';
-      keyMask.textContent = 'Saved on this iPad. ' + check.maskKey(chosen.applicationKey) + ' and ' + check.maskKey(chosen.hmacKey) + '.';
     } else {
       keyPanel.hidden = true;
-      keyMask.textContent = '';
+      keyForm.hidden = true;
     }
     syncGhost();
   }
@@ -475,7 +497,7 @@
         failCloud(err);
       });
     }
-    if (opts.speak) say(word.w);
+    if (opts.speak) sayWordThenSentence(word);
   }
 
   function showPick() {
@@ -578,7 +600,7 @@
   });
   hearBtn.addEventListener('click', function () {
     ensureAudio();
-    if (current) say(current.w);
+    if (current) sayWordThenSentence(current);
   });
   clearBtn.addEventListener('click', function () {
     if (busy) return;
@@ -600,8 +622,6 @@
     wordIndex = (wordIndex + 1) % words.DEMO.length;
     openWord(words.DEMO[wordIndex], { speak: true });
   });
-  calmBtn.addEventListener('click', function () { setCalm(!calm); });
-  soundBtn.addEventListener('click', function () { setSound(!soundOn); });
   checkBtn.addEventListener('click', function () { runCheck(); });
 
   inkEl.addEventListener('pointerdown', function () {
@@ -643,7 +663,7 @@
     refreshKeys();
     dropCanvas().then(function () {
       if (phase === 'pick') {
-        hint.textContent = 'Keys saved. Pick a heart word.';
+        hint.textContent = 'Pick a heart word.';
         return;
       }
       hint.textContent = WRITE_HINT;

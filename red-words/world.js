@@ -101,7 +101,7 @@
 
   function enter(s) {
     var v = s.api.view();
-    if (s.scene === 'hub') s.pip = { mood: 'happy', line: 'Pick a place', t: 2.2 };
+    if (s.scene === 'hub') s.pip = { mood: 'happy', line: '', t: 0 };
     if (s.scene === 'claw') enterClaw(s, v);
     if (s.scene === 'lesson') s.pip = { mood: 'happy', line: 'Tap the letters in order', t: 2.4 };
     if (s.scene === 'garden') s.pip = { mood: 'happy', line: v.garden && v.garden.length ? 'Tap a thirsty flower' : 'Master a word to plant it', t: 2.6 };
@@ -221,41 +221,43 @@
     return box;
   }
 
+  function roomRect(room, x, y, w, h) {
+    return { x: room.x + room.w * x, y: room.y + room.h * y, w: room.w * w, h: room.h * h };
+  }
+
+  /* One room. The claw sits in the middle, a door on each side, a picture on the back wall. */
   function layoutHub(s, box) {
     var v = s.api.view();
-    var W = box.W, H = box.H, pad = box.pad;
-    var banners = [];
-    if (v.award) banners.push('award');
-    if (v.canSpin) banners.push('spin');
-    if (!v.placed && !v.award) banners.push('place');
-    var banH = banners.length ? Math.max(58, Math.min(76, H * 0.1)) : 0;
-    var stack = banners.length ? banners.length * banH + (banners.length - 1) * 8 : 0;
-    var top = pad + 8;
-    var bot = H - pad - Math.max(stack, 100) - 8;
-    var gridTop = top + Math.max(36, H * 0.06);
-    var gridH = Math.max(120, bot - gridTop - 70);
-    var bw, bh, gap = 12;
-    if (box.portrait) {
-      bw = (W - pad * 2 - gap) / 2;
-      bh = Math.min(210, (gridH - gap) / 2);
-    } else {
-      bw = (W - pad * 2 - gap * 3) / 4;
-      bh = Math.min(gridH, 340);
-    }
-    function at(col, row) {
-      return { x: pad + col * (bw + gap), y: gridTop + row * (bh + gap), w: bw, h: bh };
-    }
+    var W = box.W, H = box.H, pad = Math.max(6, box.pad * 0.35);
+    var room = { x: pad, y: pad, w: W - pad * 2, h: H - pad * 2 };
+    box.room = room;
     box.doors = box.portrait
-      ? { claw: at(0, 0), nursery: at(1, 0), garden: at(0, 1), explore: at(1, 1) }
-      : { claw: at(0, 0), nursery: at(1, 0), garden: at(2, 0), explore: at(3, 0) };
+      ? {
+        explore: roomRect(room, 0.22, 0.03, 0.56, 0.22),
+        nursery: roomRect(room, 0.04, 0.28, 0.42, 0.26),
+        garden: roomRect(room, 0.54, 0.28, 0.42, 0.26),
+        claw: roomRect(room, 0.14, 0.56, 0.72, 0.40)
+      }
+      : {
+        nursery: roomRect(room, 0.02, 0.10, 0.22, 0.74),
+        garden: roomRect(room, 0.76, 0.10, 0.22, 0.74),
+        explore: roomRect(room, 0.33, 0.04, 0.34, 0.36),
+        claw: roomRect(room, 0.26, 0.40, 0.48, 0.56)
+      };
     box.banners = [];
-    var pipCol = 156;
-    var by = H - pad - stack;
-    banners.forEach(function (id, i) {
-      box.banners.push({ id: id, x: pad + pipCol, y: by + i * (banH + 8), w: Math.max(120, W - pad * 2 - pipCol), h: banH });
+    var chips = [];
+    if (v.award) chips.push('award');
+    if (v.canSpin) chips.push('spin');
+    chips.forEach(function (id, i) {
+      box.banners.push({
+        id: id,
+        x: room.x + 10,
+        y: room.y + 8 + i * 52,
+        w: Math.min(220, room.w * 0.28),
+        h: 44
+      });
     });
-    box.pip = { x: pad + 74, y: H - pad - 42 };
-    box.basket = { x: W - pad - 20, y: top + 8 };
+    box.pip = null;
   }
 
   /* One capsule sits on the machine's center line so a still claw can grab clean. */
@@ -765,6 +767,11 @@
     s.panning = false;
   }
 
+  function setExplore(s, on) {
+    var cur = !!(s.api.view() && s.api.view().explore);
+    if (cur !== !!on && s.api.toggleExplore) s.api.toggleExplore();
+  }
+
   function hubPointer(s, p, kind) {
     if (kind !== 'up' || s.pointer.moved) return;
     var b = uiHit(s, p.x, p.y);
@@ -772,10 +779,13 @@
     s.api.sfx().tap();
     if (b.id === 'claw') {
       if (s.api.view().award) nav(s, 'ceremony');
-      else nav(s, 'claw');
+      else { setExplore(s, false); nav(s, 'claw'); }
     } else if (b.id === 'nursery') nav(s, 'nursery');
     else if (b.id === 'garden') nav(s, 'garden');
-    else if (b.id === 'explore') { s.api.toggleExplore(); sayPip(s, s.api.view().explore ? '2nd grade is in the claw' : 'Path words only', 'happy'); }
+    else if (b.id === 'explore') {
+      setExplore(s, true);
+      nav(s, 'claw');
+    }
     else if (b.id === 'award') nav(s, 'ceremony');
     else if (b.id === 'spin') openSpin(s);
     else if (b.id === 'place') { s.dead = true; s.api.beginPlace(); }
@@ -1549,20 +1559,15 @@
   }
 
   function buildHub(s) {
-    var v = s.api.view();
-    var doors = s.box.doors;
-    var thirsty = (v.garden || []).filter(function (f) { return f.thirsty; }).length;
-    var specs = [
-      [doors.claw, 0x3b82f6, v.award ? 'Seed' : 'Claw', v.award ? 'plant it' : ((v.due || []).length + ' capsules'), 'claw'],
-      [doors.nursery, 0x4ade80, 'Nursery', 'seeds', 'pot'],
-      [doors.garden, 0xf472b6, 'Garden', (v.garden || []).length + (thirsty ? ' · thirsty' : ' flowers'), 'flower'],
-      [doors.explore, v.explore ? 0xfbbf24 : 0xe7e5e4, v.explore ? 'Explore on' : 'Explore', '2nd grade', 'gate']
-    ];
-    s.refs.buildings = specs.map(function (spec, i) {
-      return makeBuilding(s, spec[0], spec[1], spec[2], spec[3], spec[4], i);
-    });
-    s.refs.pip = makePip();
-    s.world.add(s.refs.pip);
+    /* The illustrated room is painted on the HUD. This floor keeps the WebGL clear from flashing through. */
+    var room = s.box.room;
+    if (!room) return;
+    var T = root.THREE;
+    var floor = new T.Mesh(new T.BoxGeometry(1, 1, 1), clay(0xffd6ea));
+    placeGroup(s, floor, room.x + room.w / 2, room.y + room.h / 2, -0.4, room.w);
+    floor.scale.y = pixelSpan(s, room.x, room.y, -0.4, room.h);
+    s.world.add(floor);
+    s.refs.buildings = [];
   }
 
   function makeBuilding(s, rect, color, title, sub, icon) {
@@ -1871,12 +1876,7 @@
       faceCamera(s, s.refs.pip);
     }
   }
-  function poseHub(s) {
-    (s.refs.buildings || []).forEach(function (g, i) {
-      if (!g.userData.baseY && g.userData.baseY !== 0) return;
-      g.position.y = g.userData.baseY + (s.reduced ? 0 : Math.sin(s.time * 1.7 + i) * 0.025);
-    });
-  }
+  function poseHub() {}
   function poseClaw(s) {
     var R = s.refs.claw;
     var c = s.claw;
@@ -2009,7 +2009,7 @@
       var growth = p.item.step >= 3 ? 0.85 : p.item.step === 2 ? 0.5 : 0.22;
       placeGroup(s, ref.mesh, p.x + p.w / 2, p.y + 130, 0.3, p.w * 0.85);
       ref.flower.scale.setScalar(growth);
-      ref.flower.visible = p.item.step >= 1;
+      ref.flower.visible = p.item.step >= 1 && !p.item.flower;
       if (ref.flower.userData.head && !s.reduced) ref.flower.userData.head.rotation.z = Math.sin(s.time * 1.3 + ref.i) * 0.08;
     });
   }
@@ -2019,6 +2019,7 @@
       if (!f) return;
       var px = f.x + f.w / 2, py = f.y + f.h - 20;
       placeGroup(s, b.mesh, px, py, 0.25, 100);
+      if (b.flower) b.flower.visible = false;
       b.drop.visible = !!f.item.thirsty && !s.reduced;
       if (b.drop.visible) b.drop.position.y = 1.2 + Math.sin(s.time * 4 + b.i) * 0.08;
       if (b.flower.userData.head) b.flower.userData.head.rotation.z = f.item.thirsty ? 0.65 : (s.reduced ? 0 : Math.sin(s.time * 1.2 + b.i) * 0.06);
@@ -2054,7 +2055,7 @@
       var pressed = s.pointer.down && s.pointer.x >= b.x && s.pointer.x <= b.x + b.w && s.pointer.y >= b.y && s.pointer.y <= b.y + b.h;
       D.button(ctx, b, pressed);
     });
-    if (s.pip && s.pip.line && (s.scene === 'hub' || s.scene === 'nursery' || s.scene === 'garden')) {
+    if (s.pip && s.pip.line && s.scene !== 'hub' && (s.scene === 'nursery' || s.scene === 'garden')) {
       var px = s.box.pip ? s.box.pip.x : 74;
       var py = s.box.pip ? s.box.pip.y : s.H - 40;
       D.bubble(ctx, px + 28, py - 78, s.pip.line, Math.min(320, s.W * 0.55));
@@ -2074,20 +2075,116 @@
   }
 
   function paintHub(ctx, s, D) {
-    var v = s.api.view(), box = s.box;
-    D.label(ctx, 'Today', box.pad + 36, box.pad + 18, 18, '#3b2760', '#fff');
-    var goal = v.goal || 3, got = Math.min(goal, v.todayCount || 0), i;
-    for (i = 0; i < goal; i++) D.seed(ctx, box.pad + 78 + i * 28, box.pad + 18, 0.28, { mood: i < got ? 'happy' : 'sleepy' });
-    var doors = box.doors;
+    var box = s.box, room = box.room, doors = box.doors;
+    if (!room || !doors) return;
+    ctx.save();
+    D.roundRect(ctx, 0, 0, s.W, s.H, 0);
+    ctx.fillStyle = '#ffd0e8';
+    ctx.fill();
+    var wallH = room.y + room.h * 0.62;
+    var wall = ctx.createLinearGradient(0, 0, 0, wallH);
+    wall.addColorStop(0, '#ffe8f6');
+    wall.addColorStop(1, '#ffc4e4');
+    ctx.fillStyle = wall;
+    ctx.fillRect(0, 0, s.W, wallH);
+    var dot;
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    for (dot = 0; dot < 18; dot++) {
+      ctx.beginPath();
+      ctx.arc((dot * 97) % s.W, 28 + (dot * 53) % Math.max(40, wallH - 40), 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f6c98a';
+    ctx.fillRect(0, wallH, s.W, s.H - wallH);
+    ctx.strokeStyle = 'rgba(180,110,40,.25)';
+    ctx.lineWidth = 3;
+    var plank;
+    for (plank = wallH + 18; plank < s.H; plank += 22) {
+      ctx.beginPath();
+      ctx.moveTo(0, plank);
+      ctx.lineTo(s.W, plank);
+      ctx.stroke();
+    }
+    D.roundRect(ctx, room.x + room.w * 0.28, wallH - 8, room.w * 0.44, Math.min(36, room.h * 0.08), 18);
+    ctx.fillStyle = '#fff3c4';
+    ctx.fill();
+    ctx.restore();
+    drawRoomDoor(ctx, s, D, doors.nursery, 'Nursery', 'seedling');
+    drawRoomDoor(ctx, s, D, doors.garden, 'Garden', 'garden');
+    drawStarPicture(ctx, s, D, doors.explore);
+    drawRoomClaw(ctx, s, D, doors.claw);
     [['claw', doors.claw], ['nursery', doors.nursery], ['garden', doors.garden], ['explore', doors.explore]].forEach(function (pair) {
       var rect = pair[1];
-      pushBtn(s, { id: pair[0], x: rect.x, y: rect.y, w: rect.w, h: rect.h, ghost: true });
+      pushBtn(s, { id: pair[0], x: rect.x, y: rect.y, w: rect.w, h: rect.h, ghost: true, label: pair[0] });
     });
     box.banners.forEach(function (b) {
-      var label = b.id === 'award' ? 'Your seed is waiting' : b.id === 'spin' ? 'Daily spin!' : 'Words I already know';
-      var fill = b.id === 'award' ? '#bbf7d0' : b.id === 'spin' ? '#ddd6fe' : '#fde68a';
-      pushBtn(s, { id: b.id, x: b.x, y: b.y, w: b.w, h: b.h, label: label, fill: fill, edge: '#7c3aed', color: '#3b2760', size: 24 });
+      var label = b.id === 'award' ? 'Your seed is waiting' : 'Daily spin!';
+      var fill = b.id === 'award' ? '#bbf7d0' : '#ddd6fe';
+      pushBtn(s, { id: b.id, x: b.x, y: b.y, w: b.w, h: b.h, label: label, fill: fill, edge: '#7c3aed', color: '#3b2760', size: 16 });
     });
+  }
+
+  function drawRoomDoor(ctx, s, D, rect, name, kind) {
+    D.panel(ctx, rect.x, rect.y, rect.w, rect.h, { fill: '#fffdf8', edge: '#f9a8d4', r: 28, lip: 8 });
+    D.roundRect(ctx, rect.x + 14, rect.y + 14, rect.w - 28, rect.h - 58, 22);
+    ctx.fillStyle = kind === 'garden' ? '#dcfce7' : '#ecfccb';
+    ctx.fill();
+    var cx = rect.x + rect.w / 2;
+    var iconY = rect.y + rect.h * 0.46;
+    if (kind === 'seedling') {
+      D.pot(ctx, cx, iconY + 8, Math.min(rect.w, rect.h) / 280, { mood: 'happy' });
+      D.flower(ctx, cx, iconY - 6, 'daisy', { growth: 0.28, scale: Math.min(rect.w, rect.h) / 220 });
+    } else {
+      D.flower(ctx, cx, iconY + 18, 'tulip', { growth: 0.85, scale: Math.min(rect.w, rect.h) / 160 });
+      D.flower(ctx, cx - rect.w * 0.18, iconY + 28, 'daisy', { growth: 0.7, scale: Math.min(rect.w, rect.h) / 240 });
+      D.flower(ctx, cx + rect.w * 0.18, iconY + 26, 'poppy', { growth: 0.7, scale: Math.min(rect.w, rect.h) / 240 });
+    }
+    D.label(ctx, name, cx, rect.y + rect.h - 24, Math.max(18, Math.min(28, rect.w * 0.16)), '#3b2760', '#fff');
+  }
+
+  function drawStarPicture(ctx, s, D, rect) {
+    D.panel(ctx, rect.x, rect.y, rect.w, rect.h, { fill: '#fff7ed', edge: '#fbbf24', r: 18, lip: 6 });
+    D.roundRect(ctx, rect.x + 12, rect.y + 12, rect.w - 24, rect.h - 46, 14);
+    ctx.fillStyle = '#1e1b4b';
+    ctx.fill();
+    var cx = rect.x + rect.w * 0.62;
+    var cy = rect.y + (rect.h - 46) * 0.48;
+    ctx.save();
+    ctx.strokeStyle = '#fde68a';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(rect.x + rect.w * 0.18, rect.y + rect.h * 0.62);
+    ctx.lineTo(cx - 8, cy + 6);
+    ctx.stroke();
+    ctx.restore();
+    D.star(ctx, cx, cy, Math.min(rect.w, rect.h) * 0.16, '#fde047', true);
+    D.label(ctx, 'Explore New Words', rect.x + rect.w / 2, rect.y + rect.h - 18, Math.max(13, Math.min(20, rect.w * 0.09)), '#7c3aed', '#fff');
+  }
+
+  function drawRoomClaw(ctx, s, D, rect) {
+    var x = rect.x, y = rect.y, w = rect.w, h = rect.h;
+    D.panel(ctx, x, y + h * 0.18, w, h * 0.82, { fill: '#fb7185', edge: '#be123c', r: 26, lip: 10 });
+    D.roundRect(ctx, x + w * 0.08, y + h * 0.28, w * 0.84, h * 0.42, 16);
+    ctx.fillStyle = '#e0f2fe';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    D.roundRect(ctx, x + w * 0.38, y + h * 0.62, w * 0.24, h * 0.1, 8);
+    ctx.fillStyle = '#1e1b4b';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + w * 0.5, y + h * 0.22, Math.min(22, w * 0.08), 0, Math.PI * 2);
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.5, y + h * 0.22);
+    ctx.lineTo(x + w * 0.5, y + h * 0.4);
+    ctx.stroke();
+    D.label(ctx, 'Red Words', x + w / 2, y + h * 0.9, Math.max(16, Math.min(26, w * 0.1)), '#fff', '#9f1239');
   }
 
   function paintClaw(ctx, s, D) {
@@ -2268,11 +2365,37 @@
   }
   function pretty(name) { return String(name || 'flower').replace(/-/g, ' '); }
 
+  var flowerPics = {};
+  function flowerPic(id) {
+    var Flowers = root.GardenFlowers;
+    var key = String(id || 'daisy');
+    if (Flowers && Flowers.NAMES && !Flowers.NAMES[key]) key = 'daisy';
+    if (!flowerPics[key]) {
+      var img = new root.Image();
+      img.alt = '';
+      img.src = Flowers ? Flowers.src(key) : ('media/flowers/' + key + '.svg');
+      flowerPics[key] = img;
+    }
+    return flowerPics[key];
+  }
+  function paintFlowerPic(ctx, id, x, y, w, h) {
+    var img = flowerPic(id);
+    if (img && img.complete && img.naturalWidth) {
+      ctx.drawImage(img, x, y, w, h);
+      return true;
+    }
+    return false;
+  }
+
   function paintNursery(ctx, s, D) {
     var v = s.api.view(), box = s.box;
     D.label(ctx, 'Nursery', s.W / 2, 40, 32, '#166534', '#fff');
     if (!(v.nursery || []).length) D.label(ctx, 'Grab a capsule in the claw', s.W / 2, box.shelf.y + 80, 24, '#166534', '#fff');
     (box.pots || []).forEach(function (p) {
+      if (p.item.flower) {
+        var ih = p.h * 0.7;
+        paintFlowerPic(ctx, p.item.flower, p.x + p.w * 0.12, p.y - 10, p.w * 0.76, ih);
+      }
       D.label(ctx, p.item.w, p.x + p.w / 2, p.y + p.h - 6, 26, '#14532d', '#fff');
       D.text(ctx, p.item.stage, p.x + p.w / 2, p.y + p.h + 16, 16, '#166534');
     });
@@ -2283,6 +2406,8 @@
     D.label(ctx, 'My garden', box.bed.x + 80, box.pad + 28, 28, '#166534', '#fff');
     if (!(v.garden || []).length) D.label(ctx, 'Master a word to plant it', box.bed.x + box.bed.w / 2, box.bed.y + 48, 22, '#166534', '#fff');
     (box.flowers || []).forEach(function (f) {
+      var drew = paintFlowerPic(ctx, f.item.flower || 'daisy', f.x + 8, f.y - 16, f.w - 16, f.h);
+      if (!drew) D.flower(ctx, f.x + f.w / 2, f.y + f.h * 0.72, f.item.flower || 'daisy', { growth: 0.55, scale: 0.85 });
       if (f.item.thirsty) D.label(ctx, 'thirsty', f.x + f.w / 2, f.y + 8, 16, '#0369a1', '#fff');
       D.label(ctx, f.item.w, f.x + f.w / 2, f.y + f.h + 4, 18, '#14532d', '#fff');
     });
