@@ -92,6 +92,55 @@ test('mastery takes three first-try days and a miss steps back once', function (
   assert.equal(due.some(function (w) { return w.grade === '2'; }), false);
 });
 
+test('a finished grade stays out of the claw, and the claw stops when every pool is planted', function () {
+  function plant(list) {
+    const cards = {};
+    list.forEach(function (word) { cards[word.id] = { planted: true, step: 3 }; });
+    return cards;
+  }
+  const open = Garden.poolReport({});
+  assert.equal(open.length, 3);
+  assert.equal(String(open[0].title), 'Kindergarten');
+  assert.equal(open[0].total, 44);
+  assert.equal(open[0].done, false);
+  assert.equal(String(open[1].title), '1st grade');
+  assert.equal(open[1].total, 52);
+  assert.equal(open[1].done, false);
+  assert.equal(String(open[2].title), '2nd grade');
+  assert.equal(open[2].total, 40);
+  assert.equal(open[2].done, false);
+  const kindergarten = plant(Garden.KINDERGARTEN);
+  const afterK = Garden.clawWords(Garden.catalog([]), kindergarten, false);
+  assert.equal(afterK.pools[0].done, true);
+  assert.equal(afterK.pools[1].done, false);
+  assert.equal(afterK.clawOff, false);
+  assert.equal(afterK.words.some(function (word) { return word.grade === 'k'; }), false);
+  assert.equal(afterK.words.some(function (word) { return word.grade === '1'; }), true);
+  assert.equal(afterK.words.some(function (word) { return word.grade === '2'; }), false);
+
+  const two = plant(Garden.KINDERGARTEN.concat(Garden.FIRST));
+  const exploreLeft = Garden.clawWords(Garden.catalog([]), two, false);
+  assert.equal(exploreLeft.clawOff, false);
+  assert.equal(exploreLeft.words.every(function (word) { return word.grade === '2'; }), true);
+
+  const all = plant(Garden.KINDERGARTEN.concat(Garden.FIRST, Garden.EXPLORE));
+  const done = Garden.clawWords(Garden.catalog([]), all, false);
+  assert.equal(done.clawOff, true);
+  assert.equal(done.words.length, 0);
+  assert.equal(done.pools.every(function (pool) { return pool.done; }), true);
+
+  const custom = Garden.catalog([{ id: 'c:yacht:1', w: 'yacht', red: [1] }]);
+  const reopened = Garden.clawWords(custom, all, false);
+  assert.equal(reopened.clawOff, false);
+  assert.deepEqual(Array.from(reopened.words, function (word) { return String(word.w); }), ['yacht']);
+
+  const fresh = Garden.catalog([], [{ weekOf: '2026-11-02', words: ['sparkle'] }]);
+  const weekly = Garden.clawWords(fresh, all, true);
+  assert.equal(weekly.clawOff, false);
+  assert.deepEqual(Array.from(weekly.words, function (word) { return String(word.w); }), ['sparkle']);
+  assert.equal(Garden.clawWords(Garden.catalog([]), all, true).clawOff, true);
+});
+
 test('the weekly block lists the October weeks and only accepts the documented shape', function () {
   const start = html.indexOf('/* WEEKLY_RED_WORDS_START */');
   const end = html.indexOf('/* WEEKLY_RED_WORDS_END */');
@@ -208,7 +257,7 @@ test('a save that already reached version 3 from only one side keeps that side a
 test('harder words land on rarer seed packets, and the wheel stops on that slot', function () {
   const easy = Garden.byId('rw-k-and', []);
   const hard = Garden.byId('rw-2-through', []);
-  assert.deepEqual(Array.from(Garden.packetWeights(easy, 0)), [6, 2, 1, 0]);
+  assert.deepEqual(Array.from(Garden.packetWeights(easy, 0)), [2, 5, 2, 1]);
   assert.deepEqual(Array.from(Garden.packetWeights(hard, 0)), [0, 1, 3, 5]);
   function tilt(word) {
     const weights = Garden.packetWeights(word, 0);
@@ -219,7 +268,7 @@ test('harder words land on rarer seed packets, and the wheel stops on that slot'
   assert.ok(tilt(hard) > tilt(easy) + 1);
   assert.equal(Garden.pickPacket(easy, 0, 0), 'common');
   assert.equal(Garden.pickPacket(hard, 0, 0.99), 'mythic');
-  assert.equal(Garden.pickPacket(easy, 0, 0.99), 'epic');
+  assert.equal(Garden.pickPacket(easy, 0, 0.75), 'epic');
   assert.equal(Garden.slotUnder(0), 0);
   assert.equal(Garden.WHEEL_SLOTS[Garden.slotUnder(45)], 'mythic');
   const dest = Garden.stopAngle(10, 500, 'mythic');

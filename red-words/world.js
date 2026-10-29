@@ -228,8 +228,12 @@
   /* One room. The claw sits in the middle, a door on each side, a picture on the back wall. */
   function layoutHub(s, box) {
     var v = s.api.view();
+    var donePools = (v.pools || []).filter(function (pool) { return pool.done; });
     var W = box.W, H = box.H, pad = Math.max(6, box.pad * 0.35);
-    var room = { x: pad, y: pad, w: W - pad * 2, h: H - pad * 2 };
+    var strip = donePools.length ? Math.max(88, Math.min(112, H * 0.16)) : 0;
+    box.donePools = donePools;
+    box.strip = strip;
+    var room = { x: pad, y: pad + strip, w: W - pad * 2, h: H - pad * 2 - strip };
     box.room = room;
     box.doors = box.portrait
       ? {
@@ -777,6 +781,9 @@
     var b = uiHit(s, p.x, p.y);
     if (!b) return;
     s.api.sfx().tap();
+    if (b.id === 'claw' || b.id === 'explore') {
+      if (s.api.view().clawOff) return;
+    }
     if (b.id === 'claw') {
       if (s.api.view().award) nav(s, 'ceremony');
       else { setExplore(s, false); nav(s, 'claw'); }
@@ -2113,10 +2120,33 @@
     drawRoomDoor(ctx, s, D, doors.garden, 'Garden', 'garden');
     drawStarPicture(ctx, s, D, doors.explore);
     drawRoomClaw(ctx, s, D, doors.claw);
-    [['claw', doors.claw], ['nursery', doors.nursery], ['garden', doors.garden], ['explore', doors.explore]].forEach(function (pair) {
+    var clawOff = !!(s.api && s.api.view && s.api.view().clawOff);
+    var targets = [['nursery', doors.nursery], ['garden', doors.garden]];
+    if (!clawOff) targets.push(['claw', doors.claw], ['explore', doors.explore]);
+    targets.forEach(function (pair) {
       var rect = pair[1];
       pushBtn(s, { id: pair[0], x: rect.x, y: rect.y, w: rect.w, h: rect.h, ghost: true, label: pair[0] });
     });
+    if (box.strip && box.donePools && box.donePools.length) {
+      var count = box.donePools.length;
+      var gap = 10;
+      var width = (s.W - box.pad * 2 - gap * (count - 1)) / count;
+      box.donePools.forEach(function (pool, i) {
+        var label = '★ ' + pool.title + ' complete!';
+        pushBtn(s, {
+          id: 'pool-' + pool.id,
+          x: box.pad + i * (width + gap),
+          y: 8,
+          w: width,
+          h: Math.max(52, box.strip - 14),
+          label: label,
+          fill: '#fde68a',
+          edge: '#d97706',
+          color: '#7c2d12',
+          size: Math.max(20, Math.min(36, width / (label.length * 0.56)))
+        });
+      });
+    }
     box.banners.forEach(function (b) {
       var label = b.id === 'award' ? 'Your seed is waiting' : 'Daily spin!';
       var fill = b.id === 'award' ? '#bbf7d0' : '#ddd6fe';
@@ -2164,6 +2194,10 @@
 
   function drawRoomClaw(ctx, s, D, rect) {
     var x = rect.x, y = rect.y, w = rect.w, h = rect.h;
+    var clawOff = false;
+    try { clawOff = !!(s.api && s.api.view && s.api.view().clawOff); } catch (err) { clawOff = false; }
+    ctx.save();
+    if (clawOff) ctx.globalAlpha = 0.4;
     var u = Math.min(w, h);
     var bodyX = x + w * 0.08;
     var bodyW = w * 0.84;
@@ -2311,6 +2345,10 @@
       ctx.stroke();
     });
     D.label(ctx, 'Red Words', x + w / 2, y + h - 16, Math.max(16, Math.min(26, w * 0.1)), '#fff', '#9f1239');
+    ctx.restore();
+    if (clawOff) {
+      D.label(ctx, 'All done!', x + w / 2, y + h * 0.52, Math.max(22, Math.min(40, w * 0.12)), '#7c2d12', '#fff');
+    }
   }
 
   function paintClaw(ctx, s, D) {
