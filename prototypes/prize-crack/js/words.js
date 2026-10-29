@@ -114,13 +114,60 @@
     return null;
   }
 
+  /* Whole-word match. -1 when the spelling is not its own word in the sentence. */
+  function wordAt(sentence, spelling) {
+    var raw = String(sentence || '');
+    var needle = String(spelling || '');
+    if (!raw || !needle) return -1;
+    var lower = raw.toLowerCase();
+    var want = needle.toLowerCase();
+    var from = 0;
+    var at;
+    while (from <= lower.length) {
+      at = lower.indexOf(want, from);
+      if (at < 0) return -1;
+      var before = at === 0 || !/[a-z]/i.test(raw.charAt(at - 1));
+      var after = at + want.length >= raw.length || !/[a-z]/i.test(raw.charAt(at + want.length));
+      if (before && after) return at;
+      from = at + 1;
+    }
+    return -1;
+  }
+
+  function leadsSentence(sentence, spelling) {
+    var at = wordAt(sentence, spelling);
+    if (at < 0) return false;
+    return !/[a-z]/i.test(String(sentence || '').slice(0, at));
+  }
+
+  function capitalLead(text) {
+    text = String(text || '');
+    if (!text) return text;
+    var upper = text.charAt(0).toUpperCase();
+    if (upper === text.charAt(0)) return text;
+    return upper + text.slice(1);
+  }
+
+  /* The sentence she hears and reads. A word that opens it keeps a capital. */
+  function spokenSentence(sentence, spelling) {
+    var raw = String(sentence || '');
+    if (!leadsSentence(raw, spelling)) return raw;
+    var at = wordAt(raw, spelling);
+    var upper = raw.charAt(at).toUpperCase();
+    if (upper === raw.charAt(at)) return raw;
+    return raw.slice(0, at) + upper + raw.slice(at + 1);
+  }
+
   var api = {
     DEMO: DEMO,
     parseSpec: parseSpec,
     runsFrom: runsFrom,
     soundsLike: soundsLike,
     heartParts: heartParts,
-    find: find
+    find: find,
+    leadsSentence: leadsSentence,
+    capitalLead: capitalLead,
+    spokenSentence: spokenSentence
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
