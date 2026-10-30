@@ -1826,16 +1826,8 @@
     placeGroup(s, board, shelf.x + shelf.w / 2, shelf.y + shelf.h * 0.72, 0.15, shelf.w);
     board.scale.y = pixelSpan(s, shelf.x, shelf.y, 0.15, 18);
     s.world.add(board);
-    s.refs.pots = (s.box.pots || []).map(function (p) {
-      var g = new T.Group();
-      var pot = makePot();
-      g.add(pot);
-      var flower = makeFlower(p.item.flower || 'daisy');
-      flower.position.y = 0.45;
-      g.add(flower);
-      s.world.add(g);
-      return { mesh: g, flower: flower, i: p.i };
-    });
+    /* Pots and their plants are painted on the HUD so a seed stays a seed. */
+    s.refs.pots = [];
     s.refs.pip = makePip();
     s.world.add(s.refs.pip);
   }
@@ -1847,17 +1839,8 @@
     lawn.scale.y = pixelSpan(s, bed.x, bed.y, 0.1, bed.h * 0.7);
     lawn.scale.z = lawn.scale.x * 0.45;
     s.world.add(lawn);
-    s.refs.blooms = (s.box.flowers || []).map(function (f, i) {
-      var g = new root.THREE.Group();
-      var flower = makeFlower(f.item.flower || 'daisy');
-      g.add(flower);
-      var drop = new root.THREE.Mesh(new root.THREE.SphereGeometry(0.12, 8, 6), basic(0x38bdf8));
-      drop.position.y = 1.15;
-      drop.scale.set(0.7, 1.1, 0.7);
-      g.add(drop);
-      s.world.add(g);
-      return { mesh: g, flower: flower, drop: drop, i: i };
-    });
+    /* Flower growth is painted on the HUD. The lawn stays in the room. */
+    s.refs.blooms = [];
     var v = s.api.view();
     s.refs.pets = (v.owned || []).map(function (id, i) {
       var pet = makeCritter(id);
@@ -2009,28 +1992,8 @@
       else s.refs.packet.rotation.x = 0;
     }
   }
-  function poseNursery(s) {
-    (s.refs.pots || []).forEach(function (ref) {
-      var p = (s.box.pots || [])[ref.i];
-      if (!p) return;
-      var growth = p.item.step >= 3 ? 0.85 : p.item.step === 2 ? 0.5 : 0.22;
-      placeGroup(s, ref.mesh, p.x + p.w / 2, p.y + 130, 0.3, p.w * 0.85);
-      ref.flower.scale.setScalar(growth);
-      ref.flower.visible = p.item.step >= 1 && !p.item.flower;
-      if (ref.flower.userData.head && !s.reduced) ref.flower.userData.head.rotation.z = Math.sin(s.time * 1.3 + ref.i) * 0.08;
-    });
-  }
+  function poseNursery() {}
   function poseGarden(s) {
-    (s.refs.blooms || []).forEach(function (b) {
-      var f = (s.box.flowers || [])[b.i];
-      if (!f) return;
-      var px = f.x + f.w / 2, py = f.y + f.h - 20;
-      placeGroup(s, b.mesh, px, py, 0.25, 100);
-      if (b.flower) b.flower.visible = false;
-      b.drop.visible = !!f.item.thirsty && !s.reduced;
-      if (b.drop.visible) b.drop.position.y = 1.2 + Math.sin(s.time * 4 + b.i) * 0.08;
-      if (b.flower.userData.head) b.flower.userData.head.rotation.z = f.item.thirsty ? 0.65 : (s.reduced ? 0 : Math.sin(s.time * 1.2 + b.i) * 0.06);
-    });
     var bed = s.box.bed;
     (s.refs.pets || []).forEach(function (pet) {
       if (!bed) return;
@@ -2162,8 +2125,9 @@
     var cx = rect.x + rect.w / 2;
     var iconY = rect.y + rect.h * 0.46;
     if (kind === 'seedling') {
-      D.pot(ctx, cx, iconY + 8, Math.min(rect.w, rect.h) / 280, { mood: 'happy' });
-      D.flower(ctx, cx, iconY - 6, 'daisy', { growth: 0.28, scale: Math.min(rect.w, rect.h) / 220 });
+      var potScale = Math.min(rect.w, rect.h) / 280;
+      D.pot(ctx, cx, iconY + 8, potScale, { mood: 'happy' });
+      D.growthPlant(ctx, cx, iconY + 2, 'seed', { scale: potScale, rarity: 'common' });
     } else {
       D.flower(ctx, cx, iconY + 18, 'tulip', { growth: 0.85, scale: Math.min(rect.w, rect.h) / 160 });
       D.flower(ctx, cx - rect.w * 0.18, iconY + 28, 'daisy', { growth: 0.7, scale: Math.min(rect.w, rect.h) / 240 });
@@ -2551,17 +2515,48 @@
     return false;
   }
 
+  /* Soil is the pot's dirt, or the lawn under a garden flower. */
+  function paintPlant(ctx, D, item, cx, soilY, scale) {
+    var pose = item.pose || 'seed';
+    if (pose === 'open') {
+      var w = 168 * scale;
+      var h = 210 * scale;
+      ctx.save();
+      if (item.thirsty) {
+        ctx.translate(cx, soilY);
+        ctx.rotate(0.4);
+        ctx.translate(-cx, -soilY);
+      }
+      if (!paintFlowerPic(ctx, item.flower || 'daisy', cx - w / 2, soilY - h * 0.92, w, h)) {
+        D.growthPlant(ctx, cx, soilY, 'open', {
+          scale: scale, flower: item.flower, rarity: item.rarity, shiny: item.shiny, level: item.level
+        });
+      }
+      ctx.restore();
+      return;
+    }
+    D.growthPlant(ctx, cx, soilY, pose, {
+      scale: scale,
+      rarity: item.rarity,
+      flower: item.flower,
+      level: item.level,
+      thirsty: !!item.thirsty,
+      shiny: !!item.shiny
+    });
+  }
+
   function paintNursery(ctx, s, D) {
     var v = s.api.view(), box = s.box;
     D.label(ctx, 'Nursery', s.W / 2, 40, 32, '#166534', '#fff');
     if (!(v.nursery || []).length) D.label(ctx, 'Grab a capsule in the claw', s.W / 2, box.shelf.y + 80, 24, '#166534', '#fff');
     (box.pots || []).forEach(function (p) {
-      if (p.item.flower) {
-        var ih = p.h * 0.7;
-        paintFlowerPic(ctx, p.item.flower, p.x + p.w * 0.12, p.y - 10, p.w * 0.76, ih);
-      }
-      D.label(ctx, p.item.w, p.x + p.w / 2, p.y + p.h - 6, 26, '#14532d', '#fff');
-      D.text(ctx, p.item.stage, p.x + p.w / 2, p.y + p.h + 16, 16, '#166534');
+      var cx = p.x + p.w / 2;
+      var sc = p.w / 148;
+      var potY = p.y + p.h * 0.58;
+      D.pot(ctx, cx, potY, sc, { mood: 'happy' });
+      paintPlant(ctx, D, p.item, cx, potY - 8 * sc, sc * 0.92);
+      D.label(ctx, p.item.w, cx, p.y + p.h - 6, 26, '#14532d', '#fff');
+      D.text(ctx, p.item.stage || '', cx, p.y + p.h + 16, 16, '#166534');
     });
   }
 
@@ -2570,8 +2565,7 @@
     D.label(ctx, 'My garden', box.bed.x + 80, box.pad + 28, 28, '#166534', '#fff');
     if (!(v.garden || []).length) D.label(ctx, 'Master a word to plant it', box.bed.x + box.bed.w / 2, box.bed.y + 48, 22, '#166534', '#fff');
     (box.flowers || []).forEach(function (f) {
-      var drew = paintFlowerPic(ctx, f.item.flower || 'daisy', f.x + 8, f.y - 16, f.w - 16, f.h);
-      if (!drew) D.flower(ctx, f.x + f.w / 2, f.y + f.h * 0.72, f.item.flower || 'daisy', { growth: 0.55, scale: 0.85 });
+      paintPlant(ctx, D, f.item, f.x + f.w / 2, f.y + f.h * 0.78, Math.min(f.w, f.h) / 168);
       if (f.item.thirsty) D.label(ctx, 'thirsty', f.x + f.w / 2, f.y + 8, 16, '#0369a1', '#fff');
       D.label(ctx, f.item.w, f.x + f.w / 2, f.y + f.h + 4, 18, '#14532d', '#fff');
     });

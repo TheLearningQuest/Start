@@ -3290,6 +3290,24 @@ body.shake-screen #app{animation:shake .3s linear 2}
     return 'seed';
   }
 
+  /* What to draw. Nursery steps stay a seed, then a sprout.
+     Planting (step 3) leaves level at 1: a closed bud in the garden.
+     Each successful thirst review adds 1 to level, up to 6.
+     Level 2 opens the bud, 3–5 grow a cluster, 6 is the bush. */
+  function growthPose(card) {
+    var step = card && card.step || 0;
+    var level = card && card.level || 1;
+    if (!(card && card.planted)) {
+      if (step >= 3) return 'bud';
+      if (step === 2) return 'sprout';
+      return 'seed';
+    }
+    if (level <= 1) return 'bud';
+    if (level === 2) return 'open';
+    if (level >= 6) return 'bush';
+    return 'cluster';
+  }
+
   /* Eight wheel slots. Harder words shift weight toward rare, epic, and mythic. */
   var WHEEL_SLOTS = ['common', 'rare', 'epic', 'mythic', 'common', 'rare', 'epic', 'mythic'];
   var PACKET_WEIGHTS = {
@@ -3358,7 +3376,8 @@ body.shake-screen #app{animation:shake .3s linear 2}
     poolReport: poolReport, clawWords: clawWords,
     rarityFor: rarityFor, flowerFor: flowerFor, dress: dress,
     packetWeights: packetWeights, pickPacket: pickPacket, slotUnder: slotUnder, stopAngle: stopAngle,
-    coinRate: coinRate, accrue: accrue, validateWeekly: validateWeekly, stageName: stageName
+    coinRate: coinRate, accrue: accrue, validateWeekly: validateWeekly, stageName: stageName,
+    growthPose: growthPose
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.NMQGarden = api;
@@ -3728,13 +3747,15 @@ var LES = null, lastPlay = null, world = null;
       if (!c.planted && c.step > 0) {
         nursery.push({
           id: id, w: w ? w.w : '', step: c.step, stage: G.stageName(c.step),
+          pose: G.growthPose(c),
           shiny: !!c.shiny, flower: c.flower || '', days: Math.max(0, (c.due || 0) - day), rarity: c.rarity || ''
         });
       }
       if (c.planted) {
         bed.push({
           id: id, w: w ? w.w : '', level: c.level || 1, rarity: c.rarity || '',
-          flower: c.flower || 'daisy', shiny: !!c.shiny, thirsty: G.isThirsty(c, day)
+          flower: c.flower || 'daisy', shiny: !!c.shiny, thirsty: G.isThirsty(c, day),
+          pose: G.growthPose(c)
         });
       }
     });
