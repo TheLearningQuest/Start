@@ -29,7 +29,7 @@ test('kindergarten, first grade, and the explore list load with unique ids', fun
   assert.equal(Garden.FIRST.length, 52);
   assert.equal(Garden.EXPLORE.length, 40);
   const all = Garden.catalog([]);
-  assert.equal(all.length, 140);
+  assert.equal(all.length, 142);
   const seen = {};
   all.forEach(function (w) {
     assert.equal(seen[w.id], undefined, w.id);
@@ -49,9 +49,9 @@ test('kindergarten, first grade, and the explore list load with unique ids', fun
   assert.equal(Garden.FIRST.every(function (w) { return w.pathway; }), true);
   assert.equal(Garden.EXPLORE.every(function (w) { return w.pathway; }), false);
   const custom = Garden.catalog([{ id: 'c:yacht:1', w: 'yacht', red: [1] }]);
-  assert.equal(custom.length, 141);
-  assert.equal(custom[140].id, 'c:yacht:1');
-  assert.equal(custom[140].pathway, true);
+  assert.equal(custom.length, 143);
+  assert.equal(custom[142].id, 'c:yacht:1');
+  assert.equal(custom[142].pathway, true);
 });
 
 test('mastery takes three first-try days and a miss steps back once', function () {
@@ -141,7 +141,7 @@ test('a finished grade stays out of the claw, and the claw stops when every pool
   assert.equal(Garden.clawWords(Garden.catalog([]), all, true).clawOff, true);
 });
 
-test('the weekly block lists the October weeks and only accepts the documented shape', function () {
+test('the weekly block lists each dated week and only accepts the documented shape', function () {
   const start = html.indexOf('/* WEEKLY_RED_WORDS_START */');
   const end = html.indexOf('/* WEEKLY_RED_WORDS_END */');
   assert.ok(start !== -1 && end > start);
@@ -152,7 +152,18 @@ test('the weekly block lists the October weeks and only accepts the documented s
     return { weekOf: entry.weekOf, words: Array.from(entry.words) };
   }), [
     { weekOf: '2026-10-19', words: ['far', 'goes'] },
-    { weekOf: '2026-10-26', words: ['because', 'very'] }
+    { weekOf: '2026-10-26', words: ['because', 'very'] },
+    { weekOf: '2026-11-02', words: ['door', 'car'] }
+  ]);
+  assert.deepEqual(Array.from(Garden.weeklyWords(context.WEEKLY_RED_WORDS), function (word) {
+    return String(word.id);
+  }), [
+    'rw-2w-2026-10-19-far',
+    'rw-2w-2026-10-19-goes',
+    'rw-2w-2026-10-26-because',
+    'rw-2w-2026-10-26-very',
+    'rw-2w-2026-11-02-door',
+    'rw-2w-2026-11-02-car'
   ]);
   assert.equal(Garden.validateWeekly(context.WEEKLY_RED_WORDS).ok, true);
   assert.equal(Garden.validateWeekly([{ weekOf: '2026-10-30', words: ['world', 'I'] }]).ok, true);

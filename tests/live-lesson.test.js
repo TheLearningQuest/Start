@@ -31,7 +31,7 @@ function boundary(sentence, word) {
 
 test('every garden word becomes one heart-letter word', function () {
   const all = Garden.catalog([]);
-  assert.equal(all.length, 140);
+  assert.equal(all.length, 142);
   all.forEach(function (word) {
     const heart = Heart.fromGarden(word);
     assert.equal(heart.id, word.id);
