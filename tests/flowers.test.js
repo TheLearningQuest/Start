@@ -46,6 +46,10 @@ test('the live hub is a room and the lesson drops the old chrome', function () {
   assert.match(world, /drawRoomClaw/);
   assert.match(world, /function capsule\(cx, cy, scale, color\)/);
   assert.match(world, /paintFlowerPic/);
+  assert.match(world, /growthPlant/);
+  assert.match(world, /item\.pose/);
+  const Draw = require('../red-words/draw.js');
+  assert.equal(typeof Draw.growthPlant, 'function');
   assert.match(live, /src="media\/flowers\.js"/);
   assert.match(live, /img-src 'self' data: blob:/);
 

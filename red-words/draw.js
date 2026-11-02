@@ -430,6 +430,153 @@
     ctx.restore();
   }
 
+  var RARITY_INK = { common: '#4ade80', rare: '#60a5fa', epic: '#c084fc', mythic: '#fbbf24' };
+  var PETAL_INK = {
+    daisy: '#fffdf8', tulip: '#f472b6', poppy: '#ef4444', bluebell: '#60a5fa',
+    orchid: '#c084fc', lantern: '#fbbf24', 'rainbow-rose': '#fb7185', 'crystal-lotus': '#67e8f9'
+  };
+
+  function rarityInk(name) { return RARITY_INK[name] || '#86efac'; }
+  function petalInk(name) { return PETAL_INK[name] || '#f9a8d4'; }
+
+  /* y = 0 is the soil line. The plant grows up (negative y). */
+  function seedBody(ctx, color, dy) {
+    ctx.save();
+    ctx.translate(0, dy || 0);
+    ellipse(ctx, 0, 18, 20, 7);
+    ctx.fillStyle = 'rgba(30,27,75,.14)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 18, 24, 0, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#3b2760';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(-6, -8, 6, 8, -0.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fill();
+    face(ctx, 0, 4, 11, 'happy');
+    ctx.restore();
+  }
+
+  function shoot(ctx, x1, y1, x2, y2) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo((x1 + x2) / 2 + 6, (y1 + y2) / 2, x2, y2);
+    ctx.strokeStyle = '#16a34a';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  function leaf(ctx, x, y, flip) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(flip ? 0.7 : -0.7);
+    ellipse(ctx, 0, 0, 16, 8);
+    ctx.fillStyle = '#4ade80';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#166534';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function closedBud(ctx, color) {
+    shoot(ctx, 0, 8, 0, -62);
+    leaf(ctx, -16, -28, false);
+    leaf(ctx, 16, -36, true);
+    ctx.beginPath();
+    ctx.moveTo(0, -96);
+    ctx.quadraticCurveTo(20, -74, 8, -58);
+    ctx.quadraticCurveTo(0, -50, 0, -54);
+    ctx.quadraticCurveTo(0, -50, -8, -58);
+    ctx.quadraticCurveTo(-20, -74, 0, -96);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#3b2760';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, -90);
+    ctx.quadraticCurveTo(1, -72, 0, -58);
+    ctx.strokeStyle = 'rgba(59,39,96,.45)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function miniBloom(ctx, name, x, y, sc) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+    bloom(ctx, name);
+    ctx.restore();
+  }
+
+  /* Nursery and garden growth. pose is seed, sprout, bud, open, cluster, or bush. */
+  function growthPlant(ctx, x, y, pose, opt) {
+    opt = opt || {};
+    pose = pose || 'seed';
+    var sc = opt.scale == null ? 1 : opt.scale;
+    var color = rarityInk(opt.rarity);
+    var petal = petalInk(opt.flower);
+    var name = opt.flower || 'daisy';
+    ctx.save();
+    ctx.translate(x, y);
+    if (opt.thirsty) ctx.rotate(0.42);
+    ctx.scale(sc, sc);
+    if (pose === 'bush') {
+      ctx.beginPath();
+      ctx.arc(0, -78, 86, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(250,204,21,.42)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, -78, 96, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(253,224,71,.95)';
+      ctx.lineWidth = 8;
+      ctx.stroke();
+      star(ctx, -70, -120, 10, '#fff7ad', true);
+      star(ctx, 74, -96, 8, '#fff', true);
+      star(ctx, 58, -140, 7, '#fde68a', true);
+      [[-52, -42, 0.9], [52, -40, 0.9], [0, -28, 1], [-32, -86, 0.95], [34, -88, 0.95], [0, -128, 0.85]].forEach(function (p) {
+        miniBloom(ctx, name, p[0], p[1], p[2]);
+      });
+      ctx.beginPath();
+      ctx.arc(0, -68, 26, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff7ed';
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#3b2760';
+      ctx.stroke();
+      face(ctx, 0, -68, 18, 'happy');
+    } else if (pose === 'cluster') {
+      var n = (opt.level || 3) >= 5 ? 5 : (opt.level || 3) >= 4 ? 4 : 3;
+      var spots = [[-42, 10, 0.78], [44, 8, 0.78], [0, -6, 0.9], [-24, -48, 0.7], [26, -46, 0.7]];
+      var i;
+      for (i = 0; i < n; i++) {
+        flower(ctx, spots[i][0], spots[i][1], name, { scale: spots[i][2], growth: 1, level: 1 });
+      }
+    } else if (pose === 'open') {
+      flower(ctx, 0, 6, name, { scale: 0.85, growth: 1, level: 2, shiny: !!opt.shiny });
+    } else if (pose === 'bud') {
+      ctx.save();
+      ctx.scale(0.62, 0.62);
+      seedBody(ctx, color, 14);
+      ctx.restore();
+      closedBud(ctx, petal);
+    } else if (pose === 'sprout') {
+      seedBody(ctx, color, 4);
+      shoot(ctx, 0, -16, 2, -52);
+      leaf(ctx, -4, -40, true);
+    } else {
+      seedBody(ctx, color, 2);
+    }
+    if (opt.shiny && pose !== 'bush' && pose !== 'open') star(ctx, 28, -20, 8, '#fff7ad', true);
+    ctx.restore();
+  }
+
   function packet(ctx, x, y, w, h, opt) {
     opt = opt || {};
     var stripe = { common: '#4ade80', rare: '#60a5fa', epic: '#c084fc', mythic: '#fbbf24' }[opt.rarity] || '#4ade80';
@@ -663,7 +810,7 @@
   var api = {
     clamp: clamp, lerp: lerp, roundRect: roundRect, panel: panel, ellipse: ellipse,
     text: text, label: label, font: font, face: face, heart: heart, star: star, button: button,
-    capsule: capsule, clawGrip: clawGrip, flower: flower, pot: pot, seed: seed, packet: packet,
+    capsule: capsule, clawGrip: clawGrip, flower: flower, pot: pot, seed: seed, growthPlant: growthPlant, packet: packet,
     can: can, pip: pip, critter: critter, cloud: cloud, sun: sun,
     burst: burst, stepParts: stepParts, drawParts: drawParts, bubble: bubble
   };
