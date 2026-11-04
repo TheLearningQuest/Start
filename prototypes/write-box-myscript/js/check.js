@@ -96,6 +96,38 @@
     storage.removeItem(STORAGE_KEY);
   }
 
+  /* Clear may erase strokes. A word she already wrote stays won,
+     so the lesson Next button (the advance gate) stays available. */
+  function clearEffect(state) {
+    var phase = state && state.phase ? String(state.phase) : 'write';
+    var won = !!(state && (state.won || phase === 'done'));
+    if (won) {
+      return {
+        phase: 'done',
+        won: true,
+        keepWin: true,
+        clearInk: true,
+        advance: true
+      };
+    }
+    if (phase === 'pick') {
+      return {
+        phase: 'pick',
+        won: false,
+        keepWin: false,
+        clearInk: false,
+        advance: false
+      };
+    }
+    return {
+      phase: 'write',
+      won: false,
+      keepWin: false,
+      clearInk: true,
+      advance: false
+    };
+  }
+
   /* Last four characters only, and only once the key is long enough. */
   function maskKey(value) {
     var s = String(value || '').trim();
@@ -116,6 +148,7 @@
     readStored: readStored,
     writeStored: writeStored,
     clearStored: clearStored,
+    clearEffect: clearEffect,
     maskKey: maskKey
   };
 

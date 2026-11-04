@@ -55,7 +55,7 @@ Counters for the account: [cloud.myscript.com/#/counters](https://cloud.myscript
    - The cloud read some other letters: **Let's try that once more.** A small line shows what came back, for example `I read "soid".` The ink stays so she can fix a letter.
    - The cloud returned no letters: **I couldn't quite read that. Try again.**
    - The box is empty: a nudge to write. That tap does not call MyScript.
-4. **Hear it** says the red word, pauses, then reads the sentence. The word and the sentence stay off the screen while she writes. **Check** sits next to **Hear it**. **Clear** wipes the box. **Next** deals another word. **Words** goes back to the list.
+4. **Hear it** says the red word, pauses, then reads the sentence. The word and the sentence stay off the screen while she writes. **Check** sits next to **Hear it**. **Clear** wipes the ink. After **You wrote it!**, Clear leaves that win in place, so **Next** still moves the lesson on. **Next** deals another word. **Words** goes back to the list.
 
 Reduce Motion holds the hearts still. The spoken word is the iPad’s own voice (Zoe or Zoey when that voice is installed, otherwise the iPad default).
 
