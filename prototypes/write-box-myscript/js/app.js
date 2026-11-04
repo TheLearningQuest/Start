@@ -43,6 +43,7 @@
   var current = null;
   var wordIndex = 0;
   var phase = 'pick';
+  var won = false;
   var calm = false;
   var soundOn = true;
   var reduce = false;
@@ -206,12 +207,16 @@
     }
   }
 
+  function finished() {
+    return won || phase === 'done';
+  }
+
   function syncChrome() {
     var playing = phase !== 'pick';
-    var writing = phase === 'write' || phase === 'retry' || phase === 'done';
+    var writing = phase === 'write' || phase === 'retry' || finished();
     wordsBtn.hidden = !playing;
     hearBtn.hidden = !playing;
-    checkBtn.hidden = !playing || phase === 'done';
+    checkBtn.hidden = !playing || finished();
     clearBtn.hidden = !playing;
     nextBtn.hidden = !playing;
     pick.hidden = playing;
@@ -221,7 +226,7 @@
     sentence.hidden = writing;
     if (shell) {
       wordsBtn.hidden = true;
-      nextBtn.hidden = phase !== 'done';
+      nextBtn.hidden = !finished();
     }
   }
 
@@ -407,6 +412,7 @@
     var verdict = check.judge(raw, current.w);
     var seen = check.preview(raw);
     if (verdict.match) {
+      won = true;
       hideCloud();
       setPhase('done');
       hint.textContent = 'You wrote it!';
@@ -427,7 +433,7 @@
   }
 
   function runCheck() {
-    if (!current || phase === 'pick' || busy) return;
+    if (!current || phase === 'pick' || finished() || busy) return;
     ensureAudio();
     if (!keysOn) {
       hint.textContent = MISSING;
@@ -465,9 +471,7 @@
     });
   }
 
-  function wipeInk() {
-    hideCloud();
-    clearBurst();
+  function clearCanvas() {
     if (canvas && canvas.clear) {
       try { Promise.resolve(canvas.clear()).catch(function () {}); }
       catch (e) { /* a local clear can fail closed */ }
@@ -475,9 +479,16 @@
     syncGhost();
   }
 
+  function wipeInk() {
+    hideCloud();
+    clearBurst();
+    clearCanvas();
+  }
+
   function openWord(word, opts) {
     opts = opts || {};
     current = word;
+    won = false;
     wordIndex = 0;
     var i;
     for (i = 0; i < words.DEMO.length; i++) {
@@ -502,6 +513,7 @@
 
   function showPick() {
     current = null;
+    won = false;
     wipeInk();
     setPhase('pick');
     hint.textContent = 'Pick a heart word.';
@@ -606,13 +618,20 @@
     if (busy) return;
     ensureAudio();
     beep('tap');
-    setPhase('write');
+    var effect = check.clearEffect({ phase: phase, won: won });
+    won = effect.won;
+    if (effect.keepWin) {
+      clearCanvas();
+      syncChrome();
+      return;
+    }
+    setPhase(effect.phase);
     hint.textContent = WRITE_HINT;
     wipeInk();
   });
   nextBtn.addEventListener('click', function () {
     if (busy) return;
-    if (shell && phase === 'done') {
+    if (shell && finished()) {
       nextBtn.disabled = true;
       postWrite();
       return;
@@ -627,7 +646,8 @@
   inkEl.addEventListener('pointerdown', function () {
     if (!keysOn || busy) return;
     ghost.hidden = true;
-    if (phase === 'done' || phase === 'retry') {
+    if (finished()) return;
+    if (phase === 'retry') {
       clearBurst();
       hideCloud();
       setPhase('write');
